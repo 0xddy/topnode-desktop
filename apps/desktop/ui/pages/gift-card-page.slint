@@ -1,0 +1,545 @@
+import { AppTheme } from "../theme.slint";
+import { GiftCardRewardItem } from "../models.slint";
+import {
+    AppButton,
+    AppField,
+    ButtonKind,
+    InlineAlert,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+import { ScrollView } from "std-widgets.slint";
+
+component GiftCardBackButton inherits Rectangle {
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: touch.pressed ? AppTheme.surface-muted
+        : touch.has-hover ? AppTheme.surface : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: 10px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component GiftIcon inherits Rectangle {
+    in property <color> icon-color: AppTheme.accent;
+    background: transparent;
+
+    Path {
+        width: 100%;
+        height: 100%;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.icon-color;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 4 10 H 20 V 20 H 4 Z M 3 7 H 21 V 10 H 3 Z M 12 7 V 20 M 12 7 H 8.5 A 2 2 0 1 1 10.5 4 C 11.4 4.7 12 7 12 7 Z M 12 7 H 15.5 A 2 2 0 1 0 13.5 4 C 12.6 4.7 12 7 12 7 Z";
+    }
+}
+
+component GiftCardSkeletonBlock inherits Rectangle {
+    in property <length> block-width: 100px;
+    width: root.block-width;
+    height: 12px;
+    border-radius: 6px;
+    background: #e7ece9;
+
+    Rectangle {
+        x: ((animation-tick() / 1300ms) * (parent.width + 70px)) - 70px;
+        width: 70px;
+        height: 100%;
+        border-radius: 6px;
+        background: @linear-gradient(90deg, #ffffff00 0%, #ffffff78 50%, #ffffff00 100%);
+    }
+}
+
+component GiftCardSkeleton inherits VerticalLayout {
+    spacing: 16px;
+    padding-left: 12px;
+    padding-right: 12px;
+    padding-top: 12px;
+
+    Rectangle {
+        height: 132px;
+        border-radius: 18px;
+        background: #e7ece9;
+        VerticalLayout {
+            padding: 22px;
+            spacing: 14px;
+            GiftCardSkeletonBlock { block-width: 40px; height: 40px; border-radius: 20px; }
+            GiftCardSkeletonBlock { block-width: 230px; height: 20px; }
+            GiftCardSkeletonBlock { block-width: 310px; }
+        }
+    }
+
+    skeleton-card := Rectangle {
+        height: 258px;
+        border-radius: 18px;
+        background: AppTheme.surface;
+        border-width: 1px;
+        border-color: AppTheme.border.with-alpha(0.7);
+        VerticalLayout {
+            padding: 22px;
+            spacing: 17px;
+            GiftCardSkeletonBlock { block-width: 160px; height: 16px; }
+            GiftCardSkeletonBlock { block-width: 330px; }
+            GiftCardSkeletonBlock {
+                block-width: skeleton-card.width - 44px;
+                height: 48px;
+                border-radius: 12px;
+            }
+            GiftCardSkeletonBlock {
+                block-width: skeleton-card.width - 44px;
+                height: 48px;
+                border-radius: 12px;
+            }
+        }
+    }
+}
+
+component RewardPreview inherits Rectangle {
+    in property <GiftCardRewardItem> reward;
+
+    height: 72px;
+    border-radius: 14px;
+    background: #f0f8f4;
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+
+        VerticalLayout {
+            width: 42px;
+            alignment: center;
+            Rectangle {
+                width: 38px;
+                height: 38px;
+                border-radius: 19px;
+                background: white;
+                if root.reward.reward-type == "balance" : Text {
+                    text: "¥";
+                    color: AppTheme.accent-dark;
+                    font-family: "Sora SemiBold";
+                    font-size: 16px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+                if root.reward.reward-type != "balance" : GiftIcon {
+                    x: 9px;
+                    y: 9px;
+                    width: 20px;
+                    height: 20px;
+                    icon-color: AppTheme.accent;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 4px;
+            Text {
+                text: root.reward.title;
+                color: AppTheme.ink;
+                font-size: 15px;
+                font-weight: 550;
+                overflow: elide;
+            }
+            Text {
+                text: root.reward.subtitle != "" ? root.reward.subtitle : root.reward.summary;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+export component GiftCardPage inherits Rectangle {
+    in property <string> balance-label;
+    in-out property <bool> initializing: false;
+    in-out property <string> initialization-error;
+    in-out property <string> purchase-url;
+    in-out property <bool> checking: false;
+    in-out property <bool> redeeming: false;
+    in-out property <string> check-error;
+    in-out property <string> redeem-error;
+    in-out property <bool> has-check: false;
+    in-out property <bool> can-redeem: false;
+    in-out property <string> check-reason;
+    in-out property <GiftCardRewardItem> reward;
+    in-out property <bool> redeemed: false;
+    callback load();
+    callback check(string);
+    callback redeem(string);
+    callback open-purchase(string);
+    callback dismissed();
+
+    property <string> code;
+    property <string> checked-code;
+    property <bool> busy: root.checking || root.redeeming;
+
+    background: transparent;
+
+    public function prepare() {
+        gift-scroll.viewport-y = 0px;
+        root.code = "";
+        root.checked-code = "";
+        root.initializing = true;
+        root.initialization-error = "";
+        root.purchase-url = "";
+        root.checking = false;
+        root.redeeming = false;
+        root.check-error = "";
+        root.redeem-error = "";
+        root.has-check = false;
+        root.can-redeem = false;
+        root.check-reason = "";
+        root.redeemed = false;
+    }
+
+    changed code => {
+        if (!root.busy && root.code != root.checked-code) {
+            root.has-check = false;
+            root.can-redeem = false;
+            root.check-reason = "";
+            root.check-error = "";
+            root.redeem-error = "";
+        }
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                GiftCardBackButton { clicked => { root.dismissed(); } }
+            }
+            Text {
+                text: "礼品卡兑换";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    gift-scroll := ScrollView {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        content := VerticalLayout {
+            width: parent.width;
+            padding-bottom: 24px;
+            spacing: 0px;
+
+            if root.initializing : GiftCardSkeleton { }
+
+            if !root.initializing && root.initialization-error != "" : Rectangle {
+                height: 260px;
+                background: transparent;
+                VerticalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    alignment: center;
+                    spacing: 14px;
+                    GiftIcon { width: 34px; height: 34px; icon-color: AppTheme.ink-subtle; }
+                    Text {
+                        text: "礼品卡服务加载失败";
+                        color: AppTheme.ink;
+                        font-size: 15px;
+                        font-weight: 550;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.initialization-error;
+                        color: AppTheme.ink-muted;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                        horizontal-alignment: center;
+                    }
+                    AppButton {
+                        kind: ButtonKind.secondary;
+                        text: "重新加载";
+                        button-min-width: 110px;
+                        clicked => {
+                            root.initialization-error = "";
+                            root.initializing = true;
+                            root.load();
+                        }
+                    }
+                }
+            }
+
+            if !root.initializing && root.initialization-error == "" : VerticalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 14px;
+
+                Rectangle {
+                    height: 132px;
+                    border-radius: 18px;
+                    background: @linear-gradient(90deg, #123d31 0%, #087654 58%, #35a77f 100%);
+                    HorizontalLayout {
+                        padding-left: 22px;
+                        padding-right: 22px;
+                        spacing: 18px;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 7px;
+                            Text {
+                                text: "兑换专属权益";
+                                color: white;
+                                font-size: 22px;
+                                font-weight: 600;
+                            }
+                            Text {
+                                text: "先查看礼品卡内容，确认后再兑换";
+                                color: #ffffffc4;
+                                font-size: 12px;
+                            }
+                            Rectangle {
+                                width: balance-text.preferred-width + 22px;
+                                height: 28px;
+                                border-radius: 9px;
+                                background: #ffffff20;
+                                balance-text := Text {
+                                    text: "当前余额  " + root.balance-label;
+                                    color: #ffffffe8;
+                                    font-size: 11px;
+                                    font-weight: 500;
+                                    horizontal-alignment: center;
+                                    vertical-alignment: center;
+                                }
+                            }
+                        }
+                        Rectangle { horizontal-stretch: 1; background: transparent; }
+                        VerticalLayout {
+                            width: 68px;
+                            alignment: center;
+                            Rectangle {
+                                width: 60px;
+                                height: 60px;
+                                border-radius: 30px;
+                                background: #ffffff1f;
+                                GiftIcon {
+                                    x: 16px;
+                                    y: 16px;
+                                    width: 28px;
+                                    height: 28px;
+                                    icon-color: white;
+                                }
+                            }
+                        }
+                    }
+                }
+
+                form-surface := Rectangle {
+                    height: root.redeemed ? 300px
+                        : root.has-check && root.redeem-error != "" ? 448px
+                        : root.has-check && root.can-redeem ? 392px
+                        : root.has-check ? 420px
+                        : root.check-error != "" ? 260px : 220px;
+                    border-radius: 18px;
+                    background: AppTheme.surface;
+                    border-width: 1px;
+                    border-color: AppTheme.border.with-alpha(0.76);
+
+                    form-layout := VerticalLayout {
+                        x: 20px;
+                        y: 20px;
+                        width: parent.width - 40px;
+                        height: parent.height - 40px;
+                        spacing: 13px;
+
+                        if !root.redeemed : VerticalLayout {
+                            spacing: 13px;
+                            Text {
+                                text: "输入兑换码";
+                                color: AppTheme.ink;
+                                font-size: 16px;
+                                font-weight: 550;
+                            }
+                            Text {
+                                text: "我们会先检查礼品卡包含的权益，不会立即使用。";
+                                color: AppTheme.ink-muted;
+                                font-size: 12px;
+                            }
+                            AppField {
+                                text <=> root.code;
+                                placeholder: "请输入礼品卡兑换码";
+                                enabled: !root.busy;
+                                accepted(value) => {
+                                    if (value != "" && !root.busy) {
+                                        root.checked-code = value;
+                                        root.checking = true;
+                                        root.check-error = "";
+                                        root.redeem-error = "";
+                                        root.has-check = false;
+                                        root.check(value);
+                                    }
+                                }
+                            }
+                            AppButton {
+                                text: root.checking ? "正在检查" : "查看可兑换权益";
+                                busy: root.checking;
+                                enabled: root.code != "" && !root.busy;
+                                height: 46px;
+                                corner-radius: 12px;
+                                clicked => {
+                                    root.checked-code = root.code;
+                                    root.checking = true;
+                                    root.check-error = "";
+                                    root.redeem-error = "";
+                                    root.has-check = false;
+                                    root.check(root.code);
+                                }
+                            }
+                            if root.check-error != "" : InlineAlert {
+                                message: root.check-error;
+                            }
+                            if root.has-check : VerticalLayout {
+                                padding-top: 5px;
+                                spacing: 12px;
+                                Rectangle { height: 1px; background: AppTheme.border; }
+                                if !root.can-redeem : Text {
+                                    text: "当前暂不可兑换";
+                                    color: AppTheme.warning;
+                                    font-size: 13px;
+                                    font-weight: 550;
+                                }
+                                RewardPreview { reward: root.reward; }
+                                if !root.can-redeem && root.check-reason != "" : InlineAlert {
+                                    message: root.check-reason;
+                                    danger: false;
+                                }
+                                if root.redeem-error != "" : InlineAlert {
+                                    message: root.redeem-error;
+                                }
+                                if root.can-redeem : AppButton {
+                                    text: root.redeeming ? "正在兑换" : "确认兑换";
+                                    busy: root.redeeming;
+                                    enabled: !root.redeeming;
+                                    height: 46px;
+                                    corner-radius: 12px;
+                                    clicked => {
+                                        root.redeeming = true;
+                                        root.redeem-error = "";
+                                        root.redeem(root.checked-code);
+                                    }
+                                }
+                            }
+                        }
+
+                        if root.redeemed : VerticalLayout {
+                            spacing: 12px;
+                            HorizontalLayout {
+                                height: 54px;
+                                alignment: center;
+                                Rectangle {
+                                    width: 54px;
+                                    height: 54px;
+                                    border-radius: 27px;
+                                    background: AppTheme.accent-soft;
+                                    Glyph {
+                                        x: 16px;
+                                        y: 16px;
+                                        width: 22px;
+                                        height: 22px;
+                                        name: "check";
+                                        fill: AppTheme.accent;
+                                    }
+                                }
+                            }
+                            Text {
+                                text: "权益已到账";
+                                color: AppTheme.ink;
+                                font-size: 20px;
+                                font-weight: 600;
+                                horizontal-alignment: center;
+                            }
+                            Text {
+                                text: "礼品卡兑换成功，可立即使用。";
+                                color: AppTheme.ink-muted;
+                                font-size: 12px;
+                                horizontal-alignment: center;
+                            }
+                            RewardPreview { reward: root.reward; }
+                            AppButton {
+                                kind: ButtonKind.ghost;
+                                text: "继续兑换";
+                                button-min-width: 110px;
+                                clicked => {
+                                    root.code = "";
+                                    root.checked-code = "";
+                                    root.redeemed = false;
+                                    root.check-error = "";
+                                    root.redeem-error = "";
+                                }
+                            }
+                        }
+                    }
+                }
+
+                if root.purchase-url != "" : Rectangle {
+                    height: 36px;
+                    background: transparent;
+                    Text {
+                        text: "获取礼品卡  ↗";
+                        color: purchase-touch.has-hover ? AppTheme.accent-hover : AppTheme.accent;
+                        font-size: 12px;
+                        font-weight: 550;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    purchase-touch := TouchArea {
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => { root.open-purchase(root.purchase-url); }
+                    }
+                }
+
+                Text {
+                    text: "确认兑换后，礼品卡权益将立即发放至当前账户。";
+                    color: AppTheme.ink-subtle;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                    wrap: word-wrap;
+                }
+            }
+        }
+    }
+}

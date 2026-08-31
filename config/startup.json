@@ -1,0 +1,5 @@
+{
+  "payment": {
+    "presentation": "qr_code"
+  }
+}

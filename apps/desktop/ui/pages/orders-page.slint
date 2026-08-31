@@ -1,0 +1,714 @@
+import { AppTheme } from "../theme.slint";
+import { OrderItem } from "../models.slint";
+import {
+    AppButton,
+    ButtonKind,
+    BusyIndicator,
+    InlineAlert,
+    RefreshIconButton,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component OrdersBackButton inherits Rectangle {
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: back-touch.pressed ? AppTheme.surface-muted
+        : back-touch.has-hover ? AppTheme.surface : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    back-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component OrderTab inherits Rectangle {
+    in property <string> label;
+    in property <string> filter;
+    in property <bool> selected;
+    callback activated(string);
+
+    height: 46px;
+    background: transparent;
+
+    Rectangle {
+        x: 4px;
+        y: 5px;
+        width: parent.width - 8px;
+        height: parent.height - 10px;
+        border-radius: 10px;
+        background: root.selected ? transparent
+            : tab-touch.pressed ? #ecefee
+            : tab-touch.has-hover ? #f6f7f7 : transparent;
+        animate background { duration: 100ms; }
+    }
+
+    Text {
+        text: root.label;
+        color: root.selected || tab-touch.has-hover ? AppTheme.ink : AppTheme.ink-muted;
+        font-size: 13px;
+        font-weight: root.selected ? 500 : AppTheme.font-weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        animate color { duration: 100ms; }
+    }
+
+    if root.selected : Rectangle {
+        x: (parent.width - 34px) / 2;
+        y: parent.height - 2px;
+        width: 34px;
+        height: 2px;
+        border-radius: 1px;
+        background: AppTheme.accent;
+    }
+
+    tab-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.filter); }
+    }
+}
+
+component OrderStatusChip inherits Rectangle {
+    in property <string> label;
+    in property <string> tone;
+
+    width: status-text.preferred-width + 16px;
+    height: 22px;
+    border-radius: 11px;
+    background: root.tone == "paid" ? #e6f3ed
+        : root.tone == "pending" ? #fff1d8
+        : root.tone == "refunded" ? #f5eaea : #f0f1f1;
+
+    status-text := Text {
+        text: root.label;
+        color: root.tone == "paid" ? #28765c
+            : root.tone == "pending" ? #986414
+            : root.tone == "refunded" ? #8a5252 : #666b69;
+        font-size: 11px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component OrderChevron inherits Rectangle {
+    width: 14px;
+    height: 14px;
+    background: transparent;
+
+    Path {
+        width: 14px;
+        height: 14px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 14;
+        viewbox-height: 14;
+        fill: transparent;
+        stroke: AppTheme.ink-subtle;
+        stroke-width: 1.4px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 5 3 L 9 7 L 5 11";
+    }
+}
+
+component OrderRow inherits Rectangle {
+    in property <OrderItem> item;
+    callback activated(OrderItem);
+
+    height: 78px;
+    horizontal-stretch: 1;
+    background: transparent;
+
+    Rectangle {
+        x: 4px;
+        y: 5px;
+        width: parent.width - 8px;
+        height: parent.height - 10px;
+        border-radius: 12px;
+        background: row-touch.pressed ? #ecefee
+            : row-touch.has-hover ? #f6f7f7 : transparent;
+        animate background { duration: 110ms; }
+    }
+
+    VerticalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-top: 13px;
+        padding-bottom: 13px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            height: 20px;
+            spacing: 12px;
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.title;
+                color: AppTheme.ink;
+                font-size: 14px;
+                font-weight: 500;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.item.amount-label;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: 500;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+        }
+
+        HorizontalLayout {
+            height: 22px;
+            spacing: 9px;
+            VerticalLayout {
+                width: status-chip.width;
+                alignment: center;
+                status-chip := OrderStatusChip {
+                    label: root.item.status-label;
+                    tone: root.item.status-tone;
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.specification;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            Text {
+                text: root.item.list-time-label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+            VerticalLayout {
+                width: 14px;
+                alignment: center;
+                OrderChevron { }
+            }
+        }
+    }
+
+    row-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.item); }
+    }
+}
+
+component OrderSkeletonRow inherits Rectangle {
+    height: 78px;
+    horizontal-stretch: 1;
+    background: transparent;
+    opacity: 0.68 + (sin(360deg * animation-tick() / 1200ms) + 1) * 0.08;
+
+    VerticalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            height: 17px;
+            Rectangle {
+                width: 152px;
+                height: 13px;
+                border-radius: 6.5px;
+                background: AppTheme.surface-muted;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Rectangle {
+                width: 64px;
+                height: 13px;
+                border-radius: 6.5px;
+                background: AppTheme.surface-muted;
+            }
+        }
+        HorizontalLayout {
+            height: 20px;
+            spacing: 9px;
+            Rectangle {
+                width: 54px;
+                height: 20px;
+                border-radius: 10px;
+                background: AppTheme.surface-muted;
+            }
+            Rectangle {
+                width: 118px;
+                height: 10px;
+                border-radius: 5px;
+                background: AppTheme.surface-muted;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Rectangle {
+                width: 70px;
+                height: 10px;
+                border-radius: 5px;
+                background: AppTheme.surface-muted;
+            }
+        }
+    }
+}
+
+component OrderDetailRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+
+    height: 36px;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 18px;
+        Text {
+            width: 86px;
+            text: root.label;
+            color: AppTheme.ink-subtle;
+            font-size: 12px;
+            font-weight: AppTheme.font-weight-regular;
+            vertical-alignment: center;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.value;
+            color: AppTheme.ink;
+            font-size: 13px;
+            font-weight: AppTheme.font-weight-regular;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+component OrderDetailSectionTitle inherits Text {
+    in property <string> label;
+    height: 24px;
+    text: root.label;
+    color: AppTheme.ink-muted;
+    font-size: 12px;
+    font-weight: 500;
+    vertical-alignment: center;
+}
+
+export component OrdersPage inherits Rectangle {
+    in-out property <[OrderItem]> orders;
+    in-out property <bool> loading: false;
+    in-out property <bool> loading-more: false;
+    in-out property <string> error-message;
+    in-out property <bool> has-more: false;
+    in-out property <int> page: 1;
+    in-out property <int> total: 0;
+
+    callback load-orders(string, int, bool);
+    callback dismissed();
+
+    property <string> selected-filter: "all";
+    property <bool> detail-visible: false;
+    property <OrderItem> selected-order;
+
+    width: 732px;
+    height: 664px;
+    preferred-width: 732px;
+    preferred-height: 664px;
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    clip: true;
+
+    public function prepare() {
+        root.selected-filter = "all";
+        root.detail-visible = false;
+        root.error-message = "";
+        root.orders = [];
+        root.page = 1;
+        root.total = 0;
+        root.has-more = false;
+        root.loading-more = false;
+        root.loading = true;
+    }
+
+    function request-back() {
+        if (root.detail-visible) {
+            root.detail-visible = false;
+            return;
+        }
+        root.dismissed();
+    }
+
+    function select-filter(filter: string) {
+        if (filter == root.selected-filter) {
+            return;
+        }
+        root.selected-filter = filter;
+        root.orders = [];
+        root.page = 1;
+        root.total = 0;
+        root.has-more = false;
+        root.error-message = "";
+        root.loading = true;
+        root.load-orders(filter, 1, false);
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                OrdersBackButton { clicked => { root.request-back(); } }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.detail-visible ? "订单详情" : "我的订单";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.detail-visible : VerticalLayout {
+                width: 40px;
+                alignment: center;
+                RefreshIconButton {
+                    busy: root.loading;
+                    clicked => {
+                        root.error-message = "";
+                        root.loading = true;
+                        root.load-orders(root.selected-filter, 1, false);
+                    }
+                }
+            }
+            if root.detail-visible : Rectangle { width: 40px; background: transparent; }
+        }
+    }
+
+    if !root.detail-visible : Rectangle {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        background: AppTheme.surface;
+        clip: true;
+
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: 100%;
+            height: 47px;
+            background: AppTheme.surface;
+
+            HorizontalLayout {
+                spacing: 4px;
+                OrderTab {
+                    horizontal-stretch: 1;
+                    label: "全部";
+                    filter: "all";
+                    selected: root.selected-filter == "all";
+                    activated(filter) => { root.select-filter(filter); }
+                }
+                OrderTab {
+                    horizontal-stretch: 1;
+                    label: "已完成";
+                    filter: "paid";
+                    selected: root.selected-filter == "paid";
+                    activated(filter) => { root.select-filter(filter); }
+                }
+                OrderTab {
+                    horizontal-stretch: 1;
+                    label: "待支付";
+                    filter: "pending";
+                    selected: root.selected-filter == "pending";
+                    activated(filter) => { root.select-filter(filter); }
+                }
+                OrderTab {
+                    horizontal-stretch: 1;
+                    label: "已退款";
+                    filter: "refunded";
+                    selected: root.selected-filter == "refunded";
+                    activated(filter) => { root.select-filter(filter); }
+                }
+            }
+        }
+
+        Rectangle {
+            x: 0px;
+            y: 46px;
+            width: 100%;
+            height: 1px;
+            background: AppTheme.border.with-alpha(0.6);
+        }
+
+        Flickable {
+            x: 0px;
+            y: 47px;
+            width: 100%;
+            height: parent.height - self.y;
+            viewport-width: self.width;
+            viewport-height: max(self.height, order-content.preferred-height);
+            viewport-x: 0px;
+            viewport-y: 0px;
+
+            order-content := VerticalLayout {
+                width: parent.width;
+                padding-left: 10px;
+                padding-right: 10px;
+                padding-top: 8px;
+                padding-bottom: 20px;
+                spacing: 0px;
+
+                if root.error-message != "" : VerticalLayout {
+                    padding-left: 8px;
+                    padding-right: 8px;
+                    padding-top: 4px;
+                    padding-bottom: 10px;
+                    InlineAlert {
+                        message: root.orders.length > 0
+                            ? "刷新失败，当前显示已加载的订单：" + root.error-message
+                            : root.error-message;
+                    }
+                }
+
+                if root.loading && root.orders.length == 0 : VerticalLayout {
+                    spacing: 0px;
+                    for index in 7 : VerticalLayout {
+                        spacing: 0px;
+                        OrderSkeletonRow { }
+                        if index < 6 : HorizontalLayout {
+                            height: 1px;
+                            padding-left: 18px;
+                            padding-right: 18px;
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                height: 1px;
+                                background: AppTheme.border.with-alpha(0.42);
+                            }
+                        }
+                    }
+                }
+
+                if !root.loading && root.error-message != "" && root.orders.length == 0 : Rectangle {
+                    height: 250px;
+                    background: transparent;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 10px;
+                        Text {
+                            text: "订单加载失败";
+                            color: AppTheme.ink-muted;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                        }
+                        AppButton {
+                            kind: ButtonKind.secondary;
+                            text: "重新加载";
+                            button-min-width: 100px;
+                            clicked => {
+                                root.error-message = "";
+                                root.loading = true;
+                                root.load-orders(root.selected-filter, 1, false);
+                            }
+                        }
+                    }
+                }
+
+                if !root.loading && root.error-message == "" && root.orders.length == 0 : Rectangle {
+                    height: 250px;
+                    background: transparent;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 8px;
+                        HorizontalLayout {
+                            height: 20px;
+                            alignment: center;
+                            Glyph { name: "package"; fill: AppTheme.ink-subtle; }
+                        }
+                        Text {
+                            text: root.selected-filter == "paid" ? "暂无已完成订单"
+                                : root.selected-filter == "pending" ? "暂无待支付订单"
+                                : root.selected-filter == "refunded" ? "暂无退款订单"
+                                : "暂无订单";
+                            color: AppTheme.ink-muted;
+                            font-size: 14px;
+                            horizontal-alignment: center;
+                        }
+                        Text {
+                            text: root.selected-filter == "pending" ? "需要支付的订单会显示在这里"
+                                : "购买套餐或流量包后，订单会显示在这里";
+                            color: AppTheme.ink-subtle;
+                            font-size: 11px;
+                            horizontal-alignment: center;
+                        }
+                    }
+                }
+
+                if root.orders.length > 0 : VerticalLayout {
+                    spacing: 0px;
+                    for item[index] in root.orders : VerticalLayout {
+                        spacing: 0px;
+                        OrderRow {
+                            item: item;
+                            activated(order) => {
+                                root.selected-order = order;
+                                root.detail-visible = true;
+                            }
+                        }
+                        if index < root.orders.length - 1 : HorizontalLayout {
+                            height: 1px;
+                            padding-left: 18px;
+                            padding-right: 18px;
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                height: 1px;
+                                background: AppTheme.border.with-alpha(0.54);
+                            }
+                        }
+                    }
+
+                    if root.has-more : Rectangle {
+                        height: 58px;
+                        background: transparent;
+                        HorizontalLayout {
+                            alignment: center;
+                            if root.loading-more : BusyIndicator {
+                                width: 20px;
+                                height: 20px;
+                                indicator-color: AppTheme.ink-subtle;
+                            }
+                            if !root.loading-more : AppButton {
+                                kind: ButtonKind.ghost;
+                                text: "加载更多";
+                                button-min-width: 104px;
+                                clicked => {
+                                    root.error-message = "";
+                                    root.loading-more = true;
+                                    root.load-orders(root.selected-filter, root.page + 1, true);
+                                }
+                            }
+                        }
+                    }
+
+                    if !root.has-more && !root.loading : Text {
+                        height: 58px;
+                        text: "没有更多了";
+                        color: AppTheme.ink-subtle;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    if root.detail-visible : Rectangle {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        background: transparent;
+
+        Flickable {
+            width: 100%;
+            height: 100%;
+            viewport-width: self.width;
+            viewport-height: max(self.height, detail-content.preferred-height);
+            viewport-x: 0px;
+            viewport-y: 0px;
+
+            detail-content := VerticalLayout {
+                width: parent.width;
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 14px;
+                padding-bottom: 28px;
+                spacing: 0px;
+
+                HorizontalLayout {
+                    height: 58px;
+                    spacing: 14px;
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.selected-order.title;
+                        color: AppTheme.ink;
+                        font-size: 17px;
+                        font-weight: 500;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                    Text {
+                        text: root.selected-order.amount-label;
+                        color: AppTheme.ink;
+                        font-family: "Sora SemiBold";
+                        font-size: 17px;
+                        font-weight: 600;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
+                }
+                OrderStatusChip {
+                    label: root.selected-order.status-label;
+                    tone: root.selected-order.status-tone;
+                }
+
+                Rectangle { height: 24px; background: transparent; }
+                OrderDetailSectionTitle { label: "商品信息"; }
+                OrderDetailRow { label: "商品名称"; value: root.selected-order.title; }
+                OrderDetailRow { label: "订单类型"; value: root.selected-order.type-label; }
+                OrderDetailRow {
+                    label: "套餐规格";
+                    value: root.selected-order.specification == "" ? "—" : root.selected-order.specification;
+                }
+
+                Rectangle { height: 16px; background: transparent; }
+                OrderDetailSectionTitle { label: "支付信息"; }
+                OrderDetailRow { label: "订单金额"; value: root.selected-order.amount-label; }
+                OrderDetailRow { label: "支付方式"; value: root.selected-order.payment-method-label; }
+                OrderDetailRow { label: "订单状态"; value: root.selected-order.status-label; }
+                if root.selected-order.balance-refunded-label != "" : OrderDetailRow {
+                    label: "退回余额";
+                    value: root.selected-order.balance-refunded-label;
+                }
+
+                Rectangle { height: 16px; background: transparent; }
+                OrderDetailSectionTitle { label: "订单记录"; }
+                OrderDetailRow { label: "订单号"; value: root.selected-order.order-number; }
+                OrderDetailRow { label: "下单时间"; value: root.selected-order.created-at-label; }
+                if root.selected-order.paid-at-label != "" : OrderDetailRow {
+                    label: "支付时间";
+                    value: root.selected-order.paid-at-label;
+                }
+                if root.selected-order.refunded-at-label != "" : OrderDetailRow {
+                    label: "退款时间";
+                    value: root.selected-order.refunded-at-label;
+                }
+                OrderDetailRow { label: "更新时间"; value: root.selected-order.updated-at-label; }
+            }
+        }
+    }
+}

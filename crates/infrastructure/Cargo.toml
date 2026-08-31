@@ -1,0 +1,50 @@
+[package]
+name = "topnode-infrastructure"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+atomic-write-file.workspace = true
+base64.workspace = true
+chacha20poly1305.workspace = true
+directories.workspace = true
+fs2.workspace = true
+keyring.workspace = true
+reqwest.workspace = true
+rustls.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+toml.workspace = true
+topnode-application = { path = "../application" }
+topnode-domain = { path = "../domain" }
+tracing.workspace = true
+tracing-appender.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true
+webpki-roots.workspace = true
+x509-parser.workspace = true
+zeroize.workspace = true
+
+[target.'cfg(unix)'.dependencies]
+nix = { version = "0.30", features = ["process", "signal"] }
+surge-ping = "0.9.0"
+
+[target.'cfg(windows)'.dependencies]
+win32job.workspace = true
+win-desktop-utils.workspace = true
+winping = "0.10.1"
+windows-sys.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27"
+
+[lints]
+workspace = true

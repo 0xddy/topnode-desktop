@@ -1,0 +1,860 @@
+import { AppTheme } from "../theme.slint";
+import { SupportTicketItem, SupportTicketMessageItem } from "../models.slint";
+import { AppButton, ButtonKind, BusyIndicator, InlineAlert, RefreshIconButton } from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import { ScrollView } from "std-widgets.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component BottomScrollView inherits ScrollView {
+    in property <int> scroll-request: 0;
+
+    changed scroll-request => {
+        root.viewport-y = min(0px, root.height - root.viewport-height);
+    }
+}
+
+component TicketIconButton inherits Rectangle {
+    in property <string> icon;
+    in property <bool> enabled: true;
+    in property <bool> danger: false;
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    opacity: root.enabled ? 1 : 0.42;
+    background: touch.pressed && root.enabled ? AppTheme.surface-muted
+        : touch.has-hover && root.enabled ? (root.danger ? AppTheme.danger-soft : AppTheme.surface-subtle)
+        : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        name: root.icon;
+        fill: root.danger ? AppTheme.danger : AppTheme.ink;
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component TicketStatusChip inherits Rectangle {
+    in property <string> label;
+    in property <string> tone;
+
+    width: label-text.preferred-width + 14px;
+    height: 21px;
+    border-radius: 10px;
+    background: root.tone == "pending" ? #fff1d8
+        : root.tone == "replied" ? #e3f3ec
+        : root.tone == "closed" ? #ecefee : #eef1f0;
+
+    label-text := Text {
+        text: root.label;
+        color: root.tone == "pending" ? #986414
+            : root.tone == "replied" ? #28765c
+            : AppTheme.ink-muted;
+        font-size: 10px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component TicketRow inherits Rectangle {
+    in property <SupportTicketItem> item;
+    callback activated(string);
+
+    height: 76px;
+    background: transparent;
+
+    Rectangle {
+        x: 4px;
+        y: 4px;
+        width: parent.width - 8px;
+        height: parent.height - 8px;
+        border-radius: 12px;
+        background: row-touch.pressed ? #ecefee : row-touch.has-hover ? #f5f7f6 : transparent;
+        animate background { duration: 100ms; }
+    }
+
+    avatar := Rectangle {
+        x: 16px;
+        y: 17px;
+        width: 42px;
+        height: 42px;
+        border-radius: 21px;
+        background: root.item.status-tone == "pending" ? #fff3dc
+            : root.item.status-tone == "replied" ? AppTheme.accent-soft : #eef1f0;
+        Glyph {
+            x: 10px;
+            y: 10px;
+            width: 22px;
+            height: 22px;
+            name: "support";
+            fill: root.item.status-tone == "pending" ? AppTheme.warning
+                : root.item.status-tone == "replied" ? AppTheme.accent : AppTheme.ink-muted;
+        }
+    }
+
+    VerticalLayout {
+        x: 72px;
+        y: 13px;
+        width: parent.width - 90px;
+        height: 50px;
+        spacing: 6px;
+        HorizontalLayout {
+            height: 21px;
+            spacing: 8px;
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.title;
+                color: AppTheme.ink;
+                font-size: 14px;
+                font-weight: root.item.unread ? 600 : 500;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            if root.item.unread : Rectangle {
+                width: 7px;
+                height: 7px;
+                border-radius: 4px;
+                background: AppTheme.accent;
+            }
+        }
+        HorizontalLayout {
+            height: 21px;
+            spacing: 8px;
+            TicketStatusChip { label: root.item.status-label; tone: root.item.status-tone; }
+            Text {
+                text: root.item.priority-label;
+                color: AppTheme.ink-subtle;
+                font-size: 10px;
+                vertical-alignment: center;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.item.updated-at-label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    row-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.item.id); }
+    }
+}
+
+component TicketSkeleton inherits VerticalLayout {
+    spacing: 0px;
+    for index in 6 : Rectangle {
+        height: 76px;
+        background: transparent;
+        Rectangle { x: 16px; y: 17px; width: 42px; height: 42px; border-radius: 21px; background: #e7ece9; }
+        Rectangle { x: 72px; y: 17px; width: Math.mod(index, 2) == 0 ? 190px : 240px; height: 13px; border-radius: 6px; background: #e3e9e6; }
+        Rectangle { x: 72px; y: 43px; width: 72px; height: 16px; border-radius: 8px; background: #e9edeb; }
+        Rectangle { x: parent.width - 88px; y: 46px; width: 70px; height: 10px; border-radius: 5px; background: #edf0ef; }
+    }
+}
+
+component EmptyTickets inherits Rectangle {
+    VerticalLayout {
+        alignment: center;
+        spacing: 9px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 58px;
+                height: 58px;
+                border-radius: 29px;
+                background: AppTheme.accent-faint;
+                Glyph { x: 15px; y: 15px; width: 28px; height: 28px; name: "support"; fill: AppTheme.accent; }
+            }
+        }
+        Text { text: "还没有工单"; color: AppTheme.ink; font-size: 16px; font-weight: 500; horizontal-alignment: center; }
+        Text { text: "点击右上角的新建按钮开始一段客服会话"; color: AppTheme.ink-muted; font-size: 12px; horizontal-alignment: center; }
+    }
+}
+
+component MessageBubble inherits Rectangle {
+    in property <SupportTicketMessageItem> item;
+    callback retry(string, string);
+
+    in property <length> time-height: root.item.show-time ? 24px : 0px;
+    in property <length> sender-height: !root.item.own ? 16px : 0px;
+    height: root.time-height + root.sender-height + bubble.height + 11px;
+    background: transparent;
+
+    if root.item.show-time : Text {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: 18px;
+        text: root.item.time-label;
+        color: AppTheme.ink-subtle;
+        font-size: 10px;
+        horizontal-alignment: center;
+    }
+
+    if !root.item.own : Rectangle {
+        x: 15px;
+        y: root.time-height + 14px;
+        width: 31px;
+        height: 31px;
+        border-radius: 16px;
+        background: white;
+        Glyph { x: 7px; y: 7px; width: 17px; height: 17px; name: "support"; fill: AppTheme.accent; }
+    }
+
+    if !root.item.own : Text {
+        x: 55px;
+        y: root.time-height;
+        width: parent.width - 74px;
+        height: root.sender-height;
+        text: root.item.sender-label == "" ? "客服" : root.item.sender-label;
+        color: AppTheme.ink-muted;
+        font-size: 10px;
+    }
+
+    bubble := Rectangle {
+        x: root.item.own ? parent.width - self.width - 18px : 55px;
+        y: root.time-height + root.sender-height;
+        width: min(parent.width * 0.72, max(76px, message-text.preferred-width + 26px));
+        height: message-text.preferred-height + 20px;
+        border-radius: 16px;
+        background: root.item.failed ? AppTheme.danger-soft
+            : root.item.own ? #ddf2e6 : white;
+        border-width: root.item.failed ? 1px : 0px;
+        border-color: root.item.failed ? #f0c9cf : transparent;
+        message-text := Text {
+            x: 13px;
+            y: 10px;
+            width: parent.width - 26px;
+            text: root.item.content;
+            color: AppTheme.ink;
+            font-size: 14px;
+            wrap: word-wrap;
+        }
+    }
+
+    if root.item.sending : BusyIndicator {
+        x: bubble.x - 26px;
+        y: bubble.y + (bubble.height - 18px) / 2;
+        width: 18px;
+        height: 18px;
+    }
+
+    if root.item.failed : Rectangle {
+        x: bubble.x - 31px;
+        y: bubble.y + (bubble.height - 26px) / 2;
+        width: 26px;
+        height: 26px;
+        border-radius: 13px;
+        background: retry-touch.has-hover ? #f8dfe3 : transparent;
+        Glyph { x: 4px; y: 4px; width: 18px; height: 18px; name: "error"; fill: AppTheme.danger; }
+        retry-touch := TouchArea {
+            mouse-cursor: MouseCursor.pointer;
+            clicked => { root.retry(root.item.id, root.item.content); }
+        }
+    }
+}
+
+component Composer inherits Rectangle {
+    in-out property <string> text;
+    in property <bool> sending;
+    in property <bool> enabled: true;
+    callback send(string);
+
+    height: 62px;
+    background: transparent;
+    Rectangle { x: 0px; y: 0px; width: parent.width; height: 1px; background: #e4ebe7; }
+
+    entry := Rectangle {
+        x: 12px;
+        y: 10px;
+        width: parent.width - 69px;
+        height: 42px;
+        border-radius: 21px;
+        background: #f1f4f2;
+        Text {
+            x: 14px;
+            width: parent.width - 28px;
+            height: parent.height;
+            visible: input.text == "";
+            text: "输入消息";
+            color: AppTheme.ink-subtle;
+            font-size: 13px;
+            vertical-alignment: center;
+        }
+        input := TextInput {
+            x: 14px;
+            width: parent.width - 28px;
+            height: parent.height;
+            text <=> root.text;
+            enabled: root.enabled && !root.sending;
+            single-line: true;
+            color: AppTheme.ink;
+            font-size: 14px;
+            vertical-alignment: center;
+            accepted => {
+                if (root.text != "" && !root.sending && root.enabled) { root.send(root.text); }
+            }
+        }
+    }
+
+    send-button := Rectangle {
+        x: parent.width - 50px;
+        y: 10px;
+        width: 42px;
+        height: 42px;
+        border-radius: 21px;
+        background: root.text != "" && root.enabled && !root.sending ? AppTheme.accent : #dce3df;
+        Glyph {
+            x: 11px; y: 11px; width: 20px; height: 20px; name: "send";
+            fill: root.text != "" && root.enabled && !root.sending ? white : AppTheme.ink-subtle;
+        }
+        send-touch := TouchArea {
+            enabled: root.text != "" && root.enabled && !root.sending;
+            mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+            clicked => { root.send(root.text); }
+        }
+    }
+}
+
+component LabeledField inherits VerticalLayout {
+    in property <string> label;
+    in property <string> placeholder;
+    in-out property <string> value;
+    in property <bool> multiline: false;
+    in property <bool> enabled: true;
+
+    height: root.multiline ? 160px : 70px;
+    spacing: 7px;
+    Text { text: root.label; color: AppTheme.ink; font-size: 13px; font-weight: 500; }
+    field := Rectangle {
+        height: root.multiline ? 134px : 44px;
+        border-radius: 13px;
+        background: white;
+        border-width: 1px;
+        border-color: input.has-focus ? AppTheme.accent : #e5ebe8;
+        animate border-color { duration: 100ms; }
+        Text {
+            x: 14px; y: root.multiline ? 11px : 0px; width: parent.width - 28px;
+            height: root.multiline ? 22px : parent.height;
+            visible: input.text == "";
+            text: root.placeholder;
+            color: AppTheme.ink-subtle;
+            font-size: 13px;
+            vertical-alignment: root.multiline ? TextVerticalAlignment.top : TextVerticalAlignment.center;
+        }
+        input := TextInput {
+            x: 14px; y: root.multiline ? 10px : 0px; width: parent.width - 28px;
+            height: root.multiline ? parent.height - 20px : parent.height;
+            text <=> root.value;
+            enabled: root.enabled;
+            single-line: !root.multiline;
+            color: AppTheme.ink;
+            font-size: 14px;
+            vertical-alignment: root.multiline ? TextVerticalAlignment.top : TextVerticalAlignment.center;
+        }
+    }
+}
+
+component PriorityMenuItem inherits Rectangle {
+    in property <string> label;
+    in property <bool> selected;
+    callback activated();
+
+    height: 40px;
+    border-radius: 10px;
+    background: option-touch.pressed ? AppTheme.surface-muted
+        : root.selected ? AppTheme.accent-faint
+        : option-touch.has-hover ? #f3f6f4 : transparent;
+    animate background { duration: 90ms; }
+
+    Text {
+        x: 13px;
+        width: parent.width - 26px;
+        text: root.label;
+        color: root.selected ? AppTheme.accent-dark : AppTheme.ink-muted;
+        font-size: 13px;
+        font-weight: root.selected ? 550 : AppTheme.font-weight-regular;
+        vertical-alignment: center;
+    }
+
+    option-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+component PrioritySelector inherits Rectangle {
+    in-out property <string> value: "medium";
+    in property <bool> enabled: true;
+    in property <string> label: root.value == "low" ? "低"
+        : root.value == "high" ? "高" : "普通";
+
+    height: 44px;
+    border-radius: 13px;
+    border-width: 1px;
+    border-color: #e5ebe8;
+    background: selector-touch.pressed ? AppTheme.surface-muted
+        : selector-touch.has-hover ? #fbfdfc : white;
+    opacity: root.enabled ? 1 : 0.5;
+    animate background { duration: 90ms; }
+
+    Text {
+        x: 15px;
+        width: parent.width - 48px;
+        height: parent.height;
+        text: root.label;
+        color: AppTheme.ink;
+        font-size: 14px;
+        vertical-alignment: center;
+    }
+
+    Path {
+        x: parent.width - 31px;
+        y: 12px;
+        width: 18px;
+        height: 18px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: AppTheme.ink-muted;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 6 9 L 12 15 L 18 9";
+    }
+
+    selector-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { priority-popup.show(); }
+    }
+
+    priority-popup := PopupWindow {
+        x: 0px;
+        y: 50px;
+        width: root.width;
+        height: 136px;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            border-radius: 14px;
+            border-width: 1px;
+            border-color: #e1e8e4;
+            background: white;
+            drop-shadow-color: #240b2f25;
+            drop-shadow-blur: 18px;
+
+            VerticalLayout {
+                padding: 6px;
+                spacing: 2px;
+                PriorityMenuItem {
+                    label: "低";
+                    selected: root.value == "low";
+                    activated => { root.value = "low"; priority-popup.close(); }
+                }
+                PriorityMenuItem {
+                    label: "普通";
+                    selected: root.value == "medium";
+                    activated => { root.value = "medium"; priority-popup.close(); }
+                }
+                PriorityMenuItem {
+                    label: "高";
+                    selected: root.value == "high";
+                    activated => { root.value = "high"; priority-popup.close(); }
+                }
+            }
+        }
+    }
+}
+
+export component TicketCloseConfirmation inherits Rectangle {
+    in property <bool> closing: false;
+    in property <string> error-message;
+    callback dismissed();
+    callback confirmed();
+
+    background: AppTheme.modal-backdrop;
+
+    backdrop-touch := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: parent.width;
+        height: parent.height;
+        clicked => {
+            if (!root.closing) { root.dismissed(); }
+        }
+    }
+
+    close-modal := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(430px, parent.width - 48px);
+        height: root.error-message == "" ? 224px : 260px;
+        border-radius: 18px;
+        background: white;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 24px;
+
+        TouchArea {
+            x: 0px;
+            y: 0px;
+            width: parent.width;
+            height: parent.height;
+        }
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 22px;
+            padding-bottom: 20px;
+            spacing: 13px;
+            Text { text: "关闭工单"; color: AppTheme.ink; font-size: 19px; font-weight: 600; }
+            Text {
+                text: "关闭后会话会标记为已结束。以后继续发送消息时，工单会自动重新打开。";
+                color: AppTheme.ink-muted;
+                font-size: 13px;
+                wrap: word-wrap;
+            }
+            if root.error-message != "" : Text {
+                text: root.error-message;
+                color: AppTheme.danger;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            Rectangle { vertical-stretch: 1; background: transparent; }
+            HorizontalLayout {
+                height: 42px;
+                spacing: 10px;
+                AppButton {
+                    horizontal-stretch: 1;
+                    text: "取消";
+                    kind: ButtonKind.ghost;
+                    enabled: !root.closing;
+                    clicked => { root.dismissed(); }
+                }
+                AppButton {
+                    horizontal-stretch: 1;
+                    text: root.closing ? "正在关闭…" : "确认关闭";
+                    kind: ButtonKind.primary;
+                    busy: root.closing;
+                    enabled: !root.closing;
+                    clicked => { root.confirmed(); }
+                }
+            }
+        }
+    }
+}
+
+export component TicketsPage inherits Rectangle {
+    in-out property <length> list-scroll-y: 0px;
+    in-out property <length> chat-scroll-y: 0px;
+    in property <int> scroll-request: 0;
+    in-out property <string> mode: "list";
+    in-out property <[SupportTicketItem]> tickets;
+    in-out property <bool> list-loading: false;
+    in-out property <bool> list-refreshing: false;
+    in-out property <bool> list-loading-more: false;
+    in-out property <string> list-error;
+    in-out property <string> list-more-error;
+    in-out property <bool> list-has-more: false;
+
+    in-out property <string> selected-id;
+    in-out property <string> selected-title;
+    in-out property <string> selected-number;
+    in-out property <string> selected-status-label;
+    in-out property <string> selected-status-tone;
+    in-out property <string> selected-priority-label;
+    in-out property <bool> selected-closed: false;
+    in-out property <[SupportTicketMessageItem]> messages;
+    in-out property <bool> detail-loading: false;
+    in-out property <string> detail-error;
+    in-out property <bool> loading-earlier: false;
+    in-out property <string> earlier-error;
+    in-out property <bool> has-earlier: false;
+    in-out property <string> reply-text;
+    in-out property <bool> sending: false;
+    in-out property <string> send-error;
+
+    in-out property <string> create-title;
+    in-out property <string> create-priority: "medium";
+    in-out property <string> create-message;
+    in-out property <bool> creating: false;
+    in-out property <string> create-error;
+
+    in-out property <bool> close-confirmation-visible: false;
+    in-out property <bool> closing: false;
+    in-out property <string> close-error;
+
+    callback dismissed();
+    callback load-list(int, bool);
+    callback open-ticket(string);
+    callback load-earlier(string);
+    callback create-ticket(string, string, string);
+    callback send-message(string, string);
+    callback retry-message(string, string, string);
+    callback cancel-pending();
+
+    background: transparent;
+    clip: true;
+
+    public function prepare() {
+        root.mode = "list";
+        root.list-loading = true;
+        root.list-error = "";
+        root.list-more-error = "";
+        root.selected-id = "";
+        root.detail-error = "";
+        root.reply-text = "";
+        root.send-error = "";
+        root.close-confirmation-visible = false;
+        root.list-scroll-y = 0px;
+    }
+
+    header := Rectangle {
+        x: 0px; y: 0px; width: parent.width; height: root.mode == "chat" ? 66px : 62px;
+        background: transparent;
+        Rectangle { x: 0px; y: parent.height - 1px; width: parent.width; height: 1px; background: root.mode == "list" ? AppTheme.border : #edf1ef; }
+
+        TicketIconButton {
+            x: 0px; y: (parent.height - self.height) / 2;
+            icon: "arrow-left";
+            enabled: !root.creating && !root.closing;
+            clicked => {
+                root.cancel-pending();
+                if (root.mode == "list") { root.dismissed(); }
+                else {
+                    root.mode = "list";
+                    root.close-confirmation-visible = false;
+                    root.detail-error = "";
+                    root.send-error = "";
+                }
+            }
+        }
+
+        if root.mode == "list" : Text {
+            x: 50px; width: parent.width - 140px; height: parent.height;
+            text: "我的工单";
+            color: AppTheme.ink;
+            font-family: "Sora SemiBold";
+            font-size: 22px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+
+        if root.mode == "create" : Text {
+            x: 50px; width: parent.width - 100px; height: parent.height;
+            text: "创建工单";
+            color: AppTheme.ink;
+            font-family: "Sora SemiBold";
+            font-size: 20px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+
+        if root.mode == "chat" : VerticalLayout {
+            x: 50px; y: 10px; width: parent.width - 108px; height: 46px; spacing: 2px;
+            Text { text: root.selected-title; color: AppTheme.ink; font-size: 15px; font-weight: 550; overflow: elide; }
+            Text {
+                text: root.selected-status-label + " · " + root.selected-priority-label + " · " + root.selected-number;
+                color: AppTheme.ink-muted; font-size: 10px; overflow: elide;
+            }
+        }
+
+        if root.mode == "list" : RefreshIconButton {
+            x: parent.width - 88px; y: (parent.height - self.height) / 2;
+            busy: root.list-refreshing;
+            clicked => { if (!root.list-loading && !root.list-refreshing && !root.list-loading-more) { root.load-list(1, false); } }
+        }
+        if root.mode == "list" : RefreshIconButton {
+            x: parent.width - 42px; y: (parent.height - self.height) / 2;
+            icon: "plus";
+            clicked => {
+                root.create-title = "";
+                root.create-priority = "medium";
+                root.create-message = "";
+                root.create-error = "";
+                root.mode = "create";
+            }
+        }
+        if root.mode == "chat" : TicketIconButton {
+            x: parent.width - 42px; y: (parent.height - self.height) / 2;
+            icon: "lock";
+            danger: !root.selected-closed;
+            enabled: !root.selected-closed && !root.closing && !root.sending;
+            clicked => { root.close-error = ""; root.close-confirmation-visible = true; }
+        }
+    }
+
+    if root.mode == "list" : Rectangle {
+        x: 0px; y: header.height; width: parent.width; height: parent.height - header.height;
+        background: transparent;
+
+        list-scroll := ScrollView {
+            width: 100%; height: 100%; viewport-width: self.width;
+            viewport-height: max(self.height, list-content.preferred-height);
+            viewport-y <=> root.list-scroll-y;
+            list-content := VerticalLayout {
+                width: parent.width;
+                padding-bottom: 22px;
+                if root.list-loading && root.tickets.length == 0 : TicketSkeleton { }
+                if !root.list-loading && root.list-error != "" && root.tickets.length == 0 : Rectangle {
+                    height: list-scroll.height;
+                    VerticalLayout {
+                        alignment: center; spacing: 12px; padding-left: 28px; padding-right: 28px;
+                        Glyph { width: 24px; height: 24px; name: "error"; fill: AppTheme.ink-subtle; }
+                        Text { text: "暂时无法加载工单"; color: AppTheme.ink; font-size: 15px; font-weight: 500; horizontal-alignment: center; }
+                        Text { text: root.list-error; color: AppTheme.ink-muted; font-size: 12px; wrap: word-wrap; horizontal-alignment: center; }
+                        AppButton { text: "重新加载"; kind: ButtonKind.ghost; button-min-width: 104px; clicked => { root.load-list(1, false); } }
+                    }
+                }
+                if !root.list-loading && root.list-error == "" && root.tickets.length == 0 : EmptyTickets { height: list-scroll.height; }
+                for item in root.tickets : TicketRow { item: item; activated(id) => { root.open-ticket(id); } }
+                if root.tickets.length > 0 : Rectangle {
+                    height: 54px; background: transparent;
+                    if root.list-loading-more : BusyIndicator { x: (parent.width - 22px) / 2; y: 16px; width: 22px; height: 22px; }
+                    if !root.list-refreshing && !root.list-loading-more && root.list-more-error != "" : Text {
+                        text: "加载失败，点击重试"; color: AppTheme.danger; font-size: 12px;
+                        horizontal-alignment: center; vertical-alignment: center;
+                        TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.load-list(0, true); } }
+                    }
+                    if !root.list-refreshing && !root.list-loading-more && root.list-more-error == "" && root.list-has-more : Text {
+                        text: "加载更多"; color: AppTheme.accent; font-size: 12px;
+                        horizontal-alignment: center; vertical-alignment: center;
+                        TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.load-list(0, true); } }
+                    }
+                    if !root.list-refreshing && !root.list-loading-more && root.list-more-error == "" && !root.list-has-more : Text {
+                        text: "没有更多了"; color: AppTheme.ink-subtle; font-size: 11px;
+                        horizontal-alignment: center; vertical-alignment: center;
+                    }
+                }
+            }
+        }
+    }
+
+    if root.mode == "chat" : Rectangle {
+        x: 0px; y: header.height; width: parent.width; height: parent.height - header.height;
+        background: transparent;
+
+        if root.detail-loading : TicketSkeleton { x: 0px; y: 0px; width: parent.width; }
+        if !root.detail-loading && root.detail-error != "" : VerticalLayout {
+            alignment: center; spacing: 12px; padding-left: 28px; padding-right: 28px;
+            Text { text: "无法打开工单会话"; color: AppTheme.ink; font-size: 15px; font-weight: 500; horizontal-alignment: center; }
+            Text { text: root.detail-error; color: AppTheme.ink-muted; font-size: 12px; wrap: word-wrap; horizontal-alignment: center; }
+            AppButton { text: "重试"; kind: ButtonKind.ghost; button-min-width: 96px; clicked => { root.open-ticket(root.selected-id); } }
+        }
+        if !root.detail-loading && root.detail-error == "" : Rectangle {
+            width: 100%; height: 100%; background: transparent;
+            chat-scroll := BottomScrollView {
+                x: 0px; y: 0px; width: 100%; height: parent.height - composer-area.height;
+                scroll-request: root.scroll-request;
+                viewport-width: self.width;
+                viewport-height: max(self.height, chat-content.preferred-height);
+                viewport-y <=> root.chat-scroll-y;
+                chat-content := VerticalLayout {
+                    width: parent.width;
+                    padding-top: 8px; padding-bottom: 12px; spacing: 0px;
+                    Rectangle {
+                        height: 38px; background: transparent;
+                        if root.loading-earlier : BusyIndicator { x: (parent.width - 18px) / 2; y: 8px; width: 18px; height: 18px; }
+                        if !root.loading-earlier && root.earlier-error != "" : Text {
+                            text: "较早消息加载失败，点击重试"; color: AppTheme.danger; font-size: 11px;
+                            horizontal-alignment: center; vertical-alignment: center;
+                            TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.load-earlier(root.selected-id); } }
+                        }
+                        if !root.loading-earlier && root.earlier-error == "" && root.has-earlier : Text {
+                            text: "加载更早的消息"; color: AppTheme.ink-subtle; font-size: 11px;
+                            horizontal-alignment: center; vertical-alignment: center;
+                            TouchArea { mouse-cursor: MouseCursor.pointer; clicked => { root.load-earlier(root.selected-id); } }
+                        }
+                        if !root.loading-earlier && root.earlier-error == "" && !root.has-earlier && root.messages.length > 0 : Text {
+                            text: "已经是最早的消息"; color: AppTheme.ink-subtle; font-size: 10px;
+                            horizontal-alignment: center; vertical-alignment: center;
+                        }
+                    }
+                    for message in root.messages : MessageBubble {
+                        item: message;
+                        retry(id, content) => { root.retry-message(root.selected-id, id, content); }
+                    }
+                }
+            }
+
+            composer-area := VerticalLayout {
+                x: 0px; y: parent.height - self.height; width: 100%;
+                height: (root.selected-closed ? 26px : 0px) + (root.send-error != "" ? 25px : 0px) + 62px;
+                spacing: 0px;
+                if root.selected-closed : Rectangle {
+                    height: 26px; background: #e9eeeb;
+                    Text { text: "该工单已关闭，继续发送会自动重新打开"; color: AppTheme.ink-muted; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; }
+                }
+                if root.send-error != "" : Rectangle {
+                    height: 25px; background: AppTheme.danger-soft;
+                    Text { text: root.send-error; color: AppTheme.danger; font-size: 10px; horizontal-alignment: center; vertical-alignment: center; overflow: elide; }
+                }
+                Composer {
+                    text <=> root.reply-text;
+                    sending: root.sending;
+                    enabled: !root.closing && !root.loading-earlier;
+                    send(content) => { root.send-message(root.selected-id, content); }
+                }
+            }
+        }
+    }
+
+    if root.mode == "create" : Rectangle {
+        x: 0px; y: header.height; width: parent.width; height: parent.height - header.height;
+        background: transparent;
+        create-scroll := ScrollView {
+            width: 100%; height: 100%; viewport-width: self.width;
+            viewport-height: max(self.height, create-content.preferred-height);
+            create-content := VerticalLayout {
+                width: parent.width; padding-left: 22px; padding-right: 22px;
+                padding-top: 18px; padding-bottom: 28px; spacing: 0px; alignment: start;
+                Text { height: 28px; text: "描述你遇到的问题"; color: AppTheme.ink; font-size: 20px; font-weight: 600; }
+                Rectangle { height: 3px; background: transparent; }
+                Text { height: 18px; text: "信息越清晰，客服处理会越高效。"; color: AppTheme.ink-muted; font-size: 12px; }
+                Rectangle { height: 22px; background: transparent; }
+                LabeledField { label: "工单标题"; placeholder: "用一句话概括问题"; value <=> root.create-title; enabled: !root.creating; }
+                Rectangle { height: 18px; background: transparent; }
+                VerticalLayout {
+                    height: 70px; spacing: 7px;
+                    Text { height: 19px; text: "优先级"; color: AppTheme.ink; font-size: 13px; font-weight: 500; }
+                    PrioritySelector { value <=> root.create-priority; enabled: !root.creating; }
+                }
+                Rectangle { height: 18px; background: transparent; }
+                LabeledField { label: "问题描述"; placeholder: "请描述问题、发生时间和相关情况"; value <=> root.create-message; multiline: true; enabled: !root.creating; }
+                if root.create-error != "" : VerticalLayout {
+                    spacing: 0px;
+                    Rectangle { height: 10px; background: transparent; }
+                    InlineAlert { danger: true; message: root.create-error; }
+                }
+                Rectangle { height: 22px; background: transparent; }
+                AppButton {
+                    height: 48px;
+                    corner-radius: 14px;
+                    text: root.creating ? "正在创建…" : "创建并进入会话";
+                    busy: root.creating;
+                    enabled: !root.creating && root.create-title != "" && root.create-message != "";
+                    clicked => { root.create-ticket(root.create-title, root.create-priority, root.create-message); }
+                }
+            }
+        }
+    }
+
+}

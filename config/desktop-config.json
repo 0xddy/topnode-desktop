@@ -1,0 +1,74 @@
+{
+  "baseApiServer": [
+    "https://api.anyrelink.top"
+  ],
+  "apiProbe": {
+    "method": "GET",
+    "path": "/",
+    "strategy": "FirstSuccessful",
+    "connectTimeoutMs": 10000,
+    "requestTimeoutMs": 30000,
+    "overallTimeoutMs": 35000,
+    "cancelRemaining": true
+  },
+  "fake": {
+    "enable": false,
+    "fakeSNI": "",
+    "real": []
+  },
+  "version": {
+    "metadata": {
+      "versionCode": 1,
+      "versionName": "0.1.0",
+      "updateInfo": "",
+      "forceUpdate": false
+    },
+    "download": {
+      "downType": "Browser",
+      "url": "https://example.invalid/topnode-desktop/releases",
+      "fileName": "topnode-desktop",
+      "mimeType": "text/html"
+    },
+    "downloads": {
+      "x86_64-pc-windows-msvc": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-windows-x86_64.zip",
+        "fileName": "topnode-desktop-windows-x86_64.zip",
+        "mimeType": "application/zip"
+      },
+      "aarch64-pc-windows-msvc": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-windows-aarch64.zip",
+        "fileName": "topnode-desktop-windows-aarch64.zip",
+        "mimeType": "application/zip"
+      },
+      "x86_64-unknown-linux-gnu": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-linux-x86_64.tar.gz",
+        "fileName": "topnode-desktop-linux-x86_64.tar.gz",
+        "mimeType": "application/gzip"
+      },
+      "aarch64-unknown-linux-gnu": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-linux-aarch64.tar.gz",
+        "fileName": "topnode-desktop-linux-aarch64.tar.gz",
+        "mimeType": "application/gzip"
+      },
+      "x86_64-apple-darwin": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-macos-x86_64.tar.gz",
+        "fileName": "topnode-desktop-macos-x86_64.tar.gz",
+        "mimeType": "application/gzip"
+      },
+      "aarch64-apple-darwin": {
+        "downType": "Browser",
+        "url": "https://example.invalid/topnode-desktop-macos-aarch64.tar.gz",
+        "fileName": "topnode-desktop-macos-aarch64.tar.gz",
+        "mimeType": "application/gzip"
+      }
+    }
+  },
+  "payment": {
+    "presentation": "qr_code"
+  }
+}

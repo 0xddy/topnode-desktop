@@ -1,0 +1,577 @@
+import { AppTheme } from "../theme.slint";
+import {
+    AppButton,
+    AppField,
+    InlineAlert,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component BackButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: back-touch.pressed && root.enabled ? AppTheme.surface-muted
+        : back-touch.has-hover && root.enabled ? AppTheme.surface : transparent;
+    opacity: root.enabled ? 1 : 0.42;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    back-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component IconBadge inherits Rectangle {
+    in property <string> name;
+    in property <length> size: 44px;
+    in property <length> corner-radius: 14px;
+    in property <color> tint: AppTheme.accent-soft;
+    in property <color> ink: AppTheme.accent-dark;
+
+    width: root.size;
+    height: root.size;
+    border-radius: root.corner-radius;
+    background: root.tint;
+
+    Glyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        name: root.name;
+        fill: root.ink;
+    }
+}
+
+component PasswordEntry inherits VerticalLayout {
+    in property <string> label;
+    in property <string> placeholder: "请输入" + root.label;
+    in-out property <string> value;
+    in property <bool> enabled: true;
+    in-out property <bool> revealed: false;
+    callback accepted();
+
+    height: 68px;
+    spacing: 6px;
+
+    HorizontalLayout {
+        height: 18px;
+
+        Text {
+            text: root.label;
+            color: AppTheme.ink;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    Rectangle {
+        height: 44px;
+        background: transparent;
+
+        AppField {
+            width: 100%;
+            height: 100%;
+            text <=> root.value;
+            enabled: root.enabled;
+            placeholder: root.placeholder;
+            input-type: root.revealed ? InputType.text : InputType.password;
+            trailing-inset: 36px;
+            accepted => { root.accepted(); }
+        }
+
+        reveal-button := Rectangle {
+            x: parent.width - self.width - 5px;
+            y: (parent.height - self.height) / 2;
+            width: 34px;
+            height: 34px;
+            border-radius: 10px;
+            opacity: root.enabled ? 1 : 0.42;
+            background: reveal-touch.pressed && root.enabled ? AppTheme.surface-muted
+                : reveal-touch.has-hover && root.enabled ? AppTheme.accent-faint : transparent;
+            animate background { duration: 100ms; }
+
+            Glyph {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                width: 18px;
+                height: 18px;
+                name: root.revealed ? "eye-off" : "eye";
+                fill: root.revealed || reveal-touch.has-hover
+                    ? AppTheme.accent : AppTheme.ink-subtle;
+            }
+
+            reveal-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+                clicked => { root.revealed = !root.revealed; }
+            }
+        }
+    }
+}
+
+export component AccountSettingsPage inherits Rectangle {
+    in property <string> username;
+    in property <string> email;
+    in-out property <bool> busy: false;
+    in-out property <string> error-message;
+    in-out property <string> stage: "overview";
+
+    callback change-password(string, string, string);
+    callback dismissed();
+
+    property <string> current-password;
+    property <string> new-password;
+    property <string> confirm-password;
+    property <bool> show-current-password: false;
+    property <bool> show-new-password: false;
+    property <bool> show-confirm-password: false;
+
+    property <bool> mismatch: root.confirm-password != ""
+        && root.new-password != root.confirm-password;
+    property <bool> reused: root.new-password != ""
+        && root.new-password == root.current-password;
+    property <bool> hint-danger: root.mismatch || root.reused;
+    property <string> hint-text: root.mismatch ? "两次输入的新密码不一致"
+        : root.reused ? "新密码不能与当前密码相同"
+        : "建议混合使用字母、数字与符号，避免使用常见密码。";
+    property <bool> can-submit: !root.busy
+        && root.current-password != ""
+        && root.new-password != ""
+        && root.confirm-password != ""
+        && !root.mismatch
+        && !root.reused;
+
+    width: 732px;
+    height: 664px;
+    preferred-width: 732px;
+    preferred-height: 664px;
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    clip: true;
+
+    public function prepare() {
+        root.stage = "overview";
+        root.current-password = "";
+        root.new-password = "";
+        root.confirm-password = "";
+        root.show-current-password = false;
+        root.show-new-password = false;
+        root.show-confirm-password = false;
+        root.error-message = "";
+        root.busy = false;
+    }
+
+    function request-back() {
+        if (root.busy) {
+            return;
+        }
+        if (root.stage == "password") {
+            root.stage = "overview";
+            root.error-message = "";
+            return;
+        }
+        root.dismissed();
+    }
+
+    function submit() {
+        if (!root.can-submit) {
+            return;
+        }
+        root.error-message = "";
+        root.change-password(
+            root.current-password,
+            root.new-password,
+            root.confirm-password,
+        );
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                BackButton {
+                    enabled: !root.busy;
+                    clicked => { root.request-back(); }
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.stage == "password" ? "修改密码" : "账号设置";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    if root.stage == "overview" : Flickable {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, overview-content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        overview-content := VerticalLayout {
+            width: parent.width;
+            padding-top: 4px;
+            padding-bottom: 18px;
+            spacing: 0px;
+
+            Rectangle {
+                height: 88px;
+                border-radius: 22px;
+                background: AppTheme.surface;
+
+                HorizontalLayout {
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    spacing: 14px;
+
+                    VerticalLayout {
+                        width: 52px;
+                        alignment: center;
+
+                        Rectangle {
+                            width: 52px;
+                            height: 52px;
+                            border-radius: 26px;
+                            background: AppTheme.accent-soft;
+
+                            Glyph {
+                                x: (parent.width - self.width) / 2;
+                                y: (parent.height - self.height) / 2;
+                                width: 24px;
+                                height: 24px;
+                                name: "user";
+                                fill: AppTheme.accent-dark;
+                            }
+                        }
+                    }
+
+                    VerticalLayout {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 4px;
+
+                        Text {
+                            text: root.username == "" ? "TOPNODE 用户" : root.username;
+                            color: AppTheme.ink;
+                            font-size: 16px;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+                        Text {
+                            text: root.email == "" ? "账号信息" : root.email;
+                            color: AppTheme.ink-muted;
+                            font-size: 13px;
+                            overflow: elide;
+                        }
+                    }
+                }
+            }
+
+            Rectangle { height: 20px; background: transparent; }
+
+            VerticalLayout {
+                height: 42px;
+                spacing: 3px;
+
+                Text {
+                    text: "安全设置";
+                    color: AppTheme.ink;
+                    font-size: 15px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: "管理账号登录与安全信息";
+                    color: AppTheme.ink-muted;
+                    font-size: 12px;
+                }
+            }
+
+            Rectangle { height: 10px; background: transparent; }
+
+            password-row := Rectangle {
+                height: 78px;
+                border-radius: 20px;
+                background: password-touch.pressed ? AppTheme.surface-muted
+                    : password-touch.has-hover ? AppTheme.surface-subtle : AppTheme.surface;
+                animate background { duration: 110ms; }
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 13px;
+
+                    VerticalLayout {
+                        width: 44px;
+                        alignment: center;
+                        IconBadge { name: "lock"; }
+                    }
+
+                    VerticalLayout {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 4px;
+
+                        Text {
+                            text: "登录密码";
+                            color: AppTheme.ink;
+                            font-size: 14px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "更新账号登录密码";
+                            color: AppTheme.ink-muted;
+                            font-size: 12px;
+                        }
+                    }
+
+                    VerticalLayout {
+                        alignment: center;
+                        Text {
+                            text: "修改";
+                            color: AppTheme.accent;
+                            font-size: 13px;
+                            font-weight: 600;
+                            vertical-alignment: center;
+                        }
+                    }
+                    VerticalLayout {
+                        width: 16px;
+                        alignment: center;
+                        Glyph {
+                            name: "chevron-right";
+                            fill: password-touch.has-hover ? AppTheme.accent : AppTheme.ink-subtle;
+                        }
+                    }
+                }
+
+                password-touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => {
+                        root.error-message = "";
+                        root.stage = "password";
+                    }
+                }
+            }
+
+            Rectangle { height: 16px; background: transparent; }
+
+            Rectangle {
+                height: 72px;
+                border-radius: 18px;
+                background: AppTheme.accent-soft.with-alpha(0.55);
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 12px;
+
+                    VerticalLayout {
+                        width: 18px;
+                        alignment: center;
+                        Glyph { name: "info"; fill: AppTheme.accent-dark; }
+                    }
+                    VerticalLayout {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 4px;
+
+                        Text {
+                            text: "保护账号安全";
+                            color: AppTheme.accent-dark;
+                            font-size: 13px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "建议使用未在其他服务中使用过的独立密码，并定期更新。";
+                            color: AppTheme.ink-muted;
+                            font-size: 12px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.stage == "password" : Flickable {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, password-content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        password-content := VerticalLayout {
+            width: parent.width;
+            padding-top: 4px;
+            padding-bottom: 18px;
+            spacing: 14px;
+
+            Rectangle {
+                height: 70px;
+                border-radius: 20px;
+                background: AppTheme.accent-soft.with-alpha(0.55);
+
+                HorizontalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    spacing: 13px;
+
+                    VerticalLayout {
+                        width: 42px;
+                        alignment: center;
+                        IconBadge {
+                            name: "lock";
+                            size: 42px;
+                            corner-radius: 21px;
+                            tint: AppTheme.accent;
+                            ink: white;
+                        }
+                    }
+                    VerticalLayout {
+                        min-width: 0px;
+                        horizontal-stretch: 1;
+                        alignment: center;
+                        spacing: 3px;
+
+                        Text {
+                            text: "设置新的登录密码";
+                            color: AppTheme.accent-dark;
+                            font-size: 14px;
+                            font-weight: 600;
+                        }
+                        Text {
+                            text: "新密码需要为 8–72 个 UTF-8 字节";
+                            color: AppTheme.ink-muted;
+                            font-size: 12px;
+                        }
+                    }
+                }
+            }
+
+            Rectangle {
+                height: 298px;
+                border-radius: 22px;
+                background: AppTheme.surface;
+
+                VerticalLayout {
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    padding-top: 15px;
+                    padding-bottom: 15px;
+                    spacing: 12px;
+
+                    PasswordEntry {
+                        label: "当前密码";
+                        value <=> root.current-password;
+                        revealed <=> root.show-current-password;
+                        enabled: !root.busy;
+                    }
+                    Rectangle {
+                        height: 1px;
+                        background: AppTheme.border.with-alpha(0.48);
+                    }
+                    PasswordEntry {
+                        label: "新密码";
+                        value <=> root.new-password;
+                        revealed <=> root.show-new-password;
+                        enabled: !root.busy;
+                    }
+                    PasswordEntry {
+                        label: "确认新密码";
+                        placeholder: "再次输入新密码";
+                        value <=> root.confirm-password;
+                        revealed <=> root.show-confirm-password;
+                        enabled: !root.busy;
+                        accepted => { root.submit(); }
+                    }
+
+                    HorizontalLayout {
+                        height: 16px;
+                        spacing: 7px;
+
+                        VerticalLayout {
+                            width: 6px;
+                            alignment: center;
+                            Rectangle {
+                                width: 6px;
+                                height: 6px;
+                                border-radius: 3px;
+                                background: root.hint-danger ? AppTheme.danger : AppTheme.ink-subtle;
+                            }
+                        }
+                        Text {
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            text: root.hint-text;
+                            color: root.hint-danger ? AppTheme.danger : AppTheme.ink-muted;
+                            font-size: 11px;
+                            overflow: elide;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            if root.error-message != "" : InlineAlert {
+                height: 42px;
+                vertical-stretch: 0;
+                message: root.error-message;
+            }
+
+            AppButton {
+                text: root.busy ? "正在修改" : "确认修改";
+                busy: root.busy;
+                enabled: root.can-submit;
+                clicked => { root.submit(); }
+            }
+
+            Text {
+                height: 28px;
+                text: "修改成功后，当前账号会退出登录，请使用新密码重新登录。";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                wrap: word-wrap;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+}

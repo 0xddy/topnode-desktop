@@ -1,0 +1,10 @@
+/target/
+/dist/
+*.log
+*.tmp
+__pycache__/
+*.py[cod]
+
+# sing-box and all extracted upstream companions/notices are local staging output.
+/runtime/core/
+/.release/

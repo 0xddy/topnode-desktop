@@ -1,0 +1,1684 @@
+import { AppTheme } from "../theme.slint";
+import {
+    PaymentMethodItem,
+    ShopAddonItem,
+    ShopPlanItem,
+    ShopPriceItem,
+} from "../models.slint";
+import {
+    AppButton,
+    AppField,
+    BusyIndicator,
+    ButtonKind,
+    SurfaceCard,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+
+component SheetCloseButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 26px;
+    height: 26px;
+    border-radius: 13px;
+    opacity: root.enabled ? 1 : 0.42;
+    background: close-touch.pressed ? AppTheme.surface-muted
+        : close-touch.has-hover && root.enabled ? AppTheme.surface-muted : AppTheme.surface-subtle;
+    animate background { duration: 100ms; easing: ease-out; }
+
+    Text {
+        text: "×";
+        color: AppTheme.ink-muted;
+        font-size: 18px;
+        font-weight: AppTheme.font-weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    close-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SelectionCheck inherits Rectangle {
+    in property <bool> selected;
+    in property <color> tone-color: AppTheme.accent;
+
+    width: 17px;
+    height: 17px;
+    border-radius: 8.5px;
+    border-width: root.selected ? 0px : 1.5px;
+    border-color: AppTheme.border-strong;
+    background: root.selected ? root.tone-color : transparent;
+
+    if root.selected : Glyph {
+        width: 17px;
+        height: 17px;
+        name: "check";
+        fill: white;
+    }
+}
+
+component TypePill inherits Rectangle {
+    in property <string> text;
+    in property <color> tone-dark: AppTheme.accent-dark;
+    in property <color> tone-soft: AppTheme.accent-soft;
+
+    width: pill-label.preferred-width + 14px;
+    height: 22px;
+    border-radius: 11px;
+    background: root.tone-soft;
+
+    pill-label := Text {
+        x: 7px;
+        width: parent.width - 14px;
+        text: root.text;
+        color: root.tone-dark;
+        font-size: 10px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component ProductSummary inherits Rectangle {
+    in property <bool> addon;
+    in property <bool> show-icon: true;
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> description;
+    in property <string> amount-label;
+    in property <string> original-amount-label;
+    in property <string> discount-label;
+    in property <bool> discounted;
+    in property <length> title-size: 18px;
+    in property <color> tone-color: AppTheme.accent;
+    in property <color> tone-dark: AppTheme.accent-dark;
+    in property <color> tone-soft: AppTheme.accent-soft;
+
+    min-height: root.show-icon
+        ? (root.subtitle != "" && root.description != "" ? 104px : 88px)
+        : 84px;
+    max-height: self.min-height;
+    vertical-stretch: 0;
+    border-radius: AppTheme.radius-medium;
+    background: AppTheme.surface-subtle;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 14px;
+        padding-bottom: 14px;
+        spacing: 13px;
+
+        if root.show-icon : Rectangle {
+            width: 38px;
+            height: 38px;
+            border-radius: 10px;
+            background: root.tone-soft;
+            VerticalLayout {
+                alignment: center;
+                HorizontalLayout {
+                    alignment: center;
+                    Glyph {
+                        width: 18px;
+                        height: 18px;
+                        name: root.addon ? "package" : "subscriptions";
+                        fill: root.tone-color;
+                    }
+                }
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 4px;
+
+            HorizontalLayout {
+                height: 24px;
+                spacing: 8px;
+                Text {
+                    text: root.title;
+                    color: AppTheme.ink;
+                    font-size: root.title-size;
+                    font-weight: 600;
+                    vertical-alignment: center;
+                    overflow: elide;
+                }
+                TypePill {
+                    text: root.addon ? "流量包" : "方案";
+                    tone-dark: root.tone-dark;
+                    tone-soft: root.tone-soft;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+            }
+
+            if root.subtitle != "" : Text {
+                text: root.subtitle;
+                color: AppTheme.ink-muted;
+                font-size: 12px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+            }
+
+            if root.description != "" : Text {
+                text: root.description;
+                color: AppTheme.ink-muted;
+                font-size: 12px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+            }
+        }
+
+        VerticalLayout {
+            width: 116px;
+            spacing: 2px;
+            Text {
+                text: "需支付";
+                color: AppTheme.ink-subtle;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: right;
+            }
+            if root.discounted && root.original-amount-label != "" : Text {
+                text: root.original-amount-label;
+                color: AppTheme.ink-subtle;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: right;
+            }
+            Text {
+                text: root.amount-label == "" ? "—" : root.amount-label;
+                color: AppTheme.ink;
+                font-size: 22px;
+                font-weight: 700;
+                horizontal-alignment: right;
+                overflow: elide;
+            }
+            if root.discounted && root.discount-label != "" : Text {
+                text: root.discount-label;
+                color: root.tone-color;
+                font-size: 10px;
+                font-weight: 500;
+                horizontal-alignment: right;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component SpecChoice inherits Rectangle {
+    in property <string> title;
+    in property <string> meta;
+    in property <string> price-label;
+    in property <bool> selected;
+    in property <bool> enabled: true;
+    in property <bool> shown: true;
+    in property <length> choice-width: 0px;
+    in property <color> tone-color: AppTheme.accent;
+    in property <color> tone-faint: AppTheme.accent-faint;
+    callback chosen();
+
+    visible: root.shown;
+    width: root.choice-width;
+    height: root.shown ? 78px : 0px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    border-radius: AppTheme.radius-medium;
+    border-width: root.selected ? 1.5px : 1px;
+    border-color: root.selected ? root.tone-color : AppTheme.border;
+    opacity: root.enabled ? 1 : 0.45;
+    background: root.selected ? root.tone-faint
+        : choice-touch.pressed ? AppTheme.surface-muted
+        : choice-touch.has-hover && root.enabled ? AppTheme.surface-subtle : AppTheme.surface;
+    animate background { duration: 100ms; easing: ease-out; }
+    animate border-color { duration: 100ms; easing: ease-out; }
+
+    VerticalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        padding-top: 11px;
+        padding-bottom: 10px;
+        spacing: 8px;
+
+        HorizontalLayout {
+            spacing: 8px;
+            Text {
+                text: root.title;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+            if root.selected : SelectionCheck {
+                selected: true;
+                tone-color: root.tone-color;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Text {
+                text: root.price-label;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: 600;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        Text {
+            text: root.meta;
+            color: AppTheme.ink-subtle;
+            font-size: 10px;
+            font-weight: AppTheme.font-weight-regular;
+            overflow: elide;
+        }
+    }
+
+    choice-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.chosen(); }
+    }
+}
+
+component CouponAction inherits Rectangle {
+    in property <bool> applied;
+    in property <string> code;
+    in property <string> summary;
+    in property <bool> enabled: true;
+    in property <color> tone-color: AppTheme.accent;
+    in property <color> tone-dark: AppTheme.accent-dark;
+    in property <color> tone-soft: AppTheme.accent-soft;
+    in property <color> tone-faint: AppTheme.accent-faint;
+    callback open-coupon();
+    callback clear-coupon();
+
+    height: root.applied ? 62px : 42px;
+    border-radius: AppTheme.radius-medium;
+    border-width: root.applied ? 0px : 1px;
+    border-color: AppTheme.border-strong;
+    background: root.applied ? root.tone-faint
+        : coupon-touch.pressed ? AppTheme.surface-muted
+        : coupon-touch.has-hover && root.enabled ? AppTheme.surface-subtle : AppTheme.surface;
+    opacity: root.enabled ? 1 : 0.48;
+    animate background { duration: 100ms; easing: ease-out; }
+    animate height { duration: 120ms; easing: ease-out; }
+
+    // Slint 1.17 has no dashed border, so the solid outline is drawn as usual and the
+    // gaps are painted back in with the element's own fill. Only the straight runs are
+    // broken up; the corner arcs stay continuous.
+    property <length> dash-length: 5px;
+    property <length> dash-gap: 3px;
+    property <length> dash-stroke: 1.5px;
+    property <length> dash-period: root.dash-length + root.dash-gap;
+    property <length> dash-h-span: root.width > 2 * AppTheme.radius-medium
+        ? root.width - 2 * AppTheme.radius-medium
+        : 0px;
+    property <length> dash-v-span: root.height > 2 * AppTheme.radius-medium
+        ? root.height - 2 * AppTheme.radius-medium
+        : 0px;
+    property <int> dash-h-count: Math.floor(root.dash-h-span / root.dash-period);
+    property <int> dash-v-count: Math.floor(root.dash-v-span / root.dash-period);
+    property <length> dash-h-origin: AppTheme.radius-medium
+        + (root.dash-h-span - root.dash-h-count * root.dash-period) / 2;
+    property <length> dash-v-origin: AppTheme.radius-medium
+        + (root.dash-v-span - root.dash-v-count * root.dash-period) / 2;
+
+    if !root.applied : Rectangle {
+        background: transparent;
+
+        for i in root.dash-h-count : Rectangle {
+            x: root.dash-h-origin + i * root.dash-period + root.dash-length;
+            y: 0px;
+            width: root.dash-gap;
+            height: root.dash-stroke;
+            background: root.background;
+        }
+        for i in root.dash-h-count : Rectangle {
+            x: root.dash-h-origin + i * root.dash-period + root.dash-length;
+            y: root.height - root.dash-stroke;
+            width: root.dash-gap;
+            height: root.dash-stroke;
+            background: root.background;
+        }
+        for i in root.dash-v-count : Rectangle {
+            x: 0px;
+            y: root.dash-v-origin + i * root.dash-period + root.dash-length;
+            width: root.dash-stroke;
+            height: root.dash-gap;
+            background: root.background;
+        }
+        for i in root.dash-v-count : Rectangle {
+            x: root.width - root.dash-stroke;
+            y: root.dash-v-origin + i * root.dash-period + root.dash-length;
+            width: root.dash-stroke;
+            height: root.dash-gap;
+            background: root.background;
+        }
+    }
+
+    if !root.applied : HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 13px;
+        spacing: 9px;
+        Rectangle {
+            width: 19px;
+            background: transparent;
+            Glyph {
+                x: (parent.width - self.width) / 2;
+                y: (parent.height - self.height) / 2;
+                name: "coupon";
+                fill: AppTheme.ink-muted;
+            }
+        }
+        Text {
+            text: "拥有优惠码？";
+            color: AppTheme.ink-muted;
+            font-size: 12px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+    }
+
+    if root.applied : HorizontalLayout {
+        padding-left: 13px;
+        padding-right: 9px;
+        padding-top: 9px;
+        padding-bottom: 9px;
+        spacing: 10px;
+        Rectangle {
+            width: 34px;
+            height: 34px;
+            border-radius: 9px;
+            background: root.tone-soft;
+            Text {
+                text: "券";
+                color: root.tone-dark;
+                font-size: 12px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            spacing: 3px;
+            Text {
+                text: "已使用优惠码  " + root.code;
+                color: root.tone-dark;
+                font-size: 12px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            Text {
+                text: root.summary;
+                color: AppTheme.ink-muted;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+            }
+        }
+        Rectangle {
+            width: 30px;
+            height: 30px;
+            border-radius: 15px;
+            background: clear-touch.pressed ? AppTheme.surface-muted
+                : clear-touch.has-hover ? AppTheme.surface : transparent;
+            Text {
+                text: "×";
+                color: AppTheme.ink-muted;
+                font-size: 16px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            clear-touch := TouchArea {
+                enabled: root.enabled;
+                mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+                clicked => { root.clear-coupon(); }
+            }
+        }
+    }
+
+    coupon-touch := TouchArea {
+        enabled: root.enabled && !root.applied;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.open-coupon(); }
+    }
+}
+
+component PaymentMethodMark inherits Rectangle {
+    in property <bool> balance: false;
+    in property <string> provider;
+    in property <string> payment-type;
+    in property <color> tone-color: AppTheme.accent;
+    in property <color> tone-dark: AppTheme.accent-dark;
+    in property <color> tone-soft: AppTheme.accent-soft;
+
+    width: 36px;
+    height: 36px;
+    background: transparent;
+
+    if root.balance : Rectangle {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        background: root.tone-soft;
+        Text {
+            text: "¥";
+            color: root.tone-dark;
+            font-size: 15px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    if !root.balance && (root.payment-type == "alipay" || root.provider == "alipay") : Image {
+        width: 36px;
+        height: 36px;
+        source: @image-url("../assets/payment-methods/alipay.svg");
+        image-fit: contain;
+    }
+
+    if !root.balance && (
+        root.payment-type == "wxpay"
+        || root.payment-type == "wechat"
+        || root.payment-type == "wechatpay"
+        || root.provider == "wxpay"
+        || root.provider == "wechat"
+        || root.provider == "wechatpay"
+    ) : Image {
+        width: 36px;
+        height: 36px;
+        source: @image-url("../assets/payment-methods/wxpay.svg");
+        image-fit: contain;
+    }
+
+    if !root.balance
+        && root.payment-type != "alipay"
+        && root.provider != "alipay"
+        && root.payment-type != "wxpay"
+        && root.payment-type != "wechat"
+        && root.payment-type != "wechatpay"
+        && root.provider != "wxpay"
+        && root.provider != "wechat"
+        && root.provider != "wechatpay" : Rectangle {
+        width: 36px;
+        height: 36px;
+        border-radius: 9px;
+        background: root.tone-soft;
+        Glyph {
+            x: 9px;
+            y: 9px;
+            width: 18px;
+            height: 18px;
+            name: "shop";
+            fill: root.tone-color;
+        }
+    }
+}
+
+component PaymentChoice inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <string> provider;
+    in property <string> payment-type;
+    in property <bool> selected;
+    in property <bool> balance: false;
+    in property <bool> enabled: true;
+    in property <bool> shown: true;
+    in property <length> choice-width: 0px;
+    in property <color> tone-color: AppTheme.accent;
+    in property <color> tone-dark: AppTheme.accent-dark;
+    in property <color> tone-soft: AppTheme.accent-soft;
+    in property <color> tone-faint: AppTheme.accent-faint;
+    callback chosen();
+
+    visible: root.shown;
+    width: root.choice-width;
+    height: root.shown ? 66px : 0px;
+    horizontal-stretch: 0;
+    vertical-stretch: 0;
+    border-radius: AppTheme.radius-medium;
+    border-width: root.selected ? 1.5px : 1px;
+    border-color: root.selected ? root.tone-color : AppTheme.border;
+    opacity: root.enabled ? 1 : 0.45;
+    background: root.selected ? root.tone-faint
+        : pay-touch.pressed ? AppTheme.surface-muted
+        : pay-touch.has-hover && root.enabled ? AppTheme.surface-subtle : AppTheme.surface;
+    animate background { duration: 100ms; easing: ease-out; }
+    animate border-color { duration: 100ms; easing: ease-out; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 10px;
+        VerticalLayout {
+            width: 36px;
+            alignment: center;
+
+            PaymentMethodMark {
+                balance: root.balance;
+                provider: root.provider;
+                payment-type: root.payment-type;
+                tone-color: root.tone-color;
+                tone-dark: root.tone-dark;
+                tone-soft: root.tone-soft;
+            }
+        }
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.title;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            Text {
+                text: root.subtitle;
+                color: AppTheme.ink-muted;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+            }
+        }
+        Rectangle {
+            width: 17px;
+            background: transparent;
+        }
+    }
+
+    if root.selected : SelectionCheck {
+        x: parent.width - self.width - 12px;
+        y: 10px;
+        selected: true;
+        tone-color: root.tone-color;
+    }
+
+    pay-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.chosen(); }
+    }
+}
+
+component ErrorStrip inherits Rectangle {
+    in property <string> text;
+
+    min-height: 38px;
+    border-radius: AppTheme.radius-small;
+    background: AppTheme.danger-soft;
+
+    Text {
+        x: 12px;
+        width: parent.width - 24px;
+        text: root.text;
+        color: AppTheme.danger;
+        font-size: 11px;
+        font-weight: AppTheme.font-weight-regular;
+        vertical-alignment: center;
+        wrap: word-wrap;
+    }
+}
+
+export component PurchaseCheckoutSheet inherits Rectangle {
+    in-out property <bool> open: false;
+    in-out property <string> stage: "confirm";
+    in property <[ShopPriceItem]> prices;
+    in property <[ShopAddonItem]> addons;
+    in property <[PaymentMethodItem]> payment-methods;
+    in property <int> balance-cents: 0;
+    in property <string> balance-label;
+
+    in-out property <bool> busy: false;
+    in property <bool> polling: false;
+    in-out property <string> error-message;
+
+    in-out property <bool> coupon-applied: false;
+    in-out property <string> coupon-code;
+    in-out property <string> coupon-name;
+    in-out property <string> coupon-summary;
+    in-out property <string> coupon-discount-label;
+    in-out property <string> coupon-payable-label;
+
+    in-out property <string> order-id;
+    in-out property <string> order-number;
+    in-out property <int> order-amount-cents: 0;
+    in-out property <string> order-amount-label;
+    in-out property <string> order-status-label: "待支付";
+    in-out property <string> payment-url;
+    in property <bool> payment-qr-mode: true;
+    in-out property <image> payment-qr;
+    in-out property <bool> payment-qr-ready: false;
+    in-out property <bool> fulfillment-pending: false;
+
+    in-out property <string> selected-kind;
+    in-out property <string> selected-plan-id;
+    in-out property <string> selected-product-id;
+    in-out property <string> selected-product-title;
+    in-out property <string> selected-product-subtitle;
+    in-out property <string> selected-product-description;
+    in-out property <string> selected-price-label;
+    in-out property <string> selected-traffic-label;
+    in-out property <int> selected-option-count: 0;
+    in-out property <int> selected-product-price-cents: 0;
+    in-out property <string> selected-payment-method-id;
+    in-out property <bool> selected-use-balance: false;
+
+    callback check-coupon(string, string, string, string);
+    callback create-order(string, string, string, string);
+    callback pay-order(string, string, bool);
+    callback poll-order(string);
+    callback reopen-payment(string);
+    callback dismissed();
+    callback back-to-confirm();
+
+    visible: root.open;
+    width: 1024px;
+    height: 720px;
+    background: transparent;
+    clip: true;
+
+    property <string> coupon-draft;
+    property <bool> balance-sufficient: root.order-amount-cents > 0
+        && root.balance-cents >= root.order-amount-cents;
+    property <bool> confirm-ready: root.selected-plan-id != ""
+        && root.selected-product-id != "";
+    property <string> effective-payment-method-id: root.selected-use-balance
+        ? ""
+        : root.selected-payment-method-id != ""
+            ? root.selected-payment-method-id
+            : root.payment-methods.length > 0 ? root.payment-methods[0].id : "";
+    property <bool> effective-use-balance: root.selected-use-balance
+        || (root.effective-payment-method-id == "" && root.balance-sufficient);
+    property <bool> payment-ready: root.order-id != ""
+        && (root.effective-use-balance || root.effective-payment-method-id != "");
+    property <bool> addon-checkout: root.selected-kind == "traffic_addon";
+    // Slint 1.17 Rust codegen ignores row/col on repeated GridLayout children, so both
+    // option lists are positioned by hand in a two column flow. The row count cannot be
+    // derived from the model in Slint, hence the count carried on the shop items.
+    property <int> option-rows:
+        (root.selected-option-count + Math.mod(root.selected-option-count, 2)) / 2;
+    property <length> option-grid-height: root.option-rows > 0
+        ? root.option-rows * 78px + (root.option-rows - 1) * 10px
+        : 0px;
+    property <int> payment-option-count:
+        root.payment-methods.length + (root.balance-sufficient ? 1 : 0);
+    property <int> payment-rows:
+        (root.payment-option-count + Math.mod(root.payment-option-count, 2)) / 2;
+    property <length> payment-grid-height: root.payment-rows > 0
+        ? root.payment-rows * 66px + (root.payment-rows - 1) * 10px
+        : 0px;
+    property <color> checkout-tone: root.addon-checkout ? #17c964 : AppTheme.accent;
+    property <color> checkout-tone-hover: root.addon-checkout ? #12b95a : AppTheme.accent-hover;
+    property <color> checkout-tone-dark: root.addon-checkout ? #109e4d : AppTheme.accent-dark;
+    property <color> checkout-tone-soft: root.addon-checkout ? #e4f9ee : AppTheme.accent-soft;
+    property <color> checkout-tone-faint: root.addon-checkout ? #f2fcf7 : AppTheme.accent-faint;
+
+    function clear-coupon-state() {
+        root.coupon-applied = false;
+        root.coupon-code = "";
+        root.coupon-name = "";
+        root.coupon-summary = "";
+        root.coupon-discount-label = "";
+        root.coupon-payable-label = "";
+        root.coupon-draft = "";
+    }
+
+    function clear-order-state() {
+        root.order-id = "";
+        root.order-number = "";
+        root.order-amount-cents = 0;
+        root.order-amount-label = "";
+        root.order-status-label = "待支付";
+        root.payment-url = "";
+        root.payment-qr-ready = false;
+        root.fulfillment-pending = false;
+        root.selected-payment-method-id = "";
+        root.selected-use-balance = false;
+    }
+
+    function select-default-payment() {
+        root.selected-use-balance = false;
+        root.selected-payment-method-id = "";
+        if (root.payment-methods.length > 0) {
+            root.selected-payment-method-id = root.payment-methods[0].id;
+        } else if (root.balance-sufficient) {
+            root.selected-use-balance = true;
+        }
+    }
+
+    function request-dismiss() {
+        if (root.busy || root.stage == "waiting") {
+            return;
+        }
+        if (root.stage == "coupon") {
+            root.stage = "confirm";
+            root.error-message = "";
+            return;
+        }
+        root.open = false;
+        root.dismissed();
+    }
+
+    function return-to-confirm() {
+        if (root.busy) {
+            return;
+        }
+        root.stage = "confirm";
+        root.error-message = "";
+        root.back-to-confirm();
+    }
+
+    function submit-coupon() {
+        if (root.busy) {
+            return;
+        }
+        if (root.coupon-draft == "") {
+            root.error-message = "请输入优惠码";
+            return;
+        }
+        root.error-message = "";
+        root.check-coupon(
+            root.selected-kind,
+            root.selected-plan-id,
+            root.selected-product-id,
+            root.coupon-draft,
+        );
+    }
+
+    public function prepare-plan(plan: ShopPlanItem) {
+        root.selected-kind = "base_plan";
+        root.selected-plan-id = plan.id;
+        root.selected-product-id = plan.default-price-id;
+        root.selected-product-title = plan.title;
+        root.selected-product-subtitle = "";
+        root.selected-product-description = plan.description;
+        root.selected-price-label = plan.default-price-label;
+        root.selected-traffic-label = plan.traffic-label;
+        root.selected-product-price-cents = plan.default-price-cents;
+        root.selected-option-count = plan.price-count;
+        root.error-message = "";
+        root.clear-coupon-state();
+        root.clear-order-state();
+        root.stage = "confirm";
+        root.open = true;
+    }
+
+    public function prepare-addon(addon: ShopAddonItem) {
+        root.selected-kind = "traffic_addon";
+        root.selected-plan-id = addon.plan-id;
+        root.selected-product-id = addon.id;
+        root.selected-product-title = addon.title;
+        root.selected-product-subtitle = "适用于 " + addon.plan-title;
+        root.selected-product-description = addon.plan-description;
+        root.selected-price-label = addon.price-label;
+        root.selected-traffic-label = addon.traffic-label;
+        root.selected-product-price-cents = addon.price-cents;
+        root.selected-option-count = addon.plan-addon-count;
+        root.error-message = "";
+        root.clear-coupon-state();
+        root.clear-order-state();
+        root.stage = "confirm";
+        root.open = true;
+    }
+
+    changed stage => {
+        if (root.stage == "payment") {
+            root.select-default-payment();
+        }
+    }
+
+    changed payment-methods => {
+        if (root.stage == "payment"
+            && root.selected-payment-method-id == ""
+            && !root.selected-use-balance) {
+            root.select-default-payment();
+        }
+    }
+
+    changed order-amount-cents => {
+        if (root.stage == "payment" && root.selected-use-balance && !root.balance-sufficient) {
+            root.select-default-payment();
+        }
+    }
+
+    default-payment-timer := Timer {
+        interval: 0ms;
+        running: root.open
+            && root.stage == "payment"
+            && root.selected-payment-method-id == ""
+            && !root.selected-use-balance
+            && (root.payment-methods.length > 0 || root.balance-sufficient);
+        triggered => { root.select-default-payment(); }
+    }
+
+    poll-timer := Timer {
+        interval: 2s;
+        running: root.open && root.stage == "waiting" && root.order-id != "" && !root.polling;
+        triggered => { root.poll-order(root.order-id); }
+    }
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        background: AppTheme.modal-backdrop;
+    }
+
+    scrim-touch := TouchArea {
+        enabled: root.open;
+        mouse-cursor: MouseCursor.default;
+        clicked => { root.request-dismiss(); }
+    }
+
+    if root.stage == "confirm" : confirm-card := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(640px, parent.width - 40px);
+        height: min(parent.height - 36px, max(360px, confirm-body.preferred-height + 142px));
+        border-radius: AppTheme.radius-extra-large;
+        border-color: AppTheme.border-strong;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 32px;
+        drop-shadow-offset-y: 12px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 15px;
+            padding-bottom: 16px;
+            spacing: 16px;
+
+            HorizontalLayout {
+                height: 36px;
+                Text {
+                    text: "确认购买";
+                    color: AppTheme.ink;
+                    font-size: 16px;
+                    font-weight: AppTheme.font-weight-regular;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                VerticalLayout {
+                    width: 30px;
+                    alignment: center;
+                    SheetCloseButton {
+                        enabled: !root.busy;
+                        clicked => { root.request-dismiss(); }
+                    }
+                }
+            }
+
+            confirm-scroll := Flickable {
+                vertical-stretch: 1;
+                viewport-width: self.width;
+                viewport-height: max(self.height, confirm-body.preferred-height);
+                viewport-x: 0px;
+                viewport-y: 0px;
+
+                confirm-body := VerticalLayout {
+                    y: 0px;
+                    width: parent.width;
+                    height: self.preferred-height;
+                    spacing: 16px;
+
+                    ProductSummary {
+                        addon: root.selected-kind == "traffic_addon";
+                        show-icon: true;
+                        title: root.selected-product-title;
+                        subtitle: root.selected-product-subtitle;
+                        description: root.selected-product-description;
+                        amount-label: root.coupon-applied && root.coupon-payable-label != ""
+                            ? root.coupon-payable-label : root.selected-price-label;
+                        original-amount-label: root.selected-price-label;
+                        discount-label: root.coupon-discount-label;
+                        discounted: root.coupon-applied;
+                        title-size: 18px;
+                        tone-color: root.checkout-tone;
+                        tone-dark: root.checkout-tone-dark;
+                        tone-soft: root.checkout-tone-soft;
+                    }
+
+                    HorizontalLayout {
+                        height: 22px;
+                        Text {
+                            text: root.selected-kind == "traffic_addon" ? "流量包" : "选择周期";
+                            color: AppTheme.ink;
+                            font-size: 12px;
+                            font-weight: 500;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; background: transparent; }
+                        Text {
+                            text: root.selected-kind == "traffic_addon"
+                                ? root.selected-product-title : root.selected-price-label;
+                            color: AppTheme.ink-subtle;
+                            font-size: 10px;
+                            font-weight: AppTheme.font-weight-regular;
+                            vertical-alignment: center;
+                            overflow: elide;
+                        }
+                    }
+
+                    if root.selected-kind == "base_plan" : Rectangle {
+                        height: root.option-grid-height;
+                        vertical-stretch: 0;
+                        background: transparent;
+                        for price in root.prices : SpecChoice {
+                            x: Math.mod(price.option-index, 2)
+                                * ((parent.width - 10px) * 0.5 + 10px);
+                            y: ((price.option-index - Math.mod(price.option-index, 2)) / 2)
+                                * (78px + 10px);
+                            shown: price.plan-id == root.selected-plan-id;
+                            choice-width: (parent.width - 10px) * 0.5;
+                            title: price.label;
+                            meta: price.traffic-label;
+                            price-label: price.price-label;
+                            selected: price.id == root.selected-product-id;
+                            enabled: !root.busy;
+                            tone-color: root.checkout-tone;
+                            tone-faint: root.checkout-tone-faint;
+                            chosen => {
+                                root.selected-product-id = price.id;
+                                root.selected-price-label = price.price-label;
+                                root.selected-traffic-label = price.traffic-label;
+                                root.selected-product-price-cents = price.price-cents;
+                                root.error-message = "";
+                                root.clear-coupon-state();
+                            }
+                        }
+                    }
+
+                    if root.selected-kind == "traffic_addon" : Rectangle {
+                        height: root.option-grid-height;
+                        vertical-stretch: 0;
+                        background: transparent;
+                        for addon in root.addons : SpecChoice {
+                            x: Math.mod(addon.option-index, 2)
+                                * ((parent.width - 10px) * 0.5 + 10px);
+                            y: ((addon.option-index - Math.mod(addon.option-index, 2)) / 2)
+                                * (78px + 10px);
+                            shown: addon.plan-id == root.selected-plan-id;
+                            choice-width: (parent.width - 10px) * 0.5;
+                            title: addon.title;
+                            meta: addon.traffic-label;
+                            price-label: addon.price-label;
+                            selected: addon.id == root.selected-product-id;
+                            enabled: addon.purchase-enabled && !root.busy;
+                            tone-color: root.checkout-tone;
+                            tone-faint: root.checkout-tone-faint;
+                            chosen => {
+                                root.selected-product-id = addon.id;
+                                root.selected-product-title = addon.title;
+                                root.selected-product-subtitle = "适用于 " + addon.plan-title;
+                                root.selected-product-description = addon.plan-description;
+                                root.selected-price-label = addon.price-label;
+                                root.selected-traffic-label = addon.traffic-label;
+                                root.selected-product-price-cents = addon.price-cents;
+                                root.error-message = "";
+                                root.clear-coupon-state();
+                            }
+                        }
+                    }
+
+                    CouponAction {
+                        applied: root.coupon-applied;
+                        code: root.coupon-code;
+                        summary: root.coupon-name != ""
+                            ? root.coupon-name + " · " + root.coupon-summary
+                            : root.coupon-summary;
+                        enabled: !root.busy;
+                        tone-color: root.checkout-tone;
+                        tone-dark: root.checkout-tone-dark;
+                        tone-soft: root.checkout-tone-soft;
+                        tone-faint: root.checkout-tone-faint;
+                        open-coupon => {
+                            root.coupon-draft = root.coupon-applied ? root.coupon-code : "";
+                            root.error-message = "";
+                            root.stage = "coupon";
+                        }
+                        clear-coupon => {
+                            root.clear-coupon-state();
+                            root.error-message = "";
+                        }
+                    }
+
+                    if root.error-message != "" : ErrorStrip { text: root.error-message; }
+                }
+            }
+
+            HorizontalLayout {
+                height: 40px;
+                spacing: 10px;
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                AppButton {
+                    width: 68px;
+                    height: 38px;
+                    button-min-width: 68px;
+                    text: "取消";
+                    kind: ButtonKind.secondary;
+                    filled-secondary: true;
+                    corner-radius: 20px;
+                    enabled: !root.busy;
+                    clicked => { root.request-dismiss(); }
+                }
+                AppButton {
+                    width: 104px;
+                    height: 38px;
+                    button-min-width: 104px;
+                    text: root.busy ? "提交中" : "提交订单";
+                    busy: root.busy;
+                    enabled: (root.confirm-ready && !root.busy) || root.busy;
+                    corner-radius: 20px;
+                    primary-color: root.checkout-tone;
+                    primary-hover-color: root.checkout-tone-hover;
+                    primary-pressed-color: root.checkout-tone-dark;
+                    gradient-primary: false;
+                    clicked => {
+                        if (root.confirm-ready && !root.busy) {
+                            root.error-message = "";
+                            root.create-order(
+                                root.selected-kind,
+                                root.selected-plan-id,
+                                root.selected-product-id,
+                                root.coupon-applied ? root.coupon-code : "",
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.stage == "coupon" : coupon-card := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(420px, parent.width - 40px);
+        height: root.error-message == "" ? 234px : 278px;
+        border-radius: AppTheme.radius-extra-large;
+        border-color: AppTheme.border-strong;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 32px;
+        drop-shadow-offset-y: 12px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 16px;
+            padding-bottom: 16px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                height: 34px;
+                Text {
+                    text: "优惠码";
+                    color: AppTheme.ink;
+                    font-size: 16px;
+                    font-weight: AppTheme.font-weight-regular;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                SheetCloseButton {
+                    enabled: !root.busy;
+                    clicked => { root.request-dismiss(); }
+                }
+            }
+
+            Text {
+                height: 20px;
+                text: "输入优惠码后，将按当前购买规格重新计算价格";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                vertical-alignment: center;
+            }
+
+            AppField {
+                text <=> root.coupon-draft;
+                placeholder: "输入优惠码";
+                enabled: !root.busy;
+                accepted(value) => { root.submit-coupon(); }
+            }
+
+            if root.error-message != "" : ErrorStrip { text: root.error-message; }
+
+            Rectangle { vertical-stretch: 1; background: transparent; }
+
+            HorizontalLayout {
+                height: 40px;
+                spacing: 10px;
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                AppButton {
+                    width: 82px;
+                    text: "取消";
+                    kind: ButtonKind.secondary;
+                    filled-secondary: true;
+                    corner-radius: 20px;
+                    enabled: !root.busy;
+                    clicked => { root.request-dismiss(); }
+                }
+                AppButton {
+                    width: 92px;
+                    text: root.busy ? "校验中" : "确认";
+                    busy: root.busy;
+                    enabled: (root.coupon-draft != "" && !root.busy) || root.busy;
+                    corner-radius: 20px;
+                    primary-color: root.checkout-tone;
+                    primary-hover-color: root.checkout-tone-hover;
+                    primary-pressed-color: root.checkout-tone-dark;
+                    gradient-primary: false;
+                    clicked => { root.submit-coupon(); }
+                }
+            }
+        }
+    }
+
+    if root.stage == "payment" : payment-card := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(560px, parent.width - 40px);
+        height: min(parent.height - 36px, max(360px, payment-body.preferred-height + 142px));
+        border-radius: AppTheme.radius-extra-large;
+        border-color: AppTheme.border-strong;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 32px;
+        drop-shadow-offset-y: 12px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 15px;
+            padding-bottom: 16px;
+            spacing: 16px;
+
+            HorizontalLayout {
+                height: 36px;
+                Text {
+                    text: "选择付款方式";
+                    color: AppTheme.ink;
+                    font-size: 16px;
+                    font-weight: AppTheme.font-weight-regular;
+                    vertical-alignment: center;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                SheetCloseButton {
+                    enabled: !root.busy;
+                    clicked => { root.request-dismiss(); }
+                }
+            }
+
+            payment-scroll := Flickable {
+                vertical-stretch: 1;
+                viewport-width: self.width;
+                viewport-height: max(self.height, payment-body.preferred-height);
+                viewport-x: 0px;
+                viewport-y: 0px;
+
+                payment-body := VerticalLayout {
+                    y: 0px;
+                    width: parent.width;
+                    height: self.preferred-height;
+                    spacing: 16px;
+
+                    ProductSummary {
+                        addon: root.selected-kind == "traffic_addon";
+                        show-icon: false;
+                        title: root.selected-product-title;
+                        subtitle: "";
+                        description: root.selected-kind == "traffic_addon"
+                            ? root.selected-product-title : root.selected-price-label;
+                        amount-label: root.order-amount-label;
+                        original-amount-label: "";
+                        discount-label: "";
+                        discounted: false;
+                        title-size: 16px;
+                        tone-color: root.checkout-tone;
+                        tone-dark: root.checkout-tone-dark;
+                        tone-soft: root.checkout-tone-soft;
+                    }
+
+                    HorizontalLayout {
+                        height: 22px;
+                        Text {
+                            text: "付款方式";
+                            color: AppTheme.ink;
+                            font-size: 12px;
+                            font-weight: 500;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; background: transparent; }
+                        Text {
+                            text: root.payment-methods.length > 0 || root.balance-sufficient
+                                ? "当前可用" : "暂无可用";
+                            color: AppTheme.ink-subtle;
+                            font-size: 10px;
+                            font-weight: AppTheme.font-weight-regular;
+                            vertical-alignment: center;
+                        }
+                    }
+
+                    if root.payment-methods.length > 0 || root.balance-sufficient : Rectangle {
+                        height: root.payment-grid-height;
+                        vertical-stretch: 0;
+                        background: transparent;
+                        if root.balance-sufficient : PaymentChoice {
+                            x: 0px;
+                            y: 0px;
+                            choice-width: (parent.width - 10px) * 0.5;
+                            title: "余额支付";
+                            subtitle: "可用余额 " + root.balance-label;
+                            selected: root.effective-use-balance;
+                            balance: true;
+                            enabled: !root.busy;
+                            tone-color: root.checkout-tone;
+                            tone-dark: root.checkout-tone-dark;
+                            tone-soft: root.checkout-tone-soft;
+                            tone-faint: root.checkout-tone-faint;
+                            chosen => {
+                                root.selected-use-balance = true;
+                                root.selected-payment-method-id = "";
+                            }
+                        }
+                        for method[index] in root.payment-methods : PaymentChoice {
+                            x: Math.mod(index + (root.balance-sufficient ? 1 : 0), 2)
+                                * ((parent.width - 10px) * 0.5 + 10px);
+                            y: ((
+                                index + (root.balance-sufficient ? 1 : 0)
+                                - Math.mod(index + (root.balance-sufficient ? 1 : 0), 2)
+                            ) / 2) * (66px + 10px);
+                            choice-width: (parent.width - 10px) * 0.5;
+                            title: method.title;
+                            subtitle: method.subtitle;
+                            provider: method.provider;
+                            payment-type: method.payment-type;
+                            selected: !root.effective-use-balance
+                                && method.id == root.effective-payment-method-id;
+                            enabled: !root.busy;
+                            tone-color: root.checkout-tone;
+                            tone-dark: root.checkout-tone-dark;
+                            tone-soft: root.checkout-tone-soft;
+                            tone-faint: root.checkout-tone-faint;
+                            chosen => {
+                                root.selected-use-balance = false;
+                                root.selected-payment-method-id = method.id;
+                            }
+                        }
+                    }
+
+                    if root.payment-methods.length == 0 && !root.balance-sufficient : Rectangle {
+                        height: 54px;
+                        border-radius: AppTheme.radius-medium;
+                        background: AppTheme.warning-soft;
+                        Text {
+                            x: 12px;
+                            width: parent.width - 24px;
+                            text: "暂无可用支付方式，请稍后再试或联系管理员。";
+                            color: AppTheme.warning;
+                            font-size: 11px;
+                            font-weight: AppTheme.font-weight-regular;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                            wrap: word-wrap;
+                        }
+                    }
+
+                    if root.error-message != "" : ErrorStrip { text: root.error-message; }
+                }
+            }
+
+            HorizontalLayout {
+                height: 40px;
+                spacing: 10px;
+                AppButton {
+                    width: 88px;
+                    height: 38px;
+                    button-min-width: 88px;
+                    text: "‹ 上一步";
+                    kind: ButtonKind.ghost;
+                    corner-radius: 20px;
+                    enabled: !root.busy;
+                    clicked => { root.return-to-confirm(); }
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                AppButton {
+                    width: 68px;
+                    height: 38px;
+                    button-min-width: 68px;
+                    text: "取消";
+                    kind: ButtonKind.secondary;
+                    filled-secondary: true;
+                    corner-radius: 20px;
+                    enabled: !root.busy;
+                    clicked => { root.request-dismiss(); }
+                }
+                AppButton {
+                    width: 100px;
+                    height: 38px;
+                    button-min-width: 100px;
+                    text: root.busy ? "付款中" : "付款";
+                    busy: root.busy;
+                    enabled: (root.payment-ready && !root.busy) || root.busy;
+                    corner-radius: 20px;
+                    primary-color: root.checkout-tone;
+                    primary-hover-color: root.checkout-tone-hover;
+                    primary-pressed-color: root.checkout-tone-dark;
+                    gradient-primary: false;
+                    clicked => {
+                        if (root.payment-ready && !root.busy) {
+                            root.error-message = "";
+                            root.pay-order(
+                                root.order-id,
+                                root.effective-payment-method-id,
+                                root.effective-use-balance,
+                            );
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.stage == "waiting" : waiting-card := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(460px, parent.width - 40px);
+        height: root.payment-qr-mode
+            ? (root.error-message == "" ? 520px : 574px)
+            : (root.error-message == "" ? 380px : 434px);
+        border-radius: 10px;
+        border-color: transparent;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 8px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 24px;
+            padding-bottom: 18px;
+            spacing: root.payment-qr-mode ? 8px : 12px;
+
+            if !root.payment-qr-mode : HorizontalLayout {
+                height: 32px;
+                alignment: center;
+                BusyIndicator {
+                    width: 24px;
+                    height: 24px;
+                    indicator-color: AppTheme.accent;
+                }
+            }
+
+            Text {
+                height: 26px;
+                text: root.payment-qr-mode ? "请使用手机扫码付款" : "请在支付页面完成付款";
+                color: AppTheme.ink;
+                font-size: 17px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Text {
+                height: root.payment-qr-mode ? 34px : 38px;
+                text: root.payment-qr-mode
+                    ? "使用手机上的支付应用扫描二维码；页面会每 2 秒自动同步支付结果。"
+                    : "支付页面已在默认浏览器中打开；当前页面会每 2 秒自动同步订单状态。";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+            }
+
+            if root.payment-qr-mode : Rectangle {
+                height: 220px;
+                background: transparent;
+                HorizontalLayout {
+                    alignment: center;
+                    if root.payment-qr-ready : Image {
+                        width: 220px;
+                        height: 220px;
+                        source: root.payment-qr;
+                        image-fit: contain;
+                    }
+
+                    if !root.payment-qr-ready : VerticalLayout {
+                        width: 220px;
+                        height: 220px;
+                        alignment: center;
+                        spacing: 12px;
+                        if root.error-message == "" : HorizontalLayout {
+                            alignment: center;
+                            BusyIndicator {
+                                width: 24px;
+                                height: 24px;
+                                indicator-color: root.checkout-tone;
+                            }
+                        }
+                        Text {
+                            text: root.error-message == ""
+                                ? "正在生成支付二维码"
+                                : "暂时无法生成二维码";
+                            color: AppTheme.ink-muted;
+                            font-size: 11px;
+                            font-weight: AppTheme.font-weight-regular;
+                            horizontal-alignment: center;
+                            vertical-alignment: center;
+                        }
+                    }
+                }
+            }
+
+            Text {
+                height: 34px;
+                text: root.order-amount-label;
+                color: AppTheme.ink;
+                font-size: 22px;
+                font-weight: 650;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            Text {
+                height: 20px;
+                text: root.order-status-label + " · 每 2 秒自动查询";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+
+            Text {
+                height: 18px;
+                text: "订单号 " + root.order-number;
+                color: AppTheme.ink-subtle;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+
+            if root.error-message != "" : ErrorStrip { text: root.error-message; }
+
+            Rectangle { vertical-stretch: 1; background: transparent; }
+
+            HorizontalLayout {
+                height: 40px;
+                spacing: 10px;
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                AppButton {
+                    width: root.payment-qr-mode ? 112px : 104px;
+                    button-min-width: root.payment-qr-mode ? 112px : 104px;
+                    text: "稍后查看";
+                    kind: ButtonKind.secondary;
+                    filled-secondary: true;
+                    corner-radius: 8px;
+                    enabled: !root.busy;
+                    clicked => {
+                        root.open = false;
+                        root.dismissed();
+                    }
+                }
+                AppButton {
+                    width: root.payment-qr-mode ? 112px : 142px;
+                    button-min-width: root.payment-qr-mode ? 112px : 142px;
+                    text: root.payment-qr-mode ? "浏览器打开" : "重新打开支付页";
+                    kind: root.payment-qr-mode ? ButtonKind.secondary : ButtonKind.primary;
+                    filled-secondary: root.payment-qr-mode;
+                    enabled: root.payment-url != "" && !root.busy;
+                    corner-radius: 8px;
+                    primary-color: root.checkout-tone;
+                    primary-hover-color: root.checkout-tone-hover;
+                    primary-pressed-color: root.checkout-tone-dark;
+                    gradient-primary: false;
+                    clicked => { root.reopen-payment(root.payment-url); }
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+            }
+        }
+    }
+
+    if root.stage == "success" : success-card := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(380px, parent.width - 40px);
+        height: 390px;
+        border-radius: AppTheme.radius-extra-large;
+        border-color: AppTheme.border-strong;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 32px;
+        drop-shadow-offset-y: 12px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 26px;
+            padding-bottom: 20px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                alignment: center;
+                Rectangle {
+                    width: 50px;
+                    height: 50px;
+                    border-radius: 25px;
+                    background: root.fulfillment-pending ? AppTheme.warning-soft : root.checkout-tone;
+                    if root.fulfillment-pending : BusyIndicator {
+                        x: 13px;
+                        y: 13px;
+                        width: 24px;
+                        height: 24px;
+                        indicator-color: AppTheme.warning;
+                    }
+                    if !root.fulfillment-pending : Glyph {
+                        x: 11px;
+                        y: 11px;
+                        width: 28px;
+                        height: 28px;
+                        name: "check";
+                        fill: white;
+                    }
+                }
+            }
+
+            Text {
+                height: 28px;
+                text: root.fulfillment-pending ? "支付已确认" : "支付成功";
+                color: AppTheme.ink;
+                font-size: 19px;
+                font-weight: 600;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            Text {
+                height: 38px;
+                text: root.fulfillment-pending
+                    ? "款项已确认，订单正在履约；权益到账前无需再次支付。"
+                    : "订单已完成，订阅与流量权益已同步到账。";
+                color: AppTheme.ink-muted;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+                wrap: word-wrap;
+            }
+
+            Rectangle {
+                height: 132px;
+                border-radius: AppTheme.radius-medium;
+                border-width: 1px;
+                border-color: AppTheme.border;
+                background: AppTheme.surface;
+                VerticalLayout {
+                    padding-left: 15px;
+                    padding-right: 15px;
+                    padding-top: 13px;
+                    padding-bottom: 13px;
+                    spacing: 5px;
+                    Text {
+                        text: "实付金额";
+                        color: AppTheme.ink-subtle;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }
+                    Text {
+                        text: root.order-amount-label;
+                        color: AppTheme.ink;
+                        font-size: 23px;
+                        font-weight: 700;
+                    }
+                    Rectangle { vertical-stretch: 1; background: transparent; }
+                    Text {
+                        text: "订单编号";
+                        color: AppTheme.ink-subtle;
+                        font-size: 10px;
+                        font-weight: 500;
+                    }
+                    Text {
+                        text: root.order-number;
+                        color: AppTheme.ink-muted;
+                        font-size: 10px;
+                        font-weight: 500;
+                        overflow: elide;
+                    }
+                }
+            }
+
+            Rectangle { vertical-stretch: 1; background: transparent; }
+
+            AppButton {
+                height: 42px;
+                text: "完成";
+                enabled: !root.busy;
+                corner-radius: 21px;
+                primary-color: root.checkout-tone;
+                primary-hover-color: root.checkout-tone-hover;
+                primary-pressed-color: root.checkout-tone-dark;
+                gradient-primary: false;
+                clicked => {
+                    root.open = false;
+                    root.dismissed();
+                }
+            }
+        }
+    }
+}

@@ -1,0 +1,532 @@
+import { AppTheme } from "../theme.slint";
+import { ConnectionPhase, NodeItem } from "../models.slint";
+import { BusyIndicator, SurfaceCard } from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component MetricCell inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    background: transparent;
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+
+    VerticalLayout {
+        spacing: 4px;
+        Text {
+            width: 100%;
+            text: root.label;
+            color: AppTheme.ink-muted;
+            font-size: 11px;
+            overflow: elide;
+        }
+        Text {
+            width: 100%;
+            text: root.value;
+            color: AppTheme.ink;
+            font-size: 17px;
+            font-weight: 600;
+            overflow: elide;
+        }
+    }
+}
+
+component CrossFadeText inherits Rectangle {
+    in property <string> value;
+    in property <color> text-color;
+    in property <length> text-size;
+    in property <int> text-weight: AppTheme.font-weight-regular;
+    in property <length> tracking: 0px;
+
+    property <string> slot-a;
+    property <string> slot-b;
+    property <bool> show-a: true;
+
+    init => {
+        root.slot-a = root.value;
+        root.slot-b = root.value;
+    }
+
+    changed value => {
+        if (root.show-a) {
+            root.slot-b = root.value;
+        } else {
+            root.slot-a = root.value;
+        }
+        root.show-a = !root.show-a;
+    }
+
+    Text {
+        width: 100%;
+        height: 100%;
+        text: root.slot-a;
+        color: root.text-color;
+        font-size: root.text-size;
+        font-weight: root.text-weight;
+        letter-spacing: root.tracking;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        opacity: root.show-a ? 1 : 0;
+        y: root.show-a ? 0px : -3px;
+        animate opacity { duration: 220ms; easing: ease-out; }
+        animate y { duration: 220ms; easing: ease-out; }
+    }
+
+    Text {
+        width: 100%;
+        height: 100%;
+        text: root.slot-b;
+        color: root.text-color;
+        font-size: root.text-size;
+        font-weight: root.text-weight;
+        letter-spacing: root.tracking;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        opacity: root.show-a ? 0 : 1;
+        y: root.show-a ? 3px : 0px;
+        animate opacity { duration: 220ms; easing: ease-out; }
+        animate y { duration: 220ms; easing: ease-out; }
+    }
+}
+
+component ConnectionStatusPill inherits Rectangle {
+    in property <ConnectionPhase> connection-phase;
+    in property <bool> core-available;
+
+    min-width: 158px;
+    height: 34px;
+    horizontal-stretch: 0;
+    border-radius: 16px;
+    background: !root.core-available || root.connection-phase == ConnectionPhase.failed
+        ? #ffe3e7
+        : root.connection-phase == ConnectionPhase.connected ? #d8eee4
+        : root.connection-phase == ConnectionPhase.preparing
+            || root.connection-phase == ConnectionPhase.validating
+            || root.connection-phase == ConnectionPhase.starting
+            || root.connection-phase == ConnectionPhase.stopping ? #ffedd0
+        : #deeee7;
+    border-width: 1px;
+    border-color: !root.core-available || root.connection-phase == ConnectionPhase.failed
+        ? AppTheme.danger.with-alpha(0.12)
+        : root.connection-phase == ConnectionPhase.preparing
+            || root.connection-phase == ConnectionPhase.validating
+            || root.connection-phase == ConnectionPhase.starting
+            || root.connection-phase == ConnectionPhase.stopping
+                ? AppTheme.warning.with-alpha(0.12)
+                : AppTheme.accent.with-alpha(0.10);
+    animate background { duration: 280ms; easing: ease-out; }
+
+    HorizontalLayout {
+        alignment: center;
+        padding-left: 14px;
+        padding-right: 14px;
+        Text {
+            text: !root.core-available ? "连接服务需要修复"
+                : root.connection-phase == ConnectionPhase.connected ? "安全连接已开启"
+                : root.connection-phase == ConnectionPhase.preparing
+                    || root.connection-phase == ConnectionPhase.validating
+                    || root.connection-phase == ConnectionPhase.starting ? "正在安全连接"
+                : root.connection-phase == ConnectionPhase.stopping ? "正在安全断开"
+                : root.connection-phase == ConnectionPhase.failed ? "连接需要重试"
+                : "安全模式已就绪";
+            color: !root.core-available || root.connection-phase == ConnectionPhase.failed
+                ? AppTheme.danger : AppTheme.ink-muted;
+            font-size: 12px;
+            font-weight: AppTheme.font-weight-regular;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component ConnectionOrb inherits Rectangle {
+    in property <ConnectionPhase> connection-phase;
+    in property <bool> core-available;
+
+    width: 236px;
+    height: 236px;
+    background: transparent;
+
+    property <bool> is-connected: root.connection-phase == ConnectionPhase.connected;
+    property <bool> is-busy: root.connection-phase == ConnectionPhase.preparing
+        || root.connection-phase == ConnectionPhase.validating
+        || root.connection-phase == ConnectionPhase.starting
+        || root.connection-phase == ConnectionPhase.stopping;
+    property <bool> is-failed: root.connection-phase == ConnectionPhase.failed || !root.core-available;
+    property <color> state-color: root.is-failed ? AppTheme.danger
+        : root.is-busy ? AppTheme.warning : AppTheme.accent;
+    property <angle> marker-angle: 0deg;
+
+    states [
+        connected when root.is-connected: {
+            root.marker-angle: -360deg;
+            in {
+                animate root.marker-angle {
+                    duration: 18s;
+                    easing: linear;
+                    iteration-count: -1;
+                }
+            }
+            out {
+                animate root.marker-angle { duration: 320ms; easing: ease-in-out; }
+            }
+        }
+    ]
+
+    Image {
+        source: @image-url("../assets/connection-orbit.svg");
+        width: 236px;
+        height: 236px;
+        opacity: root.is-connected || root.is-busy ? 0.92 : 0.70;
+    }
+
+    Rectangle {
+        x: 118px + sin(root.marker-angle) * 108px - 7px;
+        y: 118px - cos(root.marker-angle) * 108px - 7px;
+        width: 14px;
+        height: 14px;
+        border-radius: 7px;
+        background: root.state-color;
+        border-width: 3px;
+        border-color: AppTheme.canvas;
+        drop-shadow-color: root.state-color.with-alpha(0.28);
+        drop-shadow-blur: 8px;
+        opacity: root.is-connected || root.is-busy ? 1 : 0.68;
+        animate background { duration: 360ms; }
+    }
+
+    Rectangle {
+        x: 35px;
+        y: 35px;
+        width: 166px;
+        height: 166px;
+        border-radius: 83px;
+        background: AppTheme.surface;
+        border-width: 1px;
+        border-color: AppTheme.border;
+        drop-shadow-color: root.state-color.with-alpha(root.is-connected ? 0.24 : 0.12);
+        drop-shadow-blur: root.is-connected || root.is-busy ? 24px : 17px;
+        drop-shadow-offset-y: 7px;
+        animate drop-shadow-color { duration: 360ms; }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 12px;
+            HorizontalLayout {
+                alignment: center;
+                Path {
+                    width: 40px;
+                    height: 40px;
+                    viewbox-x: 0;
+                    viewbox-y: 0;
+                    viewbox-width: 24;
+                    viewbox-height: 24;
+                    fill: root.state-color;
+                    stroke: transparent;
+                    commands: "M 12 2 C 6.48 2 2 6.48 2 12 C 2 17.52 6.48 22 12 22 C 17.52 22 22 17.52 22 12 C 22 6.48 17.52 2 12 2 Z M 11 19.93 C 7.05 19.44 4 16.08 4 12 C 4 11.38 4.08 10.79 4.21 10.21 L 9 15 L 9 16 C 9 17.1 9.9 18 11 18 Z M 17.9 17.39 C 17.64 16.58 16.9 16 16 16 L 15 16 L 15 13 C 15 12.45 14.55 12 14 12 L 8 12 L 8 10 L 10 10 C 10.55 10 11 9.55 11 9 L 11 7 L 13 7 C 14.1 7 15 6.1 15 5 L 15 4.59 C 17.93 5.78 20 8.65 20 12 C 20 14.08 19.2 15.97 17.9 17.39 Z";
+                }
+            }
+            Text {
+                text: "GLOBAL NODE";
+                color: AppTheme.ink-muted;
+                font-family: "Sora SemiBold";
+                font-size: 11px;
+                font-weight: 600;
+                letter-spacing: 0.8px;
+                horizontal-alignment: center;
+            }
+        }
+    }
+}
+
+component ConnectionAction inherits Rectangle {
+    in property <ConnectionPhase> connection-phase;
+    in property <string> label;
+    in property <bool> enabled;
+    in property <bool> danger;
+    callback clicked();
+
+    property <bool> action-latched: false;
+    property <bool> pending-disconnect: false;
+    property <bool> state-is-busy: root.connection-phase == ConnectionPhase.preparing
+        || root.connection-phase == ConnectionPhase.validating
+        || root.connection-phase == ConnectionPhase.starting
+        || root.connection-phase == ConnectionPhase.stopping;
+    property <bool> is-busy: root.state-is-busy || root.action-latched;
+    property <string> busy-label: root.pending-disconnect
+        || root.connection-phase == ConnectionPhase.stopping ? "正在断开"
+        : root.connection-phase == ConnectionPhase.preparing ? "正在准备"
+        : "正在连接";
+
+    width: 500px;
+    height: 56px;
+    border-radius: 28px;
+    background: root.enabled && root.danger ? AppTheme.danger
+        : touch.pressed && root.enabled ? AppTheme.accent-dark
+        : touch.has-hover && root.enabled ? AppTheme.accent-hover
+        : root.enabled || root.is-busy ? AppTheme.accent
+        : AppTheme.surface;
+    border-width: root.enabled || root.is-busy ? 0px : 1px;
+    border-color: AppTheme.border;
+    drop-shadow-color: root.enabled ? AppTheme.accent.with-alpha(0.22) : transparent;
+    drop-shadow-blur: touch.pressed ? 7px : root.enabled ? 16px : 0px;
+    drop-shadow-offset-y: touch.pressed ? 2px : 6px;
+    animate background { duration: 280ms; easing: ease-out; }
+    animate drop-shadow-blur { duration: 140ms; }
+
+    idle-content := HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        alignment: center;
+        spacing: 10px;
+        opacity: root.is-busy ? 0 : 1;
+        y: root.is-busy ? -3px : 0px;
+        animate opacity { duration: 120ms; easing: ease-out; }
+        animate y { duration: 160ms; easing: ease-out; }
+
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            Glyph {
+                width: 18px;
+                height: 18px;
+                name: root.connection-phase == ConnectionPhase.connected ? "stop" : "bolt";
+                fill: root.enabled ? white : AppTheme.ink-subtle;
+            }
+        }
+        Text {
+            text: root.label;
+            color: root.enabled ? white : AppTheme.ink-subtle;
+            font-size: 16px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    busy-content := HorizontalLayout {
+        width: 100%;
+        height: 100%;
+        alignment: center;
+        spacing: 10px;
+        opacity: root.is-busy ? 1 : 0;
+        y: root.is-busy ? 0px : 3px;
+        animate opacity { duration: 180ms; easing: ease-out; }
+        animate y { duration: 180ms; easing: ease-out; }
+
+        VerticalLayout {
+            width: 19px;
+            alignment: center;
+            BusyIndicator {
+                width: 19px;
+                height: 19px;
+                indicator-color: white;
+            }
+        }
+        Text {
+            text: root.busy-label;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    release-action-latch := Timer {
+        interval: 1200ms;
+        running: false;
+        triggered => {
+            root.action-latched = false;
+            self.stop();
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled && !root.is-busy;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            root.pending-disconnect = root.connection-phase == ConnectionPhase.connected;
+            root.action-latched = true;
+            release-action-latch.start();
+            root.clicked();
+        }
+    }
+}
+
+component NodeSelector inherits Rectangle {
+    in property <bool> has-selected-node;
+    in property <NodeItem> selected-node;
+    in property <bool> enabled: true;
+    callback clicked();
+
+    width: 380px;
+    height: 48px;
+    background: transparent;
+    opacity: root.enabled ? 1 : 0.45;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 4px;
+        HorizontalLayout {
+            alignment: center;
+            spacing: 8px;
+            Text {
+                text: root.has-selected-node ? root.selected-node.name : "选择节点";
+                color: AppTheme.accent-dark;
+                font-size: 14px;
+                font-weight: AppTheme.font-weight-regular;
+            }
+            if root.has-selected-node : Text {
+                text: "·  更换";
+                color: AppTheme.ink-muted;
+                font-size: 12px;
+            }
+        }
+        HorizontalLayout {
+            alignment: center;
+            spacing: 5px;
+            for dash in 9 : Rectangle {
+                width: 16px;
+                height: 2px;
+                border-radius: 1px;
+                background: AppTheme.accent;
+                opacity: touch.has-hover && root.enabled ? 0.72 : 0.42;
+                animate opacity { duration: 140ms; easing: ease-out; }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component HomePage inherits Rectangle {
+    in property <ConnectionPhase> connection-phase;
+    in property <string> connection-title;
+    in property <string> connection-detail;
+    in property <string> connection-button-label;
+    in property <bool> can-toggle;
+    in property <bool> actions-enabled: true;
+    in property <bool> core-available;
+    in property <string> download-rate;
+    in property <string> upload-rate;
+    in property <int> active-connections;
+    in property <string> runtime-memory;
+    in property <bool> has-selected-node;
+    in property <NodeItem> selected-node;
+    callback toggle-connection();
+    callback choose-node();
+
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    VerticalLayout {
+        padding-left: 36px;
+        padding-right: 36px;
+        padding-top: 28px;
+        padding-bottom: 28px;
+        spacing: 12px;
+
+        Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+            VerticalLayout {
+                alignment: start;
+                spacing: 0px;
+
+                HorizontalLayout {
+                    alignment: center;
+                    ConnectionStatusPill {
+                        connection-phase: root.connection-phase;
+                        core-available: root.core-available;
+                    }
+                }
+                Rectangle { height: 8px; background: transparent; }
+                CrossFadeText {
+                    height: 38px;
+                    value: !root.core-available ? "连接服务不可用" : root.connection-title;
+                    text-color: AppTheme.ink;
+                    text-size: 30px;
+                    text-weight: 600;
+                    tracking: -0.3px;
+                }
+                Rectangle { height: 2px; background: transparent; }
+                CrossFadeText {
+                    height: 24px;
+                    value: !root.core-available
+                        ? "连接组件未能启动，请重新启动应用后重试。"
+                        : root.connection-phase == ConnectionPhase.disconnected
+                            ? root.has-selected-node
+                                ? "点击下方按钮，畅享安全稳定的网络连接"
+                                : "请先选择节点，再建立安全连接"
+                        : root.connection-detail;
+                    text-color: AppTheme.ink-muted;
+                    text-size: 14px;
+                }
+                Rectangle { height: 18px; background: transparent; }
+
+                HorizontalLayout {
+                    alignment: center;
+                    ConnectionOrb {
+                        connection-phase: root.connection-phase;
+                        core-available: root.core-available;
+                    }
+                }
+                Rectangle { height: 24px; background: transparent; }
+
+                HorizontalLayout {
+                    alignment: center;
+                    ConnectionAction {
+                        connection-phase: root.connection-phase;
+                        label: !root.core-available ? "连接不可用"
+                            : root.connection-phase == ConnectionPhase.failed && !root.has-selected-node
+                                ? "开始连接"
+                                : root.connection-button-label;
+                        enabled: root.actions-enabled && root.core-available && root.can-toggle;
+                        danger: false;
+                        clicked => { root.toggle-connection(); }
+                    }
+                }
+                Rectangle { height: 18px; background: transparent; }
+
+                HorizontalLayout {
+                    alignment: center;
+                    NodeSelector {
+                        has-selected-node: root.has-selected-node;
+                        selected-node: root.selected-node;
+                        enabled: root.actions-enabled
+                            && (root.connection-phase == ConnectionPhase.disconnected
+                                || root.connection-phase == ConnectionPhase.failed);
+                        clicked => { root.choose-node(); }
+                    }
+                }
+            }
+        }
+
+    }
+
+    SurfaceCard {
+        x: 36px;
+        y: parent.height - self.height - 24px;
+        width: parent.width - 72px;
+        height: 70px;
+        background: #ffffffd9;
+        VerticalLayout {
+            padding-left: 18px;
+            padding-right: 18px;
+            padding-top: 10px;
+            padding-bottom: 10px;
+            alignment: center;
+            HorizontalLayout {
+                spacing: 20px;
+                MetricCell { label: "下载速度"; value: root.download-rate; }
+                MetricCell { label: "上传速度"; value: root.upload-rate; }
+                MetricCell { label: "活动连接"; value: "" + root.active-connections; }
+                MetricCell { label: "内存占用"; value: root.runtime-memory; }
+            }
+        }
+    }
+}

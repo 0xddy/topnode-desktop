@@ -1,0 +1,612 @@
+import { AppTheme } from "../theme.slint";
+import { BalanceTransactionItem } from "../models.slint";
+import {
+    AppButton,
+    ButtonKind,
+    InlineAlert,
+    RefreshIconButton,
+    SurfaceCard,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component BackButton inherits Rectangle {
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: back-touch.pressed ? AppTheme.surface-muted
+        : back-touch.has-hover ? AppTheme.surface : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    back-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component TransactionRow inherits Rectangle {
+    in property <BalanceTransactionItem> item;
+    callback activated(BalanceTransactionItem);
+
+    height: 70px;
+    horizontal-stretch: 1;
+    background: transparent;
+
+    selection-background := Rectangle {
+        x: 2px;
+        y: 4px;
+        width: parent.width - 4px;
+        height: parent.height - 8px;
+        border-radius: 14px;
+        background: row-touch.pressed ? #e6e9e8
+            : row-touch.has-hover ? #f0f2f1 : transparent;
+        animate background { duration: 120ms; }
+    }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+
+        VerticalLayout {
+            width: 38px;
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 17px;
+                background: root.item.credit ? #dcebe5 : #e6e9e7;
+                Text {
+                    text: root.item.kind-icon;
+                    color: root.item.credit ? AppTheme.accent : AppTheme.ink-muted;
+                    font-size: 16px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 7px;
+            HorizontalLayout {
+                height: 18px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.item.title;
+                    color: AppTheme.ink;
+                    font-size: 13px;
+                    font-weight: 400;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: root.item.amount-label;
+                    color: root.item.credit ? AppTheme.accent : AppTheme.ink;
+                    font-family: "Sora SemiBold";
+                    font-size: 13px;
+                    font-weight: 600;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+            }
+            HorizontalLayout {
+                height: 16px;
+                Text {
+                    horizontal-stretch: 1;
+                    text: root.item.created-at-label;
+                    color: AppTheme.ink-muted;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+                Text {
+                    text: "余额 " + root.item.balance-after-label;
+                    color: AppTheme.ink-muted;
+                    font-size: 11px;
+                    horizontal-alignment: right;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    row-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.item); }
+    }
+}
+
+component TransactionSkeletonRow inherits Rectangle {
+    height: 70px;
+    horizontal-stretch: 1;
+    background: transparent;
+    opacity: 0.68 + (sin(360deg * animation-tick() / 1200ms) + 1) * 0.08;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        spacing: 12px;
+
+        VerticalLayout {
+            width: 38px;
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 17px;
+                background: AppTheme.surface-muted;
+            }
+        }
+
+        VerticalLayout {
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 7px;
+
+            HorizontalLayout {
+                height: 18px;
+                Rectangle {
+                    width: 88px;
+                    height: 12px;
+                    border-radius: 6px;
+                    background: AppTheme.surface-muted;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Rectangle {
+                    width: 58px;
+                    height: 12px;
+                    border-radius: 6px;
+                    background: AppTheme.surface-muted;
+                }
+            }
+
+            HorizontalLayout {
+                height: 16px;
+                Rectangle {
+                    width: 116px;
+                    height: 9px;
+                    border-radius: 4.5px;
+                    background: AppTheme.surface-muted;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                Rectangle {
+                    width: 86px;
+                    height: 9px;
+                    border-radius: 4.5px;
+                    background: AppTheme.surface-muted;
+                }
+            }
+        }
+    }
+}
+
+export component BalanceDetailsPage inherits Rectangle {
+    in property <string> balance-label;
+    in-out property <[BalanceTransactionItem]> transactions;
+    in-out property <bool> loading: false;
+    in-out property <string> error-message;
+
+    callback refresh();
+    callback dismissed();
+
+    property <bool> detail-visible: false;
+    property <BalanceTransactionItem> selected-transaction;
+
+    width: 732px;
+    height: 664px;
+    preferred-width: 732px;
+    preferred-height: 664px;
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    clip: true;
+
+    public function prepare() {
+        root.detail-visible = false;
+        root.error-message = "";
+        root.transactions = [];
+        root.loading = true;
+    }
+
+    function request-back() {
+        if (root.detail-visible) {
+            root.detail-visible = false;
+            return;
+        }
+        root.dismissed();
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+
+        HorizontalLayout {
+            spacing: 12px;
+
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                BackButton { clicked => { root.request-back(); } }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.detail-visible ? "变动详情" : "余额明细";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.detail-visible : VerticalLayout {
+                width: 40px;
+                alignment: center;
+                RefreshIconButton {
+                    busy: root.loading;
+                    clicked => {
+                        root.error-message = "";
+                        root.loading = true;
+                        root.refresh();
+                    }
+                }
+            }
+            if root.detail-visible : Rectangle { width: 40px; background: transparent; }
+        }
+    }
+
+    if !root.detail-visible : Rectangle {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        background: transparent;
+
+        Flickable {
+            width: 100%;
+            height: 100%;
+            viewport-width: self.width;
+            viewport-height: max(self.height, balance-content.preferred-height);
+            viewport-x: 0px;
+            viewport-y: 0px;
+
+            balance-content := VerticalLayout {
+                width: parent.width;
+                padding-left: 18px;
+                padding-right: 18px;
+                padding-top: 12px;
+                padding-bottom: 20px;
+                spacing: 0px;
+
+                SurfaceCard {
+                    height: 92px;
+                    border-radius: 22px;
+
+                            HorizontalLayout {
+                                padding-left: 19px;
+                                padding-right: 19px;
+                                spacing: 16px;
+
+                                VerticalLayout {
+                                    horizontal-stretch: 1;
+                                    alignment: center;
+                                    spacing: 5px;
+                                    Text {
+                                        text: "当前余额";
+                                        color: AppTheme.ink-muted;
+                                        font-size: 12px;
+                                    }
+                                    Text {
+                                        text: root.balance-label;
+                                        color: AppTheme.ink;
+                                        font-family: "Sora SemiBold";
+                                        font-size: 28px;
+                                        font-weight: 600;
+                                        overflow: elide;
+                                    }
+                                }
+
+                                VerticalLayout {
+                                    width: 50px;
+                                    alignment: center;
+                                    Rectangle {
+                                        width: 46px;
+                                        height: 46px;
+                                        border-radius: 23px;
+                                        background: #ddece6;
+                                        Text {
+                                            text: "¥";
+                                            color: AppTheme.accent-dark;
+                                            font-family: "Sora SemiBold";
+                                            font-size: 21px;
+                                            font-weight: 600;
+                                            horizontal-alignment: center;
+                                            vertical-alignment: center;
+                                        }
+                                    }
+                                }
+                            }
+                }
+
+                Rectangle { height: 24px; background: transparent; }
+
+                HorizontalLayout {
+                    height: 42px;
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                spacing: 3px;
+                                Text {
+                                    text: "最近记录";
+                                    color: AppTheme.ink;
+                                    font-size: 15px;
+                                    font-weight: 600;
+                                }
+                                Text {
+                                    text: "账户余额收支记录";
+                                    color: AppTheme.ink-muted;
+                                    font-size: 11px;
+                                }
+                            }
+                            if root.transactions.length > 0 : Text {
+                                text: root.transactions.length + " 条";
+                                color: AppTheme.ink-muted;
+                                font-size: 12px;
+                                vertical-alignment: center;
+                            }
+                }
+
+                if root.error-message != "" : VerticalLayout {
+                    spacing: 0px;
+                    InlineAlert {
+                        message: root.transactions.length > 0
+                            ? "刷新失败，当前显示上次加载的记录：" + root.error-message
+                            : root.error-message;
+                    }
+                    Rectangle { height: 12px; background: transparent; }
+                }
+
+                        if root.loading && root.transactions.length == 0 : VerticalLayout {
+                            spacing: 0px;
+
+                            for index in 6 : VerticalLayout {
+                                spacing: 0px;
+                                TransactionSkeletonRow { }
+                                if index < 5 : HorizontalLayout {
+                                    height: 1px;
+                                    padding-left: 58px;
+                                    Rectangle {
+                                        horizontal-stretch: 1;
+                                        height: 1px;
+                                        background: AppTheme.border.with-alpha(0.42);
+                                    }
+                                }
+                            }
+                        }
+
+                        if !root.loading && root.error-message != "" && root.transactions.length == 0 : Rectangle {
+                            height: 116px;
+                            background: transparent;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 9px;
+                                Text {
+                                    text: "余额明细加载失败";
+                                    color: AppTheme.ink-muted;
+                                    font-size: 13px;
+                                    horizontal-alignment: center;
+                                }
+                                AppButton {
+                                    kind: ButtonKind.secondary;
+                                    text: "重新加载";
+                                    button-min-width: 100px;
+                                    clicked => {
+                                        root.error-message = "";
+                                        root.loading = true;
+                                        root.refresh();
+                                    }
+                                }
+                            }
+                        }
+
+                        if !root.loading && root.error-message == "" && root.transactions.length == 0 : Rectangle {
+                            height: 116px;
+                            background: transparent;
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 8px;
+                                Glyph { name: "info"; fill: AppTheme.ink-subtle; }
+                                Text {
+                                    text: "暂无余额变动";
+                                    color: AppTheme.ink-muted;
+                                    font-size: 13px;
+                                    horizontal-alignment: center;
+                                }
+                            }
+                        }
+
+                if root.transactions.length > 0 : transaction-list := VerticalLayout {
+                    spacing: 0px;
+                    padding-bottom: 24px;
+
+                    for item[index] in root.transactions : VerticalLayout {
+                        spacing: 0px;
+                        TransactionRow {
+                            item: item;
+                            activated(selected) => {
+                                root.selected-transaction = selected;
+                                root.detail-visible = true;
+                            }
+                        }
+                        if index < root.transactions.length - 1 : HorizontalLayout {
+                            height: 1px;
+                            padding-left: 58px;
+                            Rectangle {
+                                horizontal-stretch: 1;
+                                        height: 1px;
+                                background: AppTheme.border.with-alpha(0.62);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.detail-visible : Rectangle {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        background: transparent;
+
+        VerticalLayout {
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 18px;
+            padding-bottom: 30px;
+            spacing: 22px;
+
+            Rectangle {
+                height: 64px;
+                background: transparent;
+
+                HorizontalLayout {
+                    spacing: 12px;
+                            VerticalLayout {
+                                width: 44px;
+                                alignment: center;
+                                Rectangle {
+                                    width: 40px;
+                                    height: 40px;
+                                    border-radius: 20px;
+                                    background: root.selected-transaction.credit ? #dcebe5 : #e6e9e7;
+                                    Text {
+                                        text: root.selected-transaction.kind-icon;
+                                        color: root.selected-transaction.credit ? AppTheme.accent : AppTheme.ink-muted;
+                                        font-size: 18px;
+                                        font-weight: 600;
+                                        horizontal-alignment: center;
+                                        vertical-alignment: center;
+                                    }
+                                }
+                            }
+                            Text {
+                                horizontal-stretch: 1;
+                                text: root.selected-transaction.title;
+                                color: AppTheme.ink;
+                                font-size: 16px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: root.selected-transaction.amount-label;
+                                color: root.selected-transaction.credit ? AppTheme.accent : AppTheme.ink;
+                                font-family: "Sora SemiBold";
+                                font-size: 17px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                }
+            }
+
+                    VerticalLayout {
+                        spacing: 5px;
+                        Text {
+                            text: "交易时间";
+                            color: AppTheme.ink-muted;
+                            font-size: 11px;
+                        }
+                        Text {
+                            text: root.selected-transaction.created-at-label;
+                            color: AppTheme.ink;
+                            font-size: 14px;
+                            font-weight: 600;
+                        }
+                    }
+
+                    if root.selected-transaction.reference-label != "" : VerticalLayout {
+                        spacing: 5px;
+                        Text {
+                            text: "关联信息";
+                            color: AppTheme.ink-muted;
+                            font-size: 11px;
+                        }
+                        Text {
+                            text: root.selected-transaction.reference-label;
+                            color: AppTheme.ink;
+                            font-size: 14px;
+                            font-weight: 600;
+                            overflow: elide;
+                        }
+                    }
+
+                    VerticalLayout {
+                        spacing: 9px;
+                        Text {
+                            text: "余额变化";
+                            color: AppTheme.ink-muted;
+                            font-size: 11px;
+                        }
+                        HorizontalLayout {
+                            height: 28px;
+                            Text {
+                                horizontal-stretch: 1;
+                                text: root.selected-transaction.balance-before-label;
+                                color: AppTheme.ink;
+                                font-family: "Sora SemiBold";
+                                font-size: 16px;
+                                font-weight: 600;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                text: "→";
+                                color: AppTheme.ink-subtle;
+                                font-size: 19px;
+                                vertical-alignment: center;
+                            }
+                            Text {
+                                horizontal-stretch: 1;
+                                text: root.selected-transaction.balance-after-label;
+                                color: AppTheme.ink;
+                                font-family: "Sora SemiBold";
+                                font-size: 16px;
+                                font-weight: 600;
+                                horizontal-alignment: right;
+                                vertical-alignment: center;
+                            }
+                        }
+                    }
+
+                    if root.selected-transaction.description != "" : VerticalLayout {
+                        spacing: 6px;
+                        Text {
+                            text: "说明";
+                            color: AppTheme.ink-muted;
+                            font-size: 11px;
+                        }
+                        Text {
+                            text: root.selected-transaction.description;
+                            color: AppTheme.ink;
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                    }
+
+            Rectangle { vertical-stretch: 1; background: transparent; }
+        }
+    }
+}

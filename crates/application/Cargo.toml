@@ -1,0 +1,16 @@
+[package]
+name = "topnode-application"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish = false
+
+[dependencies]
+async-trait.workspace = true
+thiserror.workspace = true
+tokio = { workspace = true, features = ["sync"] }
+topnode-domain = { path = "../domain" }
+
+[lints]
+workspace = true

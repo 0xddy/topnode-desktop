@@ -1,0 +1,1089 @@
+import { AppTheme } from "../theme.slint";
+import { AffiliateCommissionItem, AffiliateTransferItem } from "../models.slint";
+import {
+    AppButton,
+    ButtonKind,
+    BusyIndicator,
+    InlineAlert,
+    RefreshIconButton,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component InvitationBackButton inherits Rectangle {
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: touch.pressed ? AppTheme.surface-muted
+        : touch.has-hover ? AppTheme.surface : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: 10px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component InvitationCopyIcon inherits Rectangle {
+    in property <color> icon-color: AppTheme.ink-subtle;
+    background: transparent;
+
+    Path {
+        x: 2px;
+        y: 2px;
+        width: root.width - 2px;
+        height: root.height - 2px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 18;
+        viewbox-height: 18;
+        fill: transparent;
+        stroke: root.icon-color;
+        stroke-width: 1.5px;
+        stroke-line-join: round;
+        commands: "M 6 5 H 14 V 14 H 6 Z M 4 12 H 3 V 3 H 11 V 4";
+    }
+}
+
+component InvitationSkeletonBlock inherits Rectangle {
+    in property <length> block-width: 100px;
+    width: root.block-width;
+    height: 12px;
+    border-radius: 6px;
+    background: #e7ece9;
+    clip: true;
+
+    Rectangle {
+        x: ((animation-tick() / 1300ms) * (parent.width + 70px)) - 70px;
+        width: 70px;
+        height: 100%;
+        border-radius: parent.border-radius;
+        background: @linear-gradient(90deg, #ffffff00 0%, #ffffff78 50%, #ffffff00 100%);
+    }
+}
+
+component InvitationSkeleton inherits VerticalLayout {
+    spacing: 0px;
+    padding-top: 8px;
+
+    Rectangle {
+        height: 154px;
+        background: AppTheme.surface;
+        VerticalLayout {
+            padding: 20px;
+            spacing: 17px;
+            InvitationSkeletonBlock { block-width: 100px; }
+            InvitationSkeletonBlock { block-width: 180px; height: 28px; }
+            HorizontalLayout {
+                spacing: 22px;
+                InvitationSkeletonBlock { horizontal-stretch: 1; height: 36px; }
+                InvitationSkeletonBlock { horizontal-stretch: 1; height: 36px; }
+                InvitationSkeletonBlock { horizontal-stretch: 1; height: 36px; }
+            }
+        }
+    }
+    Rectangle { height: 1px; background: AppTheme.border.with-alpha(0.65); }
+    skeleton-invite := Rectangle {
+        height: 142px;
+        background: AppTheme.surface;
+        VerticalLayout {
+            padding: 20px;
+            spacing: 18px;
+            InvitationSkeletonBlock { block-width: 120px; height: 16px; }
+            InvitationSkeletonBlock { block-width: 260px; }
+            InvitationSkeletonBlock { block-width: skeleton-invite.width - 40px; }
+        }
+    }
+    Rectangle { height: 12px; background: transparent; }
+    Rectangle {
+        height: 48px;
+        background: AppTheme.surface;
+        HorizontalLayout {
+            padding-left: 70px;
+            padding-right: 70px;
+            spacing: 100px;
+            InvitationSkeletonBlock { horizontal-stretch: 1; }
+            InvitationSkeletonBlock { horizontal-stretch: 1; }
+        }
+    }
+    for index in 4 : VerticalLayout {
+        Rectangle {
+            height: 72px;
+            background: AppTheme.surface;
+            HorizontalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                spacing: 18px;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 10px;
+                    InvitationSkeletonBlock { block-width: 150px; height: 14px; }
+                    InvitationSkeletonBlock { block-width: 110px; height: 10px; }
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 10px;
+                    InvitationSkeletonBlock { block-width: 72px; height: 14px; }
+                    InvitationSkeletonBlock { block-width: 52px; height: 10px; }
+                }
+            }
+        }
+        if index < 3 : Rectangle {
+            height: 1px;
+            background: AppTheme.border.with-alpha(0.45);
+        }
+    }
+}
+
+component InvitationMetric inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <TextHorizontalAlignment> alignment: TextHorizontalAlignment.left;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 5px;
+        Text {
+            text: root.label;
+            color: AppTheme.ink-subtle;
+            font-size: 11px;
+            horizontal-alignment: root.alignment;
+        }
+        Text {
+            text: root.value;
+            color: AppTheme.ink;
+            font-size: 13px;
+            font-weight: 500;
+            horizontal-alignment: root.alignment;
+            overflow: elide;
+        }
+    }
+}
+
+component InvitationCopyRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    callback copy(string, string);
+
+    height: 56px;
+    background: touch.pressed ? #ecefee
+        : touch.has-hover ? #f7f8f8 : transparent;
+    border-radius: 10px;
+    animate background { duration: 100ms; }
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 8px;
+        spacing: 10px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+            }
+            Text {
+                text: root.value == "" ? "—" : root.value;
+                color: AppTheme.ink-muted;
+                font-size: 13px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+            }
+        }
+        VerticalLayout {
+            width: 34px;
+            alignment: center;
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 17px;
+                background: touch.pressed ? #dfe5e2
+                    : touch.has-hover ? #e9edeb : transparent;
+                animate background { duration: 100ms; }
+                InvitationCopyIcon {
+                    x: 8px;
+                    y: 8px;
+                    width: 18px;
+                    height: 18px;
+                    icon-color: touch.has-hover ? AppTheme.accent-dark : AppTheme.ink-subtle;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.value != "";
+        mouse-cursor: root.value == "" ? MouseCursor.default : MouseCursor.pointer;
+        clicked => { root.copy(root.label, root.value); }
+    }
+}
+
+component InvitationLoadMoreRow inherits Rectangle {
+    in property <bool> busy;
+    callback clicked();
+
+    height: 54px;
+    background: AppTheme.surface;
+
+    HorizontalLayout {
+        height: 1px;
+        padding-left: 18px;
+        padding-right: 18px;
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 1px;
+            background: AppTheme.border.with-alpha(0.22);
+        }
+    }
+
+    action := Rectangle {
+        x: (parent.width - 108px) / 2;
+        y: 9px;
+        width: 108px;
+        height: 36px;
+        border-radius: 10px;
+        background: load-touch.pressed ? #edf0ef
+            : load-touch.has-hover ? #f6f8f7 : transparent;
+        animate background { duration: 100ms; }
+
+        if root.busy : BusyIndicator {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 18px;
+            height: 18px;
+            indicator-color: AppTheme.ink-subtle;
+        }
+        if !root.busy : Text {
+            text: "加载更多";
+            color: load-touch.has-hover ? AppTheme.accent-dark : AppTheme.ink-muted;
+            font-size: 12px;
+            font-weight: 500;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+
+        load-touch := TouchArea {
+            enabled: !root.busy;
+            mouse-cursor: root.busy ? MouseCursor.default : MouseCursor.pointer;
+            clicked => { root.clicked(); }
+        }
+    }
+}
+
+component InvitationRecordFooter inherits Rectangle {
+    in property <int> total;
+    height: 44px;
+    background: AppTheme.surface;
+
+    HorizontalLayout {
+        height: 1px;
+        padding-left: 18px;
+        padding-right: 18px;
+        Rectangle {
+            horizontal-stretch: 1;
+            height: 1px;
+            background: AppTheme.border.with-alpha(0.22);
+        }
+    }
+    Text {
+        text: "共 " + root.total + " 条";
+        color: AppTheme.ink-subtle;
+        font-size: 11px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component InvitationTab inherits Rectangle {
+    in property <string> label;
+    in property <string> tab-id;
+    in property <bool> selected;
+    callback activated(string);
+
+    height: 48px;
+    background: transparent;
+
+    Rectangle {
+        x: 6px;
+        y: 6px;
+        width: parent.width - 12px;
+        height: parent.height - 12px;
+        border-radius: 10px;
+        background: root.selected ? transparent
+            : touch.pressed ? #ecefee
+            : touch.has-hover ? #f6f7f7 : transparent;
+        animate background { duration: 100ms; }
+    }
+    Text {
+        text: root.label;
+        color: root.selected ? AppTheme.ink : AppTheme.ink-muted;
+        font-size: 13px;
+        font-weight: root.selected ? 500 : AppTheme.font-weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+    if root.selected : Rectangle {
+        x: (parent.width - 36px) / 2;
+        y: parent.height - 2px;
+        width: 36px;
+        height: 2px;
+        border-radius: 1px;
+        background: AppTheme.accent;
+    }
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.tab-id); }
+    }
+}
+
+component InvitationTabsBar inherits Rectangle {
+    in property <string> selected-tab;
+    callback activated(string);
+
+    height: 50px;
+    background: AppTheme.surface;
+
+    HorizontalLayout {
+        InvitationTab {
+            horizontal-stretch: 1;
+            label: "返佣记录";
+            tab-id: "commissions";
+            selected: root.selected-tab == "commissions";
+            activated(tab) => { root.activated(tab); }
+        }
+        InvitationTab {
+            horizontal-stretch: 1;
+            label: "划转记录";
+            tab-id: "transfers";
+            selected: root.selected-tab == "transfers";
+            activated(tab) => { root.activated(tab); }
+        }
+    }
+
+    Rectangle {
+        y: parent.height - 1px;
+        width: parent.width;
+        height: 1px;
+        background: AppTheme.border.with-alpha(0.30);
+    }
+}
+
+component AffiliateStatus inherits Rectangle {
+    in property <string> label;
+    in property <string> tone;
+    width: label-text.preferred-width + 14px;
+    height: 21px;
+    border-radius: 10px;
+    background: root.tone == "available" ? #e6f3ed
+        : root.tone == "cooling" ? #fff1d8
+        : root.tone == "reversed" ? #f5eaea : #f0f1f1;
+
+    label-text := Text {
+        text: root.label;
+        color: root.tone == "available" ? #28765c
+            : root.tone == "cooling" ? #986414
+            : root.tone == "reversed" ? #8a5252 : #666b69;
+        font-size: 10px;
+        font-weight: 500;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+component CommissionRow inherits Rectangle {
+    in property <AffiliateCommissionItem> item;
+    callback activated(AffiliateCommissionItem);
+    height: 76px;
+    horizontal-stretch: 1;
+    background: AppTheme.surface;
+
+    Rectangle {
+        x: 4px;
+        y: 5px;
+        width: parent.width - 8px;
+        height: parent.height - 10px;
+        border-radius: 12px;
+        background: touch.pressed ? #ecefee
+            : touch.has-hover ? #f6f7f7 : transparent;
+        animate background { duration: 100ms; }
+    }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 6px;
+            Text {
+                text: root.item.invitee;
+                color: AppTheme.ink;
+                font-size: 14px;
+                font-weight: 500;
+                overflow: elide;
+            }
+            Text {
+                text: root.item.created-at-label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+            }
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+        VerticalLayout {
+            width: 108px;
+            alignment: center;
+            spacing: 6px;
+            Text {
+                text: root.item.amount-label;
+                color: root.item.status-tone == "reversed" ? AppTheme.ink-subtle : AppTheme.ink;
+                font-size: 13px;
+                font-weight: 550;
+                horizontal-alignment: right;
+            }
+            HorizontalLayout {
+                alignment: end;
+                AffiliateStatus { label: root.item.status-label; tone: root.item.status-tone; }
+            }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.item); }
+    }
+}
+
+component TransferRow inherits Rectangle {
+    in property <AffiliateTransferItem> item;
+    callback activated(AffiliateTransferItem);
+    height: 76px;
+    horizontal-stretch: 1;
+    background: AppTheme.surface;
+
+    Rectangle {
+        x: 4px;
+        y: 5px;
+        width: parent.width - 8px;
+        height: parent.height - 10px;
+        border-radius: 12px;
+        background: touch.pressed ? #ecefee
+            : touch.has-hover ? #f6f7f7 : transparent;
+        animate background { duration: 100ms; }
+    }
+    HorizontalLayout {
+        padding-left: 18px;
+        padding-right: 18px;
+        spacing: 14px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 6px;
+            Text {
+                text: "佣金转入余额";
+                color: AppTheme.ink;
+                font-size: 14px;
+                font-weight: AppTheme.font-weight-regular;
+            }
+            Text {
+                text: root.item.created-at-label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+            }
+        }
+        Rectangle { horizontal-stretch: 1; background: transparent; }
+        VerticalLayout {
+            width: 124px;
+            alignment: center;
+            spacing: 6px;
+            Text {
+                text: root.item.amount-label;
+                color: AppTheme.accent-dark;
+                font-size: 13px;
+                font-weight: 550;
+                horizontal-alignment: right;
+            }
+            Text {
+                text: "余额 " + root.item.balance-after-label;
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+                horizontal-alignment: right;
+            }
+        }
+    }
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(root.item); }
+    }
+}
+
+component InvitationDetailRow inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    height: 38px;
+    background: transparent;
+    HorizontalLayout {
+        spacing: 18px;
+        Text {
+            width: 100px;
+            text: root.label;
+            color: AppTheme.ink-subtle;
+            font-size: 12px;
+            vertical-alignment: center;
+        }
+        Text {
+            horizontal-stretch: 1;
+            text: root.value == "" ? "—" : root.value;
+            color: AppTheme.ink;
+            font-size: 13px;
+            font-weight: AppTheme.font-weight-regular;
+            horizontal-alignment: right;
+            vertical-alignment: center;
+            overflow: elide;
+        }
+    }
+}
+
+export component InvitationPage inherits Rectangle {
+    in-out property <bool> loading: false;
+    in-out property <bool> has-summary: false;
+    in-out property <string> error-message;
+    in-out property <bool> affiliate-enabled: true;
+    in-out property <string> available-commission: "¥0.00";
+    in-out property <string> total-commission: "¥0.00";
+    in-out property <string> cooling-commission: "¥0.00";
+    in-out property <string> rate-label: "0%";
+    in-out property <string> invitation-count: "0 人";
+    in-out property <string> invitation-code;
+    in-out property <string> invitation-url;
+
+    in-out property <[AffiliateCommissionItem]> commissions;
+    in-out property <bool> commissions-loading: false;
+    in-out property <bool> commissions-loading-more: false;
+    in-out property <string> commissions-error;
+    in-out property <bool> commissions-has-more: false;
+    in-out property <int> commissions-page: 1;
+    in-out property <int> commissions-total: 0;
+
+    in-out property <[AffiliateTransferItem]> transfers;
+    in-out property <bool> transfers-loading: false;
+    in-out property <bool> transfers-loading-more: false;
+    in-out property <string> transfers-error;
+    in-out property <bool> transfers-has-more: false;
+    in-out property <int> transfers-page: 1;
+    in-out property <int> transfers-total: 0;
+
+    callback load();
+    callback load-records(string, int, bool);
+    callback copy-value(string, string);
+    callback dismissed();
+
+    property <string> selected-tab: "commissions";
+    in-out property <length> page-scroll-y: 0px;
+    property <bool> detail-visible: false;
+    property <string> detail-kind;
+    property <AffiliateCommissionItem> selected-commission;
+    property <AffiliateTransferItem> selected-transfer;
+
+    width: 732px;
+    height: 664px;
+    preferred-width: 732px;
+    preferred-height: 664px;
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+    clip: true;
+
+    public function prepare() {
+        root.page-scroll-y = 0px;
+        root.loading = true;
+        root.has-summary = false;
+        root.error-message = "";
+        root.commissions = [];
+        root.commissions-loading = true;
+        root.commissions-loading-more = false;
+        root.commissions-error = "";
+        root.commissions-has-more = false;
+        root.commissions-page = 1;
+        root.transfers = [];
+        root.transfers-loading = true;
+        root.transfers-loading-more = false;
+        root.transfers-error = "";
+        root.transfers-has-more = false;
+        root.transfers-page = 1;
+        root.selected-tab = "commissions";
+        root.detail-visible = false;
+    }
+
+    function request-back() {
+        if (root.detail-visible) {
+            root.detail-visible = false;
+            return;
+        }
+        root.dismissed();
+    }
+
+    function refresh() {
+        root.loading = true;
+        root.error-message = "";
+        root.commissions-loading = true;
+        root.commissions-loading-more = false;
+        root.commissions-error = "";
+        root.transfers-loading = true;
+        root.transfers-loading-more = false;
+        root.transfers-error = "";
+        root.load();
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                InvitationBackButton { clicked => { root.request-back(); } }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: root.detail-visible
+                    ? root.detail-kind == "commission" ? "返佣详情" : "划转详情"
+                    : "我的邀请";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            if !root.detail-visible : VerticalLayout {
+                width: 40px;
+                alignment: center;
+                if root.has-summary : RefreshIconButton {
+                    busy: root.loading;
+                    clicked => { root.refresh(); }
+                }
+            }
+            if root.detail-visible : Rectangle { width: 40px; background: transparent; }
+        }
+    }
+
+    page-scroll := Flickable {
+        visible: !root.detail-visible;
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, content.preferred-height);
+        viewport-x: 0px;
+        viewport-y <=> root.page-scroll-y;
+
+        content := VerticalLayout {
+            width: parent.width;
+            padding-bottom: 22px;
+            spacing: 0px;
+
+            if root.loading && !root.has-summary : InvitationSkeleton { }
+
+            if !root.loading && !root.has-summary && root.error-message != "" : Rectangle {
+                height: 430px;
+                background: transparent;
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 11px;
+                    Glyph { name: "info"; fill: AppTheme.ink-subtle; width: 22px; height: 22px; }
+                    Text {
+                        text: "邀请信息加载失败";
+                        color: AppTheme.ink-muted;
+                        font-size: 14px;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.error-message;
+                        color: AppTheme.ink-subtle;
+                        font-size: 11px;
+                        horizontal-alignment: center;
+                    }
+                    AppButton {
+                        kind: ButtonKind.secondary;
+                        text: "重新加载";
+                        button-min-width: 100px;
+                        clicked => { root.refresh(); }
+                    }
+                }
+            }
+
+            if root.has-summary : VerticalLayout {
+                spacing: 0px;
+
+                if root.error-message != "" : VerticalLayout {
+                    padding-left: 12px;
+                    padding-right: 12px;
+                    padding-bottom: 10px;
+                    InlineAlert { message: "刷新失败，当前显示已加载的邀请信息：" + root.error-message; }
+                }
+
+                if !root.affiliate-enabled : Rectangle {
+                    height: 44px;
+                    background: #fffbf2;
+                    HorizontalLayout {
+                        padding-left: 18px;
+                        padding-right: 18px;
+                        spacing: 10px;
+                        VerticalLayout {
+                            width: 18px;
+                            alignment: center;
+                            Glyph {
+                                name: "clock";
+                                fill: #8a691d;
+                                width: 17px;
+                                height: 17px;
+                            }
+                        }
+                        Text {
+                            text: "邀请返佣当前已暂停，邀请关系仍会正常记录。";
+                            color: #795f25;
+                            font-size: 11px;
+                            vertical-alignment: center;
+                        }
+                        Rectangle { horizontal-stretch: 1; background: transparent; }
+                    }
+                }
+
+                Rectangle {
+                    height: 154px;
+                    background: AppTheme.surface;
+                    VerticalLayout {
+                        padding-left: 20px;
+                        padding-right: 20px;
+                        padding-top: 18px;
+                        padding-bottom: 18px;
+                        spacing: 20px;
+                        HorizontalLayout {
+                            height: 52px;
+                            VerticalLayout {
+                                spacing: 4px;
+                                Text { text: "可用佣金"; color: AppTheme.ink-subtle; font-size: 11px; }
+                                Text {
+                                    text: root.available-commission;
+                                    color: AppTheme.ink;
+                                    font-family: "Sora SemiBold";
+                                    font-size: 27px;
+                                    font-weight: 600;
+                                }
+                            }
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+                            VerticalLayout {
+                                alignment: center;
+                                spacing: 4px;
+                                Text { text: "返佣比例"; color: AppTheme.ink-subtle; font-size: 11px; horizontal-alignment: right; }
+                                Text { text: root.rate-label; color: AppTheme.accent; font-size: 14px; font-weight: 550; horizontal-alignment: right; }
+                            }
+                        }
+                        HorizontalLayout {
+                            height: 42px;
+                            InvitationMetric { horizontal-stretch: 1; label: "邀请人数"; value: root.invitation-count; }
+                            InvitationMetric { horizontal-stretch: 1; label: "累计佣金"; value: root.total-commission; alignment: TextHorizontalAlignment.center; }
+                            InvitationMetric { horizontal-stretch: 1; label: "冷却中"; value: root.cooling-commission; alignment: TextHorizontalAlignment.right; }
+                        }
+                    }
+                }
+
+                HorizontalLayout {
+                    height: 1px;
+                    padding-left: 18px;
+                    padding-right: 18px;
+                    Rectangle { horizontal-stretch: 1; height: 1px; background: AppTheme.border.with-alpha(0.28); }
+                }
+                Rectangle {
+                    height: 164px;
+                    background: AppTheme.surface;
+                    VerticalLayout {
+                        padding-left: 10px;
+                        padding-right: 10px;
+                        padding-top: 14px;
+                        padding-bottom: 10px;
+                        spacing: 0px;
+                        Text {
+                            height: 28px;
+                            text: "专属邀请";
+                            color: AppTheme.ink;
+                            font-size: 15px;
+                            font-weight: 550;
+                            vertical-alignment: center;
+                        }
+                        InvitationCopyRow {
+                            label: "邀请码";
+                            value: root.invitation-code;
+                            copy(label, value) => { root.copy-value(label, value); }
+                        }
+                        HorizontalLayout {
+                            height: 1px;
+                            padding-left: 12px;
+                            padding-right: 12px;
+                            Rectangle { horizontal-stretch: 1; height: 1px; background: AppTheme.border.with-alpha(0.24); }
+                        }
+                        InvitationCopyRow {
+                            label: "邀请链接";
+                            value: root.invitation-url;
+                            copy(label, value) => { root.copy-value(label, value); }
+                        }
+                    }
+                }
+
+                Rectangle { height: 12px; background: transparent; }
+            }
+
+            records-tabs := InvitationTabsBar {
+                height: root.has-summary ? 50px : 0px;
+                visible: root.has-summary;
+                selected-tab: root.selected-tab;
+                activated(tab) => { root.selected-tab = tab; }
+            }
+
+                if root.has-summary && root.selected-tab == "commissions" : VerticalLayout {
+                    spacing: 0px;
+                    if root.commissions-error != "" && root.commissions.length > 0 : VerticalLayout {
+                        padding-left: 18px;
+                        padding-right: 18px;
+                        padding-top: 10px;
+                        padding-bottom: 6px;
+                        InlineAlert { message: root.commissions-error; }
+                    }
+                    if root.commissions-loading && root.commissions.length == 0 : VerticalLayout {
+                        for index in 4 : VerticalLayout {
+                            Rectangle { height: 76px; background: AppTheme.surface-muted.with-alpha(0.45); }
+                            if index < 3 : Rectangle { height: 1px; background: AppTheme.border.with-alpha(0.42); }
+                        }
+                    }
+                    if !root.commissions-loading && root.commissions.length == 0 : Rectangle {
+                        height: 230px;
+                        background: AppTheme.surface;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Glyph { name: "user"; fill: AppTheme.ink-subtle; width: 21px; height: 21px; }
+                            Text { text: root.commissions-error == "" ? "还没有返佣记录" : "返佣记录加载失败"; color: AppTheme.ink-muted; font-size: 14px; horizontal-alignment: center; }
+                            Text { text: root.commissions-error == "" ? "好友完成符合条件的订单后，返佣会显示在这里" : "请检查网络后重新加载"; color: AppTheme.ink-subtle; font-size: 11px; horizontal-alignment: center; }
+                            if root.commissions-error != "" : AppButton {
+                                kind: ButtonKind.ghost;
+                                text: "重新加载";
+                                button-min-width: 100px;
+                                clicked => {
+                                    root.commissions-error = "";
+                                    root.commissions-loading = true;
+                                    root.load-records("commissions", 1, false);
+                                }
+                            }
+                        }
+                    }
+                    if root.commissions.length > 0 : VerticalLayout {
+                        spacing: 0px;
+                        for item[index] in root.commissions : VerticalLayout {
+                            CommissionRow {
+                                item: item;
+                                activated(value) => {
+                                    root.selected-commission = value;
+                                    root.detail-kind = "commission";
+                                    root.detail-visible = true;
+                                }
+                            }
+                            if index < root.commissions.length - 1 : HorizontalLayout {
+                                height: 1px;
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    height: 1px;
+                                    background: AppTheme.border.with-alpha(0.22);
+                                }
+                            }
+                        }
+                        if root.commissions-has-more : InvitationLoadMoreRow {
+                            busy: root.commissions-loading-more;
+                            clicked => {
+                                root.commissions-error = "";
+                                root.commissions-loading-more = true;
+                                root.load-records("commissions", root.commissions-page + 1, true);
+                            }
+                        }
+                        if !root.commissions-has-more && !root.commissions-loading : InvitationRecordFooter {
+                            total: root.commissions-total;
+                        }
+                    }
+                }
+
+                if root.has-summary && root.selected-tab == "transfers" : VerticalLayout {
+                    spacing: 0px;
+                    if root.transfers-error != "" && root.transfers.length > 0 : VerticalLayout {
+                        padding-left: 18px;
+                        padding-right: 18px;
+                        padding-top: 10px;
+                        padding-bottom: 6px;
+                        InlineAlert { message: root.transfers-error; }
+                    }
+                    if root.transfers-loading && root.transfers.length == 0 : VerticalLayout {
+                        for index in 4 : VerticalLayout {
+                            Rectangle { height: 76px; background: AppTheme.surface-muted.with-alpha(0.45); }
+                            if index < 3 : Rectangle { height: 1px; background: AppTheme.border.with-alpha(0.42); }
+                        }
+                    }
+                    if !root.transfers-loading && root.transfers.length == 0 : Rectangle {
+                        height: 230px;
+                        background: AppTheme.surface;
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 8px;
+                            Glyph { name: "data-usage"; fill: AppTheme.ink-subtle; width: 21px; height: 21px; }
+                            Text { text: root.transfers-error == "" ? "还没有划转记录" : "划转记录加载失败"; color: AppTheme.ink-muted; font-size: 14px; horizontal-alignment: center; }
+                            Text { text: root.transfers-error == "" ? "可用佣金转入余额后，划转记录会显示在这里" : "请检查网络后重新加载"; color: AppTheme.ink-subtle; font-size: 11px; horizontal-alignment: center; }
+                            if root.transfers-error != "" : AppButton {
+                                kind: ButtonKind.ghost;
+                                text: "重新加载";
+                                button-min-width: 100px;
+                                clicked => {
+                                    root.transfers-error = "";
+                                    root.transfers-loading = true;
+                                    root.load-records("transfers", 1, false);
+                                }
+                            }
+                        }
+                    }
+                    if root.transfers.length > 0 : VerticalLayout {
+                        spacing: 0px;
+                        for item[index] in root.transfers : VerticalLayout {
+                            TransferRow {
+                                item: item;
+                                activated(value) => {
+                                    root.selected-transfer = value;
+                                    root.detail-kind = "transfer";
+                                    root.detail-visible = true;
+                                }
+                            }
+                            if index < root.transfers.length - 1 : HorizontalLayout {
+                                height: 1px;
+                                padding-left: 18px;
+                                padding-right: 18px;
+                                Rectangle {
+                                    horizontal-stretch: 1;
+                                    height: 1px;
+                                    background: AppTheme.border.with-alpha(0.22);
+                                }
+                            }
+                        }
+                        if root.transfers-has-more : InvitationLoadMoreRow {
+                            busy: root.transfers-loading-more;
+                            clicked => {
+                                root.transfers-error = "";
+                                root.transfers-loading-more = true;
+                                root.load-records("transfers", root.transfers-page + 1, true);
+                            }
+                        }
+                        if !root.transfers-has-more && !root.transfers-loading : InvitationRecordFooter {
+                            total: root.transfers-total;
+                        }
+                    }
+                }
+        }
+    }
+
+    if !root.detail-visible && root.has-summary && -root.page-scroll-y >= records-tabs.y : InvitationTabsBar {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        selected-tab: root.selected-tab;
+        activated(tab) => { root.selected-tab = tab; }
+    }
+
+    if root.detail-visible : Flickable {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, detail-content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        detail-content := VerticalLayout {
+            width: parent.width;
+            padding-left: 20px;
+            padding-right: 20px;
+            padding-top: 16px;
+            padding-bottom: 28px;
+            spacing: 0px;
+
+            if root.detail-kind == "commission" : VerticalLayout {
+                spacing: 0px;
+                HorizontalLayout {
+                    height: 58px;
+                    spacing: 14px;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 5px;
+                        Text { text: root.selected-commission.invitee; color: AppTheme.ink; font-size: 17px; font-weight: 500; overflow: elide; }
+                        Text { text: root.selected-commission.rebate-type-label; color: AppTheme.ink-muted; font-size: 11px; }
+                    }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    Text {
+                        text: root.selected-commission.amount-label;
+                        color: root.selected-commission.status-tone == "reversed" ? AppTheme.ink-subtle : AppTheme.ink;
+                        font-family: "Sora SemiBold";
+                        font-size: 19px;
+                        font-weight: 600;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                    }
+                }
+                AffiliateStatus { label: root.selected-commission.status-label; tone: root.selected-commission.status-tone; }
+                Rectangle { height: 24px; background: transparent; }
+                InvitationDetailRow { label: "生成时间"; value: root.selected-commission.created-at-label; }
+                InvitationDetailRow { label: "订单金额"; value: root.selected-commission.base-amount-label; }
+                InvitationDetailRow { label: "返佣比例"; value: root.selected-commission.rate-label; }
+                if root.selected-commission.order-number != "" : InvitationCopyRow {
+                    label: "订单号";
+                    value: root.selected-commission.order-number;
+                    copy(label, value) => { root.copy-value(label, value); }
+                }
+                if root.selected-commission.available-at-label != "" : InvitationDetailRow { label: "可用时间"; value: root.selected-commission.available-at-label; }
+                if root.selected-commission.released-at-label != "" : InvitationDetailRow { label: "释放时间"; value: root.selected-commission.released-at-label; }
+                if root.selected-commission.reversed-at-label != "" : InvitationDetailRow { label: "撤销时间"; value: root.selected-commission.reversed-at-label; }
+                if root.selected-commission.reversed-deducted-label != "" : InvitationDetailRow { label: "撤销扣回"; value: root.selected-commission.reversed-deducted-label; }
+            }
+
+            if root.detail-kind == "transfer" : VerticalLayout {
+                spacing: 0px;
+                Text { height: 28px; text: "佣金转入余额"; color: AppTheme.ink; font-size: 16px; font-weight: AppTheme.font-weight-regular; }
+                Text {
+                    height: 42px;
+                    text: root.selected-transfer.amount-label;
+                    color: AppTheme.accent-dark;
+                    font-family: "Sora SemiBold";
+                    font-size: 25px;
+                    font-weight: 600;
+                }
+                Rectangle { height: 20px; background: transparent; }
+                InvitationDetailRow { label: "划转时间"; value: root.selected-transfer.created-at-label; }
+                InvitationDetailRow { label: "划转后余额"; value: root.selected-transfer.balance-after-label; }
+                if root.selected-transfer.request-id != "" : InvitationCopyRow {
+                    label: "划转编号";
+                    value: root.selected-transfer.request-id;
+                    copy(label, value) => { root.copy-value(label, value); }
+                }
+            }
+        }
+    }
+}

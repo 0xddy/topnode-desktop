@@ -1,0 +1,135 @@
+import { AppTheme } from "../theme.slint";
+import { NavigationPage } from "../models.slint";
+import { BrandLockup } from "brand.slint";
+import { Glyph } from "glyph.slint";
+
+component NavItem inherits Rectangle {
+    in property <string> label;
+    in property <string> icon;
+    in property <bool> selected;
+    callback activated();
+
+    height: 38px;
+    border-radius: AppTheme.radius-small;
+    background: root.selected ? AppTheme.accent-soft
+        : touch.has-hover ? AppTheme.surface-muted : transparent;
+    animate background { duration: 100ms; easing: ease-out; }
+
+    property <color> icon-color: root.selected ? AppTheme.accent-dark : AppTheme.ink-muted;
+    property <color> text-color: root.selected ? AppTheme.accent-dark : AppTheme.ink;
+    animate icon-color { duration: 180ms; easing: ease-in-out; }
+    animate text-color { duration: 180ms; easing: ease-in-out; }
+
+    if root.selected : Rectangle {
+        x: 0px;
+        y: 8px;
+        width: 3px;
+        height: 22px;
+        border-radius: 1.5px;
+        background: AppTheme.accent;
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            Glyph {
+                name: root.icon;
+                fill: root.icon-color;
+            }
+        }
+        Text {
+            text: root.label;
+            color: root.text-color;
+            font-size: 13px;
+            font-weight: AppTheme.font-weight-regular;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+export component Sidebar inherits Rectangle {
+    in property <NavigationPage> current-page;
+    callback navigate(NavigationPage);
+
+    width: AppTheme.sidebar-width;
+    background: AppTheme.surface;
+    horizontal-stretch: 0;
+
+    Rectangle {
+        x: parent.width - 1px;
+        width: 1px;
+        height: 100%;
+        background: AppTheme.border;
+    }
+
+    VerticalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        padding-top: 22px;
+        padding-bottom: 16px;
+        spacing: 4px;
+
+        BrandLockup {
+            height: 36px;
+            mark-size: 36px;
+            name-color: AppTheme.accent;
+            show-product-type: false;
+        }
+
+        Rectangle { height: 24px; background: transparent; }
+
+        Rectangle {
+            height: 164px;
+            background: transparent;
+
+            VerticalLayout {
+                spacing: 4px;
+                NavItem {
+                    label: "首页";
+                    icon: "home";
+                    selected: root.current-page == NavigationPage.home;
+                    activated => { root.navigate(NavigationPage.home); }
+                }
+                NavItem {
+                    label: "我的订阅";
+                    icon: "subscriptions";
+                    selected: root.current-page == NavigationPage.subscriptions;
+                    activated => { root.navigate(NavigationPage.subscriptions); }
+                }
+                NavItem {
+                    label: "购买套餐";
+                    icon: "shop";
+                    selected: root.current-page == NavigationPage.purchase;
+                    activated => { root.navigate(NavigationPage.purchase); }
+                }
+                NavItem {
+                    label: "个人中心";
+                    icon: "user";
+                    selected: root.current-page == NavigationPage.profile;
+                    activated => { root.navigate(NavigationPage.profile); }
+                }
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; background: transparent; }
+
+        Rectangle { height: 1px; background: AppTheme.border; }
+        Rectangle { height: 7px; background: transparent; }
+
+        NavItem {
+            label: "软件设置";
+            icon: "settings";
+            selected: root.current-page == NavigationPage.settings;
+            activated => { root.navigate(NavigationPage.settings); }
+        }
+    }
+}

@@ -1,0 +1,219 @@
+export enum NavigationPage {
+    home,
+    subscriptions,
+    purchase,
+    profile,
+    settings,
+}
+
+export enum AppPhase {
+    restoring,
+    signed-out,
+    signed-in,
+}
+
+export enum ResourcePhase {
+    idle,
+    loading,
+    refreshing,
+    ready,
+    failed,
+}
+
+export enum ShopPhase {
+    idle,
+    loading,
+    ready,
+    failed,
+}
+
+export enum ConnectionPhase {
+    disconnected,
+    preparing,
+    validating,
+    starting,
+    connected,
+    stopping,
+    failed,
+}
+
+export enum SubscriptionStatus {
+    active,
+    expired,
+    exhausted,
+    disabled,
+}
+
+export struct ResourceGroupItem {
+    id: string,
+    group-id: string,
+    entitlement-id: string,
+    name: string,
+    quota-label: string,
+    expiry-label: string,
+    selected: bool,
+    connectable: bool,
+}
+
+export struct NodeItem {
+    id: string,
+    name: string,
+    country-code: string,
+    status-label: string,
+    tags-label: string,
+    multiplier-label: string,
+    latency-label: string,
+    latency-available: bool,
+    selected: bool,
+    selectable: bool,
+    measuring: bool,
+}
+
+export struct SubscriptionItem {
+    id: string,
+    plan-id: string,
+    related-addon-count: int,
+    title: string,
+    badge-label: string,
+    status: SubscriptionStatus,
+    status-label: string,
+    remaining-value: string,
+    total-value: string,
+    usage-label: string,
+    usage-progress: float,
+    expiry-label: string,
+}
+
+export struct ShopPlanItem {
+    id: string,
+    title: string,
+    description: string,
+    starting-price-label: string,
+    default-price-id: string,
+    default-price-label: string,
+    default-price-cents: int,
+    default-price-requires-payment: bool,
+    traffic-label: string,
+    option-label: string,
+    price-count: int,
+}
+
+export struct ShopPriceItem {
+    id: string,
+    plan-id: string,
+    option-index: int,
+    label: string,
+    price-label: string,
+    traffic-label: string,
+    price-cents: int,
+    requires-payment: bool,
+}
+
+export struct ShopAddonItem {
+    id: string,
+    plan-id: string,
+    option-index: int,
+    plan-addon-count: int,
+    title: string,
+    plan-title: string,
+    plan-description: string,
+    price-label: string,
+    traffic-label: string,
+    price-cents: int,
+    requires-payment: bool,
+    purchase-enabled: bool,
+}
+
+export struct PaymentMethodItem {
+    id: string,
+    title: string,
+    subtitle: string,
+    provider: string,
+    payment-type: string,
+}
+
+export struct BalanceTransactionItem {
+    id: string,
+    title: string,
+    kind-icon: string,
+    description: string,
+    amount-label: string,
+    balance-after-label: string,
+    balance-before-label: string,
+    created-at-label: string,
+    reference-label: string,
+    credit: bool,
+}
+
+export struct OrderItem {
+    id: string,
+    order-number: string,
+    title: string,
+    specification: string,
+    amount-label: string,
+    status-label: string,
+    status-tone: string,
+    list-time-label: string,
+    type-label: string,
+    payment-method-label: string,
+    balance-refunded-label: string,
+    created-at-label: string,
+    paid-at-label: string,
+    refunded-at-label: string,
+    updated-at-label: string,
+}
+
+export struct GiftCardRewardItem {
+    reward-type: string,
+    title: string,
+    subtitle: string,
+    summary: string,
+}
+
+export struct AffiliateCommissionItem {
+    id: string,
+    invitee: string,
+    order-number: string,
+    rebate-type-label: string,
+    rate-label: string,
+    base-amount-label: string,
+    amount-label: string,
+    status-label: string,
+    status-tone: string,
+    created-at-label: string,
+    available-at-label: string,
+    released-at-label: string,
+    reversed-at-label: string,
+    reversed-deducted-label: string,
+}
+
+export struct AffiliateTransferItem {
+    id: string,
+    request-id: string,
+    amount-label: string,
+    balance-after-label: string,
+    created-at-label: string,
+}
+
+export struct SupportTicketItem {
+    id: string,
+    ticket-number: string,
+    title: string,
+    status-label: string,
+    status-tone: string,
+    priority-label: string,
+    updated-at-label: string,
+    unread: bool,
+    closed: bool,
+}
+
+export struct SupportTicketMessageItem {
+    id: string,
+    content: string,
+    sender-label: string,
+    time-label: string,
+    own: bool,
+    sending: bool,
+    failed: bool,
+    show-time: bool,
+}

@@ -1,0 +1,342 @@
+import { AppTheme } from "../theme.slint";
+import { AppSwitch, BusyIndicator, Hairline, PageHeader, SurfaceCard } from "../components/controls.slint";
+
+component SettingRow inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in-out property <bool> checked;
+    in property <bool> checked-visible: true;
+    in property <bool> enabled: true;
+    callback changed(bool);
+
+    height: 60px;
+    background: transparent;
+    opacity: root.enabled ? 1 : 0.45;
+
+    HorizontalLayout {
+        spacing: 16px;
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.title;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: AppTheme.font-weight-regular;
+            }
+            Text {
+                text: root.description;
+                color: AppTheme.ink-muted;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+        }
+        VerticalLayout {
+            width: 42px;
+            alignment: center;
+            AppSwitch {
+                checked <=> root.checked;
+                checked-visible: root.checked-visible;
+                enabled: root.enabled;
+                toggled => { root.changed(root.checked); }
+            }
+        }
+    }
+}
+
+component ModeChoice inherits Rectangle {
+    in property <string> title;
+    in property <string> description;
+    in property <string> badge;
+    in property <bool> badge-warning: false;
+    in property <bool> selected: false;
+    in property <bool> enabled: true;
+    in property <bool> pending: false;
+    callback chosen();
+
+    height: 72px;
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    border-radius: AppTheme.radius-medium;
+    border-width: 1px;
+    border-color: root.selected ? AppTheme.accent : AppTheme.border;
+    background: root.selected
+        ? AppTheme.accent-faint
+        : touch.has-hover && root.enabled ? AppTheme.surface-subtle : transparent;
+    opacity: root.enabled || root.pending ? 1 : 0.5;
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 12px;
+        spacing: 16px;
+
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            Rectangle {
+                width: 18px;
+                height: 18px;
+                border-radius: 9px;
+                border-width: 1.5px;
+                border-color: root.selected ? AppTheme.accent : AppTheme.border-strong;
+                background: AppTheme.surface;
+                animate border-color { duration: 120ms; }
+
+                if root.selected : Rectangle {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    width: 8px;
+                    height: 8px;
+                    border-radius: 4px;
+                    background: AppTheme.accent;
+                }
+            }
+        }
+
+        VerticalLayout {
+            min-width: 0px;
+            horizontal-stretch: 1;
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: root.title;
+                color: root.selected ? AppTheme.accent-dark : AppTheme.ink;
+                font-size: 13px;
+                font-weight: AppTheme.font-weight-regular;
+            }
+            Text {
+                text: root.description;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                wrap: word-wrap;
+            }
+        }
+
+        Rectangle {
+            width: 64px;
+            background: transparent;
+            Rectangle {
+                x: parent.width - self.width;
+                y: (parent.height - self.height) / 2;
+                width: 52px;
+                height: 24px;
+                border-radius: 12px;
+                background: root.badge-warning ? AppTheme.warning-soft : AppTheme.accent-soft;
+                Text {
+                    text: root.badge;
+                    color: root.badge-warning ? AppTheme.warning : AppTheme.accent-dark;
+                    font-size: 10px;
+                    font-weight: AppTheme.font-weight-regular;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+            }
+        }
+    }
+
+    touch := TouchArea {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            if (!root.selected) { root.chosen(); }
+        }
+    }
+}
+
+component SectionLabel inherits Rectangle {
+    in property <string> title;
+    height: 28px;
+    horizontal-stretch: 1;
+    background: transparent;
+    Text {
+        width: 100%;
+        text: root.title;
+        color: AppTheme.ink-subtle;
+        font-size: 12px;
+        font-weight: 500;
+        letter-spacing: 0.4px;
+        vertical-alignment: center;
+    }
+}
+
+export component SettingsPage inherits Rectangle {
+    in-out property <bool> tun-mode;
+    in property <bool> tun-change-pending: false;
+    in property <bool> settings-apply-pending: false;
+    in property <bool> preferences-editable: true;
+    in-out property <bool> global-mode;
+    in-out property <bool> bypass-mainland;
+    in-out property <bool> bypass-lan;
+    in-out property <bool> udp-forwarding;
+    in-out property <bool> multiplex;
+    callback tun-mode-changed(bool);
+    callback global-mode-changed(bool);
+    callback bypass-mainland-changed(bool);
+    callback bypass-lan-changed(bool);
+    callback udp-forwarding-changed(bool);
+    callback multiplex-changed(bool);
+
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    VerticalLayout {
+        spacing: 12px;
+
+        HorizontalLayout {
+            PageHeader {
+                title: "软件设置";
+                title-size: 22px;
+                subtitle: root.tun-change-pending
+                    ? root.tun-mode
+                        ? "正在启用全局模式，请按系统提示完成授权；应用将自动重新打开"
+                        : "正在切换为系统代理模式，设置完成后即可继续使用"
+                    : root.settings-apply-pending
+                        ? "正在应用设置并刷新当前连接，请稍候"
+                        : "更改会自动保存；连接中修改时将自动刷新连接";
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            if root.tun-change-pending || root.settings-apply-pending : VerticalLayout {
+                width: 24px;
+                alignment: center;
+                BusyIndicator { width: 18px; height: 18px; }
+            }
+        }
+
+        SurfaceCard {
+            VerticalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 14px;
+                padding-bottom: 14px;
+                spacing: 6px;
+                SectionLabel { title: "连接模式"; }
+                mode-row := HorizontalLayout {
+                    spacing: 12px;
+                    ModeChoice {
+                        title: "系统代理模式";
+                        description: "适合浏览器和常用办公应用";
+                        badge: "推荐";
+                        selected: !root.tun-mode;
+                        enabled: !root.tun-change-pending && !root.settings-apply-pending;
+                        pending: root.tun-change-pending;
+                        chosen => {
+                            root.tun-mode = false;
+                            root.tun-mode-changed(false);
+                        }
+                    }
+                    ModeChoice {
+                        title: "全局模式";
+                        description: root.tun-change-pending
+                            ? "正在切换连接模式…"
+                            : "覆盖浏览器、游戏及更多应用的网络流量";
+                        badge: root.tun-change-pending
+                            ? "切换中"
+                            : root.tun-mode ? "已启用" : "更多应用";
+                        selected: root.tun-mode;
+                        enabled: !root.tun-change-pending && !root.settings-apply-pending;
+                        pending: root.tun-change-pending;
+                        chosen => {
+                            root.tun-mode = true;
+                            root.tun-mode-changed(true);
+                        }
+                    }
+                }
+            }
+        }
+
+        SurfaceCard {
+            VerticalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 14px;
+                padding-bottom: 8px;
+                SectionLabel { title: "代理范围"; }
+                Text {
+                    height: 18px;
+                    text: "以下规则同时适用于系统代理模式与全局模式";
+                    color: AppTheme.ink-subtle;
+                    font-size: 11px;
+                    vertical-alignment: center;
+                }
+                SettingRow {
+                    title: "代理全部流量";
+                    description: "不再按大陆地区分流，其他直连规则保持生效";
+                    checked <=> root.global-mode;
+                    enabled: root.preferences-editable
+                        && !root.tun-change-pending
+                        && !root.settings-apply-pending;
+                    changed(value) => {
+                        if (value) { root.bypass-mainland = false; }
+                        root.global-mode-changed(value);
+                    }
+                }
+                Hairline { }
+                SettingRow {
+                    title: "中国大陆直连";
+                    description: root.global-mode
+                        ? "关闭“代理全部流量”后可单独设置"
+                        : "中国大陆网络不经过所选节点";
+                    checked <=> root.bypass-mainland;
+                    enabled: root.preferences-editable
+                        && !root.global-mode
+                        && !root.tun-change-pending
+                        && !root.settings-apply-pending;
+                    changed(value) => { root.bypass-mainland-changed(value); }
+                }
+                Hairline { }
+                SettingRow {
+                    title: "局域网直连";
+                    description: "局域网设备和本地地址不经过所选节点";
+                    checked <=> root.bypass-lan;
+                    enabled: root.preferences-editable
+                        && !root.tun-change-pending
+                        && !root.settings-apply-pending;
+                    changed(value) => { root.bypass-lan-changed(value); }
+                }
+            }
+        }
+
+        SurfaceCard {
+            VerticalLayout {
+                padding-left: 20px;
+                padding-right: 20px;
+                padding-top: 14px;
+                padding-bottom: 8px;
+                SectionLabel { title: "连接优化"; }
+                SettingRow {
+                    title: "UDP 转发";
+                    description: root.tun-mode
+                        ? "用于游戏、语音通话和部分视频应用"
+                        : "用于游戏、语音通话等场景，仅全局模式可用";
+                    checked <=> root.udp-forwarding;
+                    checked-visible: root.tun-mode;
+                    enabled: root.preferences-editable
+                        && root.tun-mode
+                        && !root.tun-change-pending
+                        && !root.settings-apply-pending;
+                    changed(value) => { root.udp-forwarding-changed(value); }
+                }
+                Hairline { }
+                SettingRow {
+                    title: "多路复用";
+                    description: "节点支持时复用连接，减少重复连接开销";
+                    checked <=> root.multiplex;
+                    enabled: root.preferences-editable
+                        && !root.tun-change-pending
+                        && !root.settings-apply-pending;
+                    changed(value) => { root.multiplex-changed(value); }
+                }
+            }
+        }
+
+        Rectangle { vertical-stretch: 1; background: transparent; }
+    }
+}

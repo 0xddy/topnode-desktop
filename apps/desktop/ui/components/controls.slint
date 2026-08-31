@@ -1,0 +1,301 @@
+import { AppTheme } from "../theme.slint";
+import { Glyph } from "glyph.slint";
+
+export enum ButtonKind {
+    primary,
+    secondary,
+    ghost,
+}
+
+export component BusyIndicator inherits Rectangle {
+    in property <color> indicator-color: AppTheme.accent;
+    width: 18px;
+    height: 18px;
+    background: transparent;
+
+    Rectangle {
+        width: 100%;
+        height: 100%;
+        border-radius: root.width / 2;
+        border-width: 2px;
+        border-color: root.indicator-color.with-alpha(0.22);
+        background: transparent;
+    }
+    Rectangle {
+        x: root.width / 2 - 2px + cos(360deg * animation-tick() / 900ms) * (root.width / 2 - 2px);
+        y: root.height / 2 - 2px + sin(360deg * animation-tick() / 900ms) * (root.height / 2 - 2px);
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: root.indicator-color;
+    }
+}
+
+export component RefreshIconButton inherits Rectangle {
+    in property <bool> busy;
+    in property <string> icon: "refresh";
+    callback clicked();
+
+    width: 38px;
+    height: 38px;
+    border-radius: AppTheme.radius-control;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: root.busy ? AppTheme.surface-subtle
+        : refresh-touch.pressed ? AppTheme.surface-muted
+        : refresh-touch.has-hover ? AppTheme.accent-faint : AppTheme.surface;
+    animate background { duration: 100ms; easing: ease-out; }
+
+    if root.busy : BusyIndicator {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 18px;
+    }
+
+    if !root.busy : Glyph {
+        x: 10px;
+        y: 10px;
+        name: root.icon;
+        fill: refresh-touch.has-hover ? AppTheme.accent : AppTheme.ink-muted;
+    }
+
+    refresh-touch := TouchArea {
+        enabled: !root.busy;
+        mouse-cursor: root.busy ? MouseCursor.default : MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component AppButton inherits Rectangle {
+    in property <string> text;
+    in property <ButtonKind> kind: ButtonKind.primary;
+    in property <bool> enabled: true;
+    in property <bool> busy: false;
+    in property <bool> filled-secondary: false;
+    in property <color> primary-color: AppTheme.accent;
+    in property <color> primary-hover-color: AppTheme.accent-hover;
+    in property <color> primary-pressed-color: AppTheme.accent-dark;
+    in property <bool> gradient-primary: true;
+    in property <length> button-min-width: 80px;
+    in property <length> corner-radius: AppTheme.radius-control;
+    callback clicked();
+
+    min-width: root.button-min-width;
+    height: 40px;
+    border-radius: root.corner-radius;
+    opacity: root.enabled ? 1 : 0.42;
+    background: root.kind == ButtonKind.primary ? (touch.pressed ? root.primary-pressed-color
+            : touch.has-hover && root.enabled ? root.primary-hover-color
+            : root.gradient-primary
+                ? @linear-gradient(90deg, root.primary-hover-color 0%, root.primary-color 100%)
+                : root.primary-color)
+        : root.kind == ButtonKind.secondary ? (touch.pressed ? #dedfe0
+            : touch.has-hover && root.enabled ? #e7e8e9
+            : root.filled-secondary ? #ededef : AppTheme.surface)
+        : touch.pressed ? AppTheme.surface-muted
+            : touch.has-hover && root.enabled ? AppTheme.surface-muted : transparent;
+    border-width: root.kind == ButtonKind.secondary && !root.filled-secondary ? 1px : 0px;
+    border-color: AppTheme.border;
+    animate background { duration: 120ms; }
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        alignment: center;
+        spacing: 8px;
+        if root.busy : VerticalLayout {
+            width: 16px;
+            alignment: center;
+            BusyIndicator {
+                width: 16px;
+                height: 16px;
+                indicator-color: root.kind == ButtonKind.primary ? white : AppTheme.accent;
+            }
+        }
+        Text {
+            text: root.text;
+            color: root.kind == ButtonKind.primary ? white
+                : root.kind == ButtonKind.ghost ? AppTheme.ink-muted : AppTheme.ink;
+            font-size: 13px;
+            font-weight: 600;
+            horizontal-alignment: center;
+            vertical-alignment: center;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component AppField inherits Rectangle {
+    in property <string> placeholder;
+    in-out property <string> text;
+    in property <bool> enabled: true;
+    in property <InputType> input-type: InputType.text;
+    in property <length> trailing-inset: 0px;
+    callback accepted(string);
+
+    height: 44px;
+    border-radius: AppTheme.radius-control;
+    forward-focus: input;
+    background: input.has-focus ? AppTheme.surface : AppTheme.field;
+    border-width: 1px;
+    border-color: input.has-focus ? AppTheme.accent : transparent;
+    animate background { duration: 120ms; }
+    animate border-color { duration: 120ms; }
+
+    Text {
+        x: 14px;
+        width: parent.width - 28px - root.trailing-inset;
+        height: 100%;
+        visible: input.text == "";
+        text: root.placeholder;
+        color: AppTheme.ink-subtle;
+        font-size: 14px;
+        vertical-alignment: center;
+    }
+
+    input := TextInput {
+        x: 14px;
+        width: parent.width - 28px - root.trailing-inset;
+        height: 100%;
+        text <=> root.text;
+        enabled: root.enabled;
+        input-type: root.input-type;
+        single-line: true;
+        color: AppTheme.ink;
+        font-size: 14px;
+        vertical-alignment: center;
+        accepted => { root.accepted(self.text); }
+    }
+}
+
+export component AppSwitch inherits Rectangle {
+    in-out property <bool> checked;
+    in property <bool> checked-visible: true;
+    in property <bool> enabled: true;
+    callback toggled();
+
+    width: 42px;
+    height: 26px;
+    border-radius: 13px;
+    opacity: root.enabled ? 1 : 0.45;
+    background: root.checked && root.checked-visible ? AppTheme.accent : AppTheme.border-strong;
+    animate background { duration: 150ms; }
+
+    Rectangle {
+        x: root.checked && root.checked-visible ? root.width - self.width - 3px : 3px;
+        y: 3px;
+        width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        background: white;
+        drop-shadow-color: #00000026;
+        drop-shadow-blur: 4px;
+        drop-shadow-offset-y: 1px;
+        animate x { duration: 150ms; easing: ease-out; }
+    }
+
+    TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+}
+
+export component PageHeader inherits VerticalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+    in property <length> title-size: 26px;
+    spacing: 4px;
+
+    Text {
+        text: root.title;
+        color: AppTheme.ink;
+        font-size: root.title-size;
+        font-weight: 600;
+    }
+    Text {
+        text: root.subtitle;
+        color: AppTheme.ink-muted;
+        font-size: 13px;
+    }
+}
+
+export component SurfaceCard inherits Rectangle {
+    border-radius: AppTheme.radius-large;
+    background: AppTheme.surface;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    drop-shadow-color: #10231c0a;
+    drop-shadow-blur: 12px;
+    drop-shadow-offset-y: 3px;
+}
+
+export component Hairline inherits Rectangle {
+    height: 1px;
+    background: AppTheme.border;
+    horizontal-stretch: 1;
+}
+
+export component StatusDot inherits Rectangle {
+    in property <color> fill: AppTheme.ink-subtle;
+    width: 7px;
+    height: 7px;
+    border-radius: 3.5px;
+    background: root.fill;
+}
+
+export component CountryMark inherits Rectangle {
+    in property <string> code;
+    in property <bool> active: true;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    background: root.active ? AppTheme.accent-soft : AppTheme.surface-muted;
+
+    Text {
+        text: root.code == "" ? "--" : root.code;
+        color: root.active ? AppTheme.accent-dark : AppTheme.ink-subtle;
+        font-size: 11px;
+        font-weight: 700;
+        letter-spacing: 0.4px;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+}
+
+export component InlineAlert inherits Rectangle {
+    in property <string> message;
+    in property <bool> danger: true;
+    min-height: 40px;
+    border-radius: AppTheme.radius-small;
+    background: root.danger ? AppTheme.danger-soft : AppTheme.warning-soft;
+
+    HorizontalLayout {
+        padding-left: 12px;
+        padding-right: 12px;
+        padding-top: 10px;
+        padding-bottom: 10px;
+        spacing: 10px;
+        VerticalLayout {
+            width: 7px;
+            alignment: center;
+            StatusDot { fill: root.danger ? AppTheme.danger : AppTheme.warning; }
+        }
+        Text {
+            text: root.message;
+            color: root.danger ? AppTheme.danger : AppTheme.warning;
+            font-size: 12px;
+            wrap: word-wrap;
+            vertical-alignment: center;
+        }
+    }
+}

@@ -1,0 +1,679 @@
+import { AppTheme } from "../theme.slint";
+import { ResourcePhase, SubscriptionItem, SubscriptionStatus } from "../models.slint";
+import { PageHeader, RefreshIconButton } from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component SectionHeading inherits Rectangle {
+    in property <string> title;
+    in property <string> subtitle;
+
+    height: 38px;
+    background: transparent;
+
+    VerticalLayout {
+        spacing: 2px;
+        Text {
+            text: root.title;
+            color: AppTheme.ink;
+            font-size: 15px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+        Text {
+            text: root.subtitle;
+            color: AppTheme.ink-muted;
+            font-size: 11px;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+    }
+}
+
+component SnapCarousel inherits Flickable {
+    in property <length> snap-step;
+    in-out property <length> scroll-offset: 0px;
+
+    property <bool> snapping: false;
+    property <length> minimum-offset: min(0px, root.width - root.viewport-width);
+
+    viewport-x <=> root.scroll-offset;
+    viewport-y: 0px;
+
+    flicked => {
+        root.snapping = false;
+        snap-finish.stop();
+        if (snap-delay.running) {
+            snap-delay.restart();
+        } else {
+            snap-delay.start();
+        }
+    }
+
+    animate viewport-x {
+        duration: root.snapping ? 240ms : 0ms;
+        easing: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    snap-delay := Timer {
+        interval: 180ms;
+        running: false;
+        triggered => {
+            self.stop();
+            root.snapping = true;
+            root.viewport-x = max(
+                root.minimum-offset,
+                min(0px, -round(-root.viewport-x / root.snap-step) * root.snap-step),
+            );
+            if (snap-finish.running) {
+                snap-finish.restart();
+            } else {
+                snap-finish.start();
+            }
+        }
+    }
+
+    snap-finish := Timer {
+        interval: 240ms;
+        running: false;
+        triggered => {
+            self.stop();
+            root.snapping = false;
+        }
+    }
+
+    @children
+}
+
+component StatusPill inherits Rectangle {
+    in property <SubscriptionItem> item;
+    in property <bool> compact: false;
+
+    property <color> container-color: root.item.status == SubscriptionStatus.active
+        ? AppTheme.accent-soft
+        : root.item.status == SubscriptionStatus.expired
+            ? AppTheme.danger-soft
+            : root.item.status == SubscriptionStatus.exhausted
+                ? AppTheme.warning-soft : AppTheme.surface-muted;
+    property <color> content-color: root.item.status == SubscriptionStatus.active
+        ? AppTheme.accent-dark
+        : root.item.status == SubscriptionStatus.expired
+            ? AppTheme.danger
+            : root.item.status == SubscriptionStatus.exhausted
+                ? AppTheme.warning : AppTheme.ink-muted;
+
+    width: root.compact ? 68px : 76px;
+    height: root.compact ? 24px : 28px;
+    border-radius: self.height / 2;
+    background: root.container-color;
+
+    Text {
+        text: root.item.status-label;
+        color: root.content-color;
+        font-size: root.compact ? 10px : 11px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component PlanBadge inherits Rectangle {
+    in property <string> label;
+
+    width: 88px;
+    height: 28px;
+    border-radius: 14px;
+    background: AppTheme.accent-soft;
+
+    Text {
+        x: 9px;
+        width: parent.width - 18px;
+        text: root.label == "" ? "套餐" : root.label;
+        color: AppTheme.accent-dark;
+        font-size: 11px;
+        font-weight: 600;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component UsageProgress inherits Rectangle {
+    in property <SubscriptionItem> item;
+
+    height: 7px;
+    border-radius: 3.5px;
+    background: AppTheme.surface-muted;
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: parent.width * max(0, min(1, root.item.usage-progress));
+        height: 100%;
+        border-radius: 3.5px;
+        background: root.item.status == SubscriptionStatus.active
+            ? AppTheme.accent
+            : root.item.status == SubscriptionStatus.expired
+                ? AppTheme.danger
+                : root.item.status == SubscriptionStatus.exhausted
+                    ? AppTheme.warning : AppTheme.ink-subtle;
+        animate width { duration: 220ms; easing: ease-out; }
+    }
+}
+
+component SubscriptionPlanCard inherits Rectangle {
+    in property <SubscriptionItem> item;
+    in property <bool> selected;
+    callback activated();
+
+    width: 330px;
+    height: 172px;
+    border-radius: AppTheme.radius-extra-large;
+    border-width: root.selected ? 1.5px : 1px;
+    border-color: root.selected ? AppTheme.accent : AppTheme.border;
+    background: AppTheme.surface;
+    animate border-color { duration: 180ms; easing: ease-out; }
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+
+        HorizontalLayout {
+            height: 36px;
+            spacing: 10px;
+            Text {
+                min-width: 0px;
+                horizontal-stretch: 1;
+                text: root.item.title;
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 19px;
+                font-weight: 600;
+                wrap: word-wrap;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            VerticalLayout {
+                width: 88px;
+                alignment: center;
+                PlanBadge { label: root.item.badge-label; }
+            }
+        }
+
+        HorizontalLayout {
+            height: 34px;
+            VerticalLayout {
+                spacing: 1px;
+                Text {
+                    text: "剩余流量";
+                    color: AppTheme.ink-muted;
+                    font-size: 10px;
+                }
+                Text {
+                    text: root.item.remaining-value;
+                    color: AppTheme.ink;
+                    font-size: 20px;
+                    font-weight: 600;
+                }
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Text {
+                text: "共 " + root.item.total-value;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                vertical-alignment: bottom;
+            }
+        }
+
+        UsageProgress { item: root.item; }
+
+        HorizontalLayout {
+            height: 18px;
+            Text {
+                text: root.item.usage-label;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Text {
+                text: root.item.expiry-label;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    plan-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+component TrafficAddonCard inherits Rectangle {
+    in property <SubscriptionItem> item;
+
+    width: 340px;
+    height: 184px;
+    border-radius: AppTheme.radius-extra-large;
+    background: AppTheme.surface;
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 10px;
+
+        HorizontalLayout {
+            height: 36px;
+            VerticalLayout {
+                width: 68px;
+                alignment: center;
+                StatusPill { item: root.item; compact: true; }
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Rectangle {
+                width: 36px;
+                height: 36px;
+                border-radius: 18px;
+                background: AppTheme.accent-soft;
+                Glyph {
+                    x: 8px;
+                    y: 8px;
+                    width: 20px;
+                    height: 20px;
+                    name: "data-usage";
+                    fill: AppTheme.accent;
+                }
+            }
+        }
+
+        VerticalLayout {
+            height: 42px;
+            spacing: 1px;
+            Text {
+                text: root.item.title;
+                color: AppTheme.ink;
+                font-size: 17px;
+                font-weight: 600;
+                overflow: elide;
+            }
+            Text {
+                text: "一次性流量补充";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+            }
+        }
+
+        Rectangle { height: 1px; background: AppTheme.border; }
+
+        HorizontalLayout {
+            height: 45px;
+            VerticalLayout {
+                spacing: 2px;
+                Text {
+                    text: "剩余流量";
+                    color: AppTheme.ink-muted;
+                    font-size: 10px;
+                    font-weight: 500;
+                }
+                HorizontalLayout {
+                    spacing: 5px;
+                    Text {
+                        text: root.item.remaining-value;
+                        color: AppTheme.accent;
+                        font-size: 18px;
+                        font-weight: 600;
+                        vertical-alignment: bottom;
+                    }
+                    Text {
+                        text: "/ " + root.item.total-value;
+                        color: AppTheme.ink-muted;
+                        font-size: 11px;
+                        vertical-alignment: bottom;
+                    }
+                }
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            VerticalLayout {
+                width: 94px;
+                alignment: end;
+                spacing: 2px;
+                Text {
+                    text: "有效期";
+                    color: AppTheme.ink-muted;
+                    font-size: 10px;
+                    font-weight: 500;
+                    horizontal-alignment: right;
+                }
+                Text {
+                    text: root.item.expiry-label;
+                    color: AppTheme.ink;
+                    font-size: 12px;
+                    horizontal-alignment: right;
+                    overflow: elide;
+                }
+            }
+        }
+    }
+}
+
+component BillingRulesCard inherits Rectangle {
+    height: 62px;
+    border-radius: AppTheme.radius-large;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: AppTheme.surface;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 16px;
+        spacing: 12px;
+        VerticalLayout {
+            width: 20px;
+            alignment: center;
+            Glyph { name: "info"; fill: AppTheme.accent; }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: "计费说明";
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: 600;
+            }
+            Text {
+                text: "套餐按所选周期计费；流量包按次计费，仅适用于对应的有效套餐，并与该套餐同时到期。";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component EmptyPane inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <string> icon: "empty-subscriptions";
+
+    border-radius: AppTheme.radius-extra-large;
+    background: AppTheme.surface-subtle;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 10px;
+        HorizontalLayout {
+            alignment: center;
+            Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                background: AppTheme.accent-soft;
+                Glyph {
+                    x: 15px;
+                    y: 15px;
+                    name: root.icon;
+                    fill: AppTheme.accent-dark;
+                }
+            }
+        }
+        Text {
+            text: root.title;
+            color: AppTheme.ink;
+            font-size: 14px;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.detail;
+            color: AppTheme.ink-muted;
+            font-size: 11px;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component LoadingCard inherits Rectangle {
+    in property <bool> addon: false;
+
+    height: root.addon ? 184px : 172px;
+    border-radius: AppTheme.radius-extra-large;
+    background: AppTheme.surface.with-alpha(0.72);
+    border-width: root.addon ? 0px : 1px;
+    border-color: AppTheme.border;
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        Rectangle { width: root.addon ? 68px : 148px; height: 22px; border-radius: 6px; background: AppTheme.surface-muted; }
+        Rectangle { width: root.addon ? 176px : 96px; height: 12px; border-radius: 5px; background: AppTheme.surface-muted; }
+        Rectangle { height: 1px; background: root.addon ? AppTheme.border : transparent; }
+        Rectangle { width: 126px; height: 28px; border-radius: 6px; background: AppTheme.surface-muted; }
+        Rectangle { height: 7px; border-radius: 3.5px; background: AppTheme.surface-muted; }
+    }
+}
+
+export component SubscriptionsPage inherits Rectangle {
+    in property <ResourcePhase> resource-phase: ResourcePhase.idle;
+    in property <string> resource-error;
+    in property <[SubscriptionItem]> plans;
+    in property <[SubscriptionItem]> addons;
+    in-out property <string> selected-plan-id;
+    in-out property <string> selected-catalog-plan-id;
+    in-out property <int> selected-addon-count: 0;
+    callback refresh();
+
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    property <bool> busy: root.resource-phase == ResourcePhase.loading
+        || root.resource-phase == ResourcePhase.refreshing;
+    property <bool> first-loading: root.resource-phase == ResourcePhase.loading
+        && root.plans.length == 0;
+    property <bool> unavailable: root.resource-phase == ResourcePhase.failed
+        && root.plans.length == 0;
+    property <length> addon-scroll-offset: 0px;
+
+    changed plans => {
+        if (root.selected-plan-id == "" && root.plans.length > 0) {
+            root.selected-plan-id = root.plans[0].id;
+            root.selected-catalog-plan-id = root.plans[0].plan-id;
+            root.selected-addon-count = root.plans[0].related-addon-count;
+        }
+    }
+    changed selected-catalog-plan-id => {
+        root.addon-scroll-offset = 0px;
+    }
+
+    VerticalLayout {
+        spacing: 16px;
+
+        HorizontalLayout {
+            height: 54px;
+            PageHeader {
+                title: "我的订阅";
+                subtitle: "套餐权益与流量使用情况";
+                title-size: 22px;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            VerticalLayout {
+                width: 38px;
+                alignment: center;
+                RefreshIconButton {
+                    busy: root.busy;
+                    clicked => { root.refresh(); }
+                }
+            }
+        }
+
+        if !root.first-loading && !root.unavailable : BillingRulesCard { }
+
+        if root.resource-error != "" && root.plans.length > 0 : Rectangle {
+            height: 36px;
+            border-radius: AppTheme.radius-small;
+            background: AppTheme.danger-soft;
+            HorizontalLayout {
+                padding-left: 12px;
+                padding-right: 12px;
+                spacing: 8px;
+                Rectangle { width: 7px; height: 7px; border-radius: 3.5px; background: AppTheme.danger; }
+                Text {
+                    text: root.resource-error;
+                    color: AppTheme.danger;
+                    font-size: 11px;
+                    overflow: elide;
+                    vertical-alignment: center;
+                }
+            }
+        }
+
+        if root.first-loading : Rectangle {
+            height: 224px;
+            background: transparent;
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                title: "当前套餐";
+                subtitle: "正在加载套餐权益";
+            }
+            Rectangle {
+                y: 52px;
+                width: parent.width;
+                height: 172px;
+                clip: true;
+                HorizontalLayout {
+                    spacing: 12px;
+                    LoadingCard { width: 330px; }
+                    LoadingCard { width: 330px; }
+                    LoadingCard { width: 330px; }
+                }
+            }
+        }
+
+        if root.first-loading : Rectangle {
+            height: 236px;
+            background: transparent;
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                title: "流量包";
+                subtitle: "正在加载关联流量包";
+            }
+            Rectangle {
+                y: 52px;
+                width: parent.width;
+                height: 184px;
+                clip: true;
+                HorizontalLayout {
+                    spacing: 12px;
+                    LoadingCard { width: 340px; addon: true; }
+                    LoadingCard { width: 340px; addon: true; }
+                    LoadingCard { width: 340px; addon: true; }
+                }
+            }
+        }
+
+        if root.unavailable : EmptyPane {
+            vertical-stretch: 1;
+            title: "订阅加载失败";
+            detail: root.resource-error == "" ? "请检查网络连接后重试" : root.resource-error;
+        }
+
+        if !root.first-loading && !root.unavailable && root.plans.length == 0 : EmptyPane {
+            vertical-stretch: 1;
+            title: "暂无可用套餐";
+            detail: "购买套餐后，权益和流量会显示在这里";
+        }
+
+        if root.plans.length > 0 : Rectangle {
+            height: 224px;
+            background: transparent;
+            clip: true;
+
+            plan-scroll := SnapCarousel {
+                y: 52px;
+                width: parent.width;
+                height: 172px;
+                viewport-width: max(self.width, root.plans.length * 330px + max(0, root.plans.length - 1) * 12px);
+                viewport-height: self.height;
+                snap-step: 342px;
+
+                plan-list := HorizontalLayout {
+                    width: plan-scroll.viewport-width;
+                    height: parent.height;
+                    spacing: 12px;
+                    for plan in root.plans : SubscriptionPlanCard {
+                        item: plan;
+                        selected: plan.id == root.selected-plan-id;
+                        activated => {
+                            root.selected-plan-id = plan.id;
+                            root.selected-catalog-plan-id = plan.plan-id;
+                            root.selected-addon-count = plan.related-addon-count;
+                        }
+                    }
+                }
+            }
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                title: "当前套餐";
+                subtitle: root.plans.length + " 个权益 · 按到期时间排序";
+            }
+        }
+
+        if root.plans.length > 0 : Rectangle {
+            height: 236px;
+            background: transparent;
+            clip: true;
+
+            if root.selected-addon-count > 0 : addon-scroll := SnapCarousel {
+                y: 52px;
+                width: parent.width;
+                height: 184px;
+                viewport-width: max(self.width, root.selected-addon-count * 340px + max(0, root.selected-addon-count - 1) * 12px);
+                viewport-height: self.height;
+                snap-step: 352px;
+                scroll-offset <=> root.addon-scroll-offset;
+
+                addon-list := HorizontalLayout {
+                    width: addon-scroll.viewport-width;
+                    height: parent.height;
+                    spacing: 12px;
+                    for addon in root.addons : TrafficAddonCard {
+                        item: addon;
+                        visible: addon.plan-id == root.selected-catalog-plan-id;
+                    }
+                }
+            }
+
+            if root.selected-addon-count == 0 : EmptyPane {
+                y: 52px;
+                width: parent.width;
+                height: 184px;
+                title: "暂无流量包";
+                detail: "当前套餐没有关联的额外流量包";
+                icon: "data-usage";
+            }
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                title: "流量包";
+                subtitle: root.selected-addon-count > 0
+                    ? root.selected-addon-count + " 个可用 · 仅显示当前套餐关联项"
+                    : "与当前套餐关联的一次性流量补充";
+            }
+        }
+    }
+}

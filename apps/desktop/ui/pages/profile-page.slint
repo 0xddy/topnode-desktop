@@ -1,0 +1,586 @@
+import { AppTheme } from "../theme.slint";
+import { PageHeader, SurfaceCard } from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component Chevron inherits Path {
+    in property <color> stroke-color: AppTheme.ink-subtle;
+
+    width: 14px;
+    height: 14px;
+    viewbox-x: 0;
+    viewbox-y: 0;
+    viewbox-width: 24;
+    viewbox-height: 24;
+    fill: transparent;
+    stroke: root.stroke-color;
+    stroke-width: 2px;
+    stroke-line-cap: round;
+    stroke-line-join: round;
+    commands: "M 9 5 L 16 12 L 9 19";
+}
+
+component ServiceGlyph inherits Rectangle {
+    in property <string> kind;
+    in property <color> fill: AppTheme.ink;
+
+    width: 19px;
+    height: 19px;
+    background: transparent;
+
+    if root.kind == "orders" : Path {
+        width: 19px;
+        height: 19px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.fill;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 6 3.5 H 18 V 20.5 L 15.7 19 L 13.3 20.5 L 10.8 19 L 8.4 20.5 L 6 19 Z M 9 8 H 15 M 9 12 H 15 M 9 16 H 13";
+    }
+
+    if root.kind == "gift-card" : Path {
+        width: 19px;
+        height: 19px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.fill;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 4 10 H 20 V 20 H 4 Z M 3 6 H 21 V 10 H 3 Z M 12 6 V 20 M 12 6 C 10.2 6 7.5 5.2 7.5 3.8 C 7.5 2.7 8.4 2.2 9.3 2.6 C 10.5 3.1 11.3 4.5 12 6 Z M 12 6 C 13.8 6 16.5 5.2 16.5 3.8 C 16.5 2.7 15.6 2.2 14.7 2.6 C 13.5 3.1 12.7 4.5 12 6 Z";
+    }
+
+    if root.kind == "invitations" : Path {
+        width: 19px;
+        height: 19px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.fill;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 9 11 A 3.5 3.5 0 1 0 9 4 A 3.5 3.5 0 1 0 9 11 M 3 20 C 3 16.5 5.3 14 9 14 C 12.7 14 15 16.5 15 20 M 16 6.5 A 2.5 2.5 0 0 1 16 11.5 M 17 14.5 C 19.5 15.2 21 17.1 21 20";
+    }
+
+    if root.kind == "tickets" : Path {
+        width: 19px;
+        height: 19px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.fill;
+        stroke-width: 1.8px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 4 13 V 11 A 8 8 0 0 1 20 11 V 13 M 4 12 H 7 V 18 H 5.5 A 1.5 1.5 0 0 1 4 16.5 Z M 20 12 H 17 V 18 H 18.5 A 1.5 1.5 0 0 0 20 16.5 Z M 17 19 C 16 20 14.7 20.5 13 20.5";
+    }
+
+    if root.kind == "subscription-link" : Path {
+        width: 19px;
+        height: 19px;
+        viewbox-x: 0;
+        viewbox-y: 0;
+        viewbox-width: 24;
+        viewbox-height: 24;
+        fill: transparent;
+        stroke: root.fill;
+        stroke-width: 1.9px;
+        stroke-line-cap: round;
+        stroke-line-join: round;
+        commands: "M 10 14 L 14 10 M 8.2 16.8 L 6.7 18.3 A 3.5 3.5 0 0 1 1.7 13.3 L 5.3 9.7 A 3.5 3.5 0 0 1 10.3 9.7 M 13.7 14.3 A 3.5 3.5 0 0 0 18.7 14.3 L 22.3 10.7 A 3.5 3.5 0 0 0 17.3 5.7 L 15.8 7.2";
+    }
+}
+
+component SectionHeader inherits Rectangle {
+    in property <string> title;
+
+    height: 22px;
+    horizontal-stretch: 1;
+    background: transparent;
+
+    Text {
+        width: 100%;
+        text: root.title;
+        color: AppTheme.ink;
+        font-size: 15px;
+        font-weight: 600;
+        vertical-alignment: center;
+    }
+}
+
+component ServiceCell inherits Rectangle {
+    in property <string> service-id;
+    in property <string> title;
+    in property <color> tint;
+    callback activated();
+
+    height: 60px;
+    min-width: 0px;
+    preferred-width: 0px;
+    horizontal-stretch: 1;
+    border-radius: 16px;
+    background: cell-touch.pressed ? AppTheme.surface-muted
+        : cell-touch.has-hover ? AppTheme.surface-subtle : transparent;
+    animate background { duration: 110ms; easing: ease-out; }
+
+    HorizontalLayout {
+        padding-left: 10px;
+        padding-right: 10px;
+        spacing: 11px;
+
+        VerticalLayout {
+            width: 34px;
+            alignment: center;
+
+            Rectangle {
+                width: 34px;
+                height: 34px;
+                border-radius: 17px;
+                background: root.tint.with-alpha(0.11);
+
+                ServiceGlyph {
+                    x: (parent.width - self.width) / 2;
+                    y: (parent.height - self.height) / 2;
+                    kind: root.service-id;
+                    fill: root.tint;
+                }
+            }
+        }
+
+        Text {
+            min-width: 0px;
+            horizontal-stretch: 1;
+            text: root.title;
+            color: AppTheme.ink;
+            font-size: 13px;
+            font-weight: AppTheme.font-weight-regular;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            width: 14px;
+            alignment: center;
+            Chevron {
+                stroke-color: AppTheme.ink-subtle.with-alpha(0.68);
+            }
+        }
+    }
+
+    cell-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.activated(); }
+    }
+}
+
+component DialogButton inherits Rectangle {
+    in property <string> text;
+    in property <bool> destructive: false;
+    callback clicked();
+
+    width: 104px;
+    height: 38px;
+    border-radius: AppTheme.radius-control;
+    border-width: root.destructive ? 0px : 1px;
+    border-color: AppTheme.border;
+    background: root.destructive
+        ? (dialog-touch.pressed ? #962633 : dialog-touch.has-hover ? #c53c4a : AppTheme.danger)
+        : (dialog-touch.pressed ? AppTheme.surface-muted
+            : dialog-touch.has-hover ? AppTheme.surface-subtle : AppTheme.surface);
+    animate background { duration: 110ms; }
+
+    Text {
+        text: root.text;
+        color: root.destructive ? white : AppTheme.ink;
+        font-size: 13px;
+        font-weight: AppTheme.font-weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    dialog-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component ProfilePage inherits Rectangle {
+    in property <string> user-display-name;
+    in property <string> user-email;
+    in property <string> balance-label: "¥--";
+
+    callback open-account-settings();
+    callback open-balance-details();
+    callback open-account-service(string);
+    callback logout();
+
+    property <bool> logout-confirm-visible: false;
+
+    width: 732px;
+    height: 664px;
+    preferred-width: 732px;
+    preferred-height: 664px;
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    Flickable {
+        width: 100%;
+        height: 100%;
+        viewport-width: self.width;
+        viewport-height: max(self.height, page-content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        page-content := VerticalLayout {
+            width: parent.width;
+            spacing: 0px;
+
+            PageHeader {
+                height: 49px;
+                vertical-stretch: 0;
+                title: "个人中心";
+                subtitle: "账户信息与个人服务";
+                title-size: 22px;
+            }
+
+            Rectangle { height: 12px; background: transparent; }
+
+            SurfaceCard {
+                height: 136px;
+                border-radius: 24px;
+
+                VerticalLayout {
+                    padding-left: 16px;
+                    padding-right: 16px;
+                    padding-top: 16px;
+                    padding-bottom: 16px;
+                    spacing: 10px;
+
+                    HorizontalLayout {
+                        height: 44px;
+                        spacing: 14px;
+
+                        Rectangle {
+                            width: 44px;
+                            height: 44px;
+                            border-radius: 22px;
+                            background: #ddede7;
+                            clip: true;
+
+                            Text {
+                                x: (parent.width - self.width) / 2;
+                                width: 17px;
+                                height: parent.height;
+                                text: root.user-display-name == ""
+                                    ? "T" : root.user-display-name.to-uppercase();
+                                color: AppTheme.accent-dark;
+                                font-size: 17px;
+                                font-weight: 600;
+                                horizontal-alignment: left;
+                                vertical-alignment: center;
+                            }
+                        }
+
+                        VerticalLayout {
+                            min-width: 0px;
+                            horizontal-stretch: 1;
+                            alignment: center;
+                            spacing: 3px;
+
+                            Text {
+                                text: root.user-display-name == "" ? "TOPNODE 用户" : root.user-display-name;
+                                color: AppTheme.ink;
+                                font-size: 17px;
+                                font-weight: 600;
+                                overflow: elide;
+                            }
+                            Text {
+                                text: root.user-email == "" ? "账户信息" : root.user-email;
+                                color: AppTheme.ink-muted;
+                                font-size: 12px;
+                                font-weight: AppTheme.font-weight-regular;
+                                overflow: elide;
+                            }
+                        }
+
+                        VerticalLayout {
+                            width: 42px;
+                            alignment: center;
+
+                            account-settings-button := Rectangle {
+                                width: 40px;
+                                height: 40px;
+                                border-radius: 20px;
+                                background: account-settings-touch.pressed ? #cce9de
+                                    : account-settings-touch.has-hover ? #d6f0e6 : AppTheme.accent-soft;
+                                animate background { duration: 110ms; }
+
+                                Glyph {
+                                    x: 11px;
+                                    y: 11px;
+                                    name: "settings";
+                                    fill: AppTheme.accent-dark;
+                                }
+
+                                account-settings-touch := TouchArea {
+                                    mouse-cursor: MouseCursor.pointer;
+                                    clicked => { root.open-account-settings(); }
+                                }
+                            }
+                        }
+                    }
+
+                    Rectangle {
+                        height: 1px;
+                        background: AppTheme.border.with-alpha(0.72);
+                    }
+
+                    balance-row := Rectangle {
+                        height: 39px;
+                        background: transparent;
+                        border-radius: AppTheme.radius-small;
+
+                        HorizontalLayout {
+                            padding-left: 2px;
+                            padding-right: 4px;
+                            spacing: 12px;
+
+                            VerticalLayout {
+                                horizontal-stretch: 1;
+                                alignment: center;
+                                spacing: 1px;
+
+                                Text {
+                                    text: "账户余额";
+                                    color: AppTheme.ink-muted;
+                                    font-size: 10px;
+                                    font-weight: AppTheme.font-weight-regular;
+                                }
+                                Text {
+                                    text: root.balance-label;
+                                    color: AppTheme.ink;
+                                    font-family: "Sora SemiBold";
+                                    font-size: 21px;
+                                    font-weight: 600;
+                                    overflow: elide;
+                                }
+                            }
+
+                            HorizontalLayout {
+                                width: 90px;
+                                spacing: 5px;
+                                alignment: center;
+
+                                Text {
+                                    text: "余额明细";
+                                    color: AppTheme.accent;
+                                    font-size: 12px;
+                                    font-weight: AppTheme.font-weight-regular;
+                                    vertical-alignment: center;
+                                }
+                                VerticalLayout {
+                                    width: 14px;
+                                    alignment: center;
+                                    Chevron {
+                                        stroke-color: AppTheme.accent.with-alpha(0.76);
+                                    }
+                                }
+                            }
+                        }
+
+                        balance-touch := TouchArea {
+                            mouse-cursor: MouseCursor.pointer;
+                            clicked => { root.open-balance-details(); }
+                        }
+                    }
+                }
+            }
+
+            Rectangle { height: 12px; background: transparent; }
+            SectionHeader { title: "账户服务"; }
+            Rectangle { height: 6px; background: transparent; }
+
+            SurfaceCard {
+                height: 200px;
+                border-radius: 24px;
+
+                VerticalLayout {
+                    padding-left: 10px;
+                    padding-right: 10px;
+                    padding-top: 8px;
+                    padding-bottom: 8px;
+                    spacing: 2px;
+
+                    HorizontalLayout {
+                        height: 60px;
+                        spacing: 4px;
+                        ServiceCell {
+                            service-id: "orders";
+                            title: "我的订单";
+                            tint: #4e78b8;
+                            activated => { root.open-account-service("orders"); }
+                        }
+                        ServiceCell {
+                            service-id: "gift-card";
+                            title: "礼品卡兑换";
+                            tint: #b9793d;
+                            activated => { root.open-account-service("gift-card"); }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        height: 60px;
+                        spacing: 4px;
+                        ServiceCell {
+                            service-id: "invitations";
+                            title: "我的邀请";
+                            tint: #6571b7;
+                            activated => { root.open-account-service("invitations"); }
+                        }
+                        ServiceCell {
+                            service-id: "tickets";
+                            title: "我的工单";
+                            tint: #4b8c79;
+                            activated => { root.open-account-service("tickets"); }
+                        }
+                    }
+
+                    HorizontalLayout {
+                        height: 60px;
+                        spacing: 4px;
+                        ServiceCell {
+                            service-id: "subscription-link";
+                            title: "订阅链接";
+                            tint: #2f7e69;
+                            activated => { root.open-account-service("subscription-link"); }
+                        }
+                        Rectangle {
+                            min-width: 0px;
+                            preferred-width: 0px;
+                            horizontal-stretch: 1;
+                            background: transparent;
+                        }
+                    }
+                }
+            }
+
+            Rectangle { height: 12px; background: transparent; }
+
+            logout-button := Rectangle {
+                height: 40px;
+                border-radius: AppTheme.radius-control;
+                background: logout-touch.pressed ? #ffdce1
+                    : logout-touch.has-hover ? AppTheme.danger-soft : transparent;
+                animate background { duration: 110ms; }
+
+                HorizontalLayout {
+                    alignment: center;
+                    spacing: 8px;
+                    VerticalLayout {
+                        width: 18px;
+                        alignment: center;
+                        Glyph {
+                            width: 18px;
+                            height: 18px;
+                            name: "logout";
+                            fill: AppTheme.danger;
+                        }
+                    }
+                    Text {
+                        text: "退出当前账户";
+                        color: AppTheme.danger;
+                        font-size: 13px;
+                        font-weight: AppTheme.font-weight-regular;
+                        vertical-alignment: center;
+                    }
+                }
+
+                logout-touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => { root.logout-confirm-visible = true; }
+                }
+            }
+        }
+    }
+
+    if root.logout-confirm-visible : Rectangle {
+        x: 0px;
+        y: 0px;
+        width: root.width;
+        height: root.height;
+        z: 20;
+        background: AppTheme.modal-backdrop;
+
+        dismiss-touch := TouchArea {
+            clicked => { root.logout-confirm-visible = false; }
+        }
+
+        dialog := SurfaceCard {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: 420px;
+            height: 204px;
+            z: 2;
+            border-radius: 24px;
+            drop-shadow-color: AppTheme.modal-shadow;
+            drop-shadow-blur: 24px;
+            drop-shadow-offset-y: 8px;
+
+            TouchArea { }
+
+            VerticalLayout {
+                padding-left: 24px;
+                padding-right: 24px;
+                padding-top: 22px;
+                padding-bottom: 20px;
+                spacing: 12px;
+
+                Text {
+                    text: "退出当前账户？";
+                    color: AppTheme.ink;
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+                Text {
+                    horizontal-stretch: 1;
+                    text: "退出后将清除本机登录状态，需要重新登录才能继续使用。";
+                    color: AppTheme.ink-muted;
+                    font-size: 13px;
+                    font-weight: AppTheme.font-weight-regular;
+                    wrap: word-wrap;
+                }
+                Rectangle { vertical-stretch: 1; background: transparent; }
+                HorizontalLayout {
+                    alignment: end;
+                    spacing: 10px;
+                    DialogButton {
+                        text: "取消";
+                        clicked => { root.logout-confirm-visible = false; }
+                    }
+                    DialogButton {
+                        text: "退出登录";
+                        destructive: true;
+                        clicked => {
+                            root.logout-confirm-visible = false;
+                            root.logout();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

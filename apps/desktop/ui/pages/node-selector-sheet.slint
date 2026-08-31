@@ -1,0 +1,477 @@
+import { AppTheme } from "../theme.slint";
+import { NodeItem, ResourceGroupItem, ResourcePhase } from "../models.slint";
+import { CountryFlag } from "../components/country-flag.slint";
+import {
+    AppButton,
+    BusyIndicator,
+    InlineAlert,
+} from "../components/controls.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component PlanCard inherits Rectangle {
+    in property <ResourceGroupItem> item;
+    in property <bool> selection-enabled;
+    callback activated();
+
+    height: 86px;
+    horizontal-stretch: 1;
+    border-radius: AppTheme.radius-large;
+    background: root.item.selected ? AppTheme.accent-faint
+        : touch.has-hover && root.item.connectable && root.selection-enabled
+            ? AppTheme.surface-subtle : AppTheme.surface;
+    border-width: root.item.selected ? 1.5px : 1px;
+    border-color: root.item.selected ? AppTheme.accent : AppTheme.border;
+    opacity: root.item.connectable ? 1 : 0.52;
+    animate background { duration: 140ms; easing: ease-out; }
+    animate border-color { duration: 140ms; easing: ease-out; }
+
+    VerticalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        padding-top: 12px;
+        padding-bottom: 12px;
+        spacing: 4px;
+        HorizontalLayout {
+            Text {
+                text: root.item.name;
+                color: AppTheme.ink;
+                font-size: 13px;
+                font-weight: AppTheme.font-weight-regular;
+                overflow: elide;
+                vertical-alignment: center;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            if !root.item.selected : Text {
+                text: root.item.connectable ? "可用" : "不可用";
+                color: AppTheme.ink-subtle;
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                vertical-alignment: center;
+            }
+        }
+        Text {
+            text: root.item.quota-label;
+            color: AppTheme.ink-muted;
+            font-size: 12px;
+            overflow: elide;
+        }
+        Text {
+            text: root.item.expiry-label;
+            color: AppTheme.ink-subtle;
+            font-size: 11px;
+            overflow: elide;
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.item.connectable && root.selection-enabled;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.activated(); }
+    }
+}
+
+component LatencyLoadingDots inherits Rectangle {
+    width: 16px;
+    height: 14px;
+    background: transparent;
+
+    property <float> progress: Math.mod(animation-tick() / 900ms, 1);
+    property <float> phase-one: Math.mod(root.progress + 0.82, 1);
+    property <float> phase-two: Math.mod(root.progress + 0.64, 1);
+    property <float> jump-zero: root.progress < 0.36
+        ? sin(root.progress / 0.36 * 180deg) : 0;
+    property <float> jump-one: root.phase-one < 0.36
+        ? sin(root.phase-one / 0.36 * 180deg) : 0;
+    property <float> jump-two: root.phase-two < 0.36
+        ? sin(root.phase-two / 0.36 * 180deg) : 0;
+
+    Rectangle {
+        x: 0px;
+        y: 5px - root.jump-zero * 3px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: AppTheme.ink-muted.with-alpha(0.72);
+    }
+    Rectangle {
+        x: 6px;
+        y: 5px - root.jump-one * 3px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: AppTheme.ink-muted.with-alpha(0.72);
+    }
+    Rectangle {
+        x: 12px;
+        y: 5px - root.jump-two * 3px;
+        width: 4px;
+        height: 4px;
+        border-radius: 2px;
+        background: AppTheme.ink-muted.with-alpha(0.72);
+    }
+}
+
+component NodeSelectionCard inherits Rectangle {
+    in property <NodeItem> item;
+    in property <bool> selection-enabled;
+    callback activated();
+
+    height: 70px;
+    vertical-stretch: 0;
+    border-radius: AppTheme.radius-medium;
+    background: touch.has-hover && root.item.selectable && root.selection-enabled
+        ? AppTheme.surface-subtle : AppTheme.surface;
+    border-width: root.item.selected ? 1.5px : 1px;
+    border-color: root.item.selected ? AppTheme.accent : AppTheme.border;
+    opacity: root.item.selectable ? 1 : 0.52;
+    animate background { duration: 140ms; easing: ease-out; }
+    animate border-color { duration: 140ms; easing: ease-out; }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 14px;
+        spacing: 12px;
+        VerticalLayout {
+            width: 42px;
+            alignment: center;
+            CountryFlag {
+                code: root.item.country-code;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 5px;
+            HorizontalLayout {
+                height: 17px;
+                spacing: 5px;
+                Text {
+                    text: root.item.name;
+                    color: AppTheme.ink;
+                    font-size: 13px;
+                    font-weight: AppTheme.font-weight-regular;
+                    overflow: elide;
+                    horizontal-stretch: 0;
+                    max-width: 300px;
+                }
+                multiplier := Text {
+                    text: root.item.multiplier-label;
+                    color: AppTheme.ink-muted.with-alpha(0.58);
+                    font-family: "Sora SemiBold";
+                    font-size: 11px;
+                    font-weight: 600;
+                    letter-spacing: 0.2px;
+                    horizontal-stretch: 0;
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+            }
+            if root.item.tags-label != "" : Text {
+                text: root.item.tags-label;
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                overflow: elide;
+            }
+        }
+        if root.item.measuring : VerticalLayout {
+            width: 38px;
+            alignment: center;
+            HorizontalLayout {
+                alignment: end;
+                LatencyLoadingDots { }
+            }
+        }
+        if !root.item.measuring : VerticalLayout {
+            width: 38px;
+            alignment: center;
+            Text {
+                text: root.item.latency-label;
+                color: root.item.latency-available ? AppTheme.accent : AppTheme.ink-muted;
+                font-size: 12px;
+                horizontal-alignment: right;
+            }
+        }
+    }
+
+    touch := TouchArea {
+        enabled: root.item.selectable && root.selection-enabled;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.activated(); }
+    }
+}
+
+component EmptySheetState inherits Rectangle {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> busy: false;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 9px;
+        if root.busy : BusyIndicator { width: 26px; height: 26px; }
+        Text {
+            text: root.title;
+            color: AppTheme.ink;
+            font-size: 15px;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.detail;
+            color: AppTheme.ink-muted;
+            font-size: 12px;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+export component NodeSelectorSheet inherits Rectangle {
+    in property <bool> open: false;
+    in property <length> left-inset: 0px;
+    in property <ResourcePhase> resource-phase;
+    in property <string> resource-error;
+    in property <[ResourceGroupItem]> resource-groups;
+    in property <[NodeItem]> nodes;
+    in property <int> available-node-count: 0;
+    in property <bool> selection-enabled;
+    callback dismissed();
+    callback refresh-resources();
+    callback select-resource-group(string, string);
+    callback select-node(string);
+
+    background: transparent;
+    clip: true;
+
+    scrim := Rectangle {
+        width: 100%;
+        height: 100%;
+        background: AppTheme.modal-backdrop;
+        opacity: root.open ? 1 : 0;
+        animate opacity { duration: 180ms; easing: ease-out; }
+
+        TouchArea {
+            enabled: root.open;
+            mouse-cursor: MouseCursor.default;
+            clicked => { root.dismissed(); }
+        }
+    }
+
+    sheet := Rectangle {
+        x: root.left-inset + 18px;
+        y: root.open ? 18px : 28px;
+        width: parent.width - root.left-inset - 36px;
+        height: parent.height - 36px;
+        opacity: root.open ? 1 : 0;
+        border-radius: 20px;
+        background: white;
+        border-width: 1px;
+        border-color: AppTheme.border;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 28px;
+        drop-shadow-offset-y: 8px;
+        animate y { duration: 170ms; easing: ease-out; }
+        animate opacity { duration: 150ms; easing: ease-out; }
+
+        TouchArea { enabled: root.open; }
+
+        VerticalLayout {
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-top: 18px;
+            padding-bottom: 18px;
+            spacing: 12px;
+
+            HorizontalLayout {
+                height: 48px;
+                VerticalLayout {
+                    spacing: 2px;
+                    Text {
+                        text: "选择节点";
+                        color: AppTheme.ink;
+                        font-size: 21px;
+                        font-weight: 600;
+                    }
+                    Text {
+                        text: "套餐权益与可用节点";
+                        color: AppTheme.ink-muted;
+                        font-size: 12px;
+                    }
+                }
+                Rectangle { horizontal-stretch: 1; background: transparent; }
+                if root.resource-phase == ResourcePhase.refreshing : VerticalLayout {
+                    width: 20px;
+                    alignment: center;
+                    BusyIndicator { width: 16px; height: 16px; }
+                }
+                close-button := Rectangle {
+                    width: 34px;
+                    height: 34px;
+                    border-radius: 17px;
+                    background: close-touch.pressed ? AppTheme.surface-muted
+                        : close-touch.has-hover ? AppTheme.surface-subtle : transparent;
+                    Text {
+                        text: "×";
+                        color: AppTheme.ink-muted;
+                        font-size: 22px;
+                        horizontal-alignment: center;
+                        vertical-alignment: center;
+                    }
+                    close-touch := TouchArea {
+                        enabled: root.open;
+                        mouse-cursor: MouseCursor.pointer;
+                        clicked => { root.dismissed(); }
+                    }
+                }
+            }
+
+            if root.resource-error != "" && root.resource-groups.length > 0 : InlineAlert {
+                message: root.resource-error;
+            }
+
+            content-area := Rectangle {
+                vertical-stretch: 1;
+                background: transparent;
+
+                if root.resource-phase == ResourcePhase.loading && root.resource-groups.length == 0 : EmptySheetState {
+                    width: 100%;
+                    height: 100%;
+                    busy: true;
+                    title: "正在加载套餐与节点";
+                    detail: "正在获取最新可用线路，请稍候。";
+                }
+
+                if root.resource-phase != ResourcePhase.loading && root.resource-groups.length == 0 : Rectangle {
+                    width: 100%;
+                    height: 100%;
+                    VerticalLayout {
+                        alignment: center;
+                        spacing: 14px;
+                        EmptySheetState {
+                            height: 76px;
+                            title: root.resource-phase == ResourcePhase.failed ? "节点加载失败" : "暂无可用套餐";
+                            detail: root.resource-error != "" ? root.resource-error
+                                : root.resource-phase == ResourcePhase.failed
+                                    ? "请检查网络连接后重试。"
+                                    : "套餐启用后，可用节点会显示在这里。";
+                        }
+                        AppButton {
+                            width: 92px;
+                            text: "重新加载";
+                            enabled: root.selection-enabled && root.resource-phase != ResourcePhase.refreshing;
+                            clicked => { root.refresh-resources(); }
+                        }
+                    }
+                }
+
+                if root.resource-groups.length > 0 : HorizontalLayout {
+                    width: 100%;
+                    height: 100%;
+                    spacing: 16px;
+
+                    Rectangle {
+                        width: 206px;
+                        horizontal-stretch: 0;
+                        background: transparent;
+
+                    VerticalLayout {
+                        spacing: 10px;
+                        HorizontalLayout {
+                            height: 26px;
+                            Text {
+                                text: "服务套餐";
+                                color: AppTheme.ink;
+                                font-size: 13px;
+                                font-weight: AppTheme.font-weight-regular;
+                                vertical-alignment: center;
+                            }
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+                            Text {
+                                text: root.resource-groups.length + " 个";
+                                color: AppTheme.ink-subtle;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        Flickable {
+                            vertical-stretch: 1;
+                            viewport-width: self.width;
+                            viewport-height: max(self.height, plan-layout.preferred-height);
+                            viewport-x: 0px;
+                            viewport-y: 0px;
+                            plan-layout := VerticalLayout {
+                                width: parent.width;
+                                spacing: 8px;
+                                for group in root.resource-groups : PlanCard {
+                                    item: group;
+                                    selection-enabled: root.selection-enabled;
+                                    activated => {
+                                        root.select-resource-group(group.group-id, group.entitlement-id);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                    Rectangle {
+                        width: 1px;
+                        horizontal-stretch: 0;
+                        background: AppTheme.border;
+                    }
+
+                    Rectangle {
+                        horizontal-stretch: 1;
+                        background: transparent;
+
+                    VerticalLayout {
+                        spacing: 10px;
+                        HorizontalLayout {
+                            height: 26px;
+                            Text {
+                                text: "节点列表";
+                                color: AppTheme.ink;
+                                font-size: 13px;
+                                font-weight: AppTheme.font-weight-regular;
+                                vertical-alignment: center;
+                            }
+                            if !root.selection-enabled : Text {
+                                text: "请先断开连接再更换节点";
+                                color: AppTheme.warning;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                            Rectangle { horizontal-stretch: 1; background: transparent; }
+                            Text {
+                                text: root.available-node-count + "个可用节点";
+                                color: AppTheme.ink-subtle;
+                                font-size: 11px;
+                                vertical-alignment: center;
+                            }
+                        }
+                        if root.nodes.length == 0 : EmptySheetState {
+                            vertical-stretch: 1;
+                            title: "当前套餐暂无节点";
+                            detail: "请选择其他套餐，或稍后刷新。";
+                        }
+                        if root.nodes.length > 0 : Flickable {
+                            vertical-stretch: 1;
+                            viewport-width: self.width;
+                            viewport-height: max(self.height, node-layout.preferred-height);
+                            viewport-x: 0px;
+                            viewport-y: 0px;
+                            node-layout := VerticalLayout {
+                                width: parent.width;
+                                spacing: 8px;
+                                for node in root.nodes : NodeSelectionCard {
+                                    item: node;
+                                    selection-enabled: root.selection-enabled;
+                                    activated => { root.select-node(node.id); }
+                                }
+                            }
+                        }
+                    }
+                    }
+                }
+            }
+        }
+    }
+}

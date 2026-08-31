@@ -1,0 +1,36 @@
+[package]
+name = "topnode-desktop"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+authors.workspace = true
+publish = false
+build = "build.rs"
+
+[dependencies]
+anyhow.workspace = true
+copypasta.workspace = true
+image.workspace = true
+qrcode.workspace = true
+slint.workspace = true
+thiserror.workspace = true
+time.workspace = true
+tokio.workspace = true
+topnode-application = { path = "../../crates/application" }
+topnode-domain = { path = "../../crates/domain" }
+topnode-infrastructure = { path = "../../crates/infrastructure" }
+tracing.workspace = true
+webbrowser.workspace = true
+
+[target.'cfg(windows)'.dependencies]
+uuid.workspace = true
+win-desktop-utils.workspace = true
+
+[build-dependencies]
+slint-build.workspace = true
+
+[dev-dependencies]
+tempfile = "3.27"
+
+[lints]
+workspace = true

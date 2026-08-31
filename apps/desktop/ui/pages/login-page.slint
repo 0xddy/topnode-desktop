@@ -1,0 +1,192 @@
+import { BrandLockup } from "../components/brand.slint";
+import { AppButton, AppField, InlineAlert, StatusDot, SurfaceCard } from "../components/controls.slint";
+import { AppTheme } from "../theme.slint";
+
+export component LoginPage inherits Rectangle {
+    in property <bool> submitting;
+    in property <string> error-message;
+    callback submit(string, string);
+
+    background: @linear-gradient(135deg, #ffffff 0%, AppTheme.canvas 52%, #e6f5ef 100%);
+
+    Rectangle {
+        x: -80px;
+        y: 120px;
+        width: 300px;
+        height: 300px;
+        border-radius: 150px;
+        background: AppTheme.accent-soft;
+        opacity: 0.38;
+    }
+    Rectangle {
+        x: parent.width - 230px;
+        y: -110px;
+        width: 340px;
+        height: 340px;
+        border-radius: 170px;
+        background: AppTheme.accent-soft;
+        opacity: 0.52;
+    }
+
+    content := Rectangle {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 900px;
+        height: 520px;
+        background: transparent;
+
+        Rectangle {
+            x: 0px;
+            y: 0px;
+            width: 410px;
+            height: 100%;
+            background: transparent;
+
+            VerticalLayout {
+                padding-left: 18px;
+                padding-right: 42px;
+                padding-top: 54px;
+                padding-bottom: 54px;
+                spacing: 0px;
+
+                BrandLockup {
+                    height: 48px;
+                    mark-size: 48px;
+                    show-product-type: true;
+                }
+                Rectangle { height: 68px; background: transparent; }
+                Text {
+                    text: "连接世界，保持简单";
+                    color: AppTheme.ink;
+                    font-size: 32px;
+                    font-weight: 600;
+                    letter-spacing: -0.4px;
+                }
+                Rectangle { height: 12px; background: transparent; }
+                Text {
+                    text: "选择合适的线路，随时掌握连接状态。";
+                    color: AppTheme.ink-muted;
+                    font-size: 15px;
+                    wrap: word-wrap;
+                }
+                Rectangle { vertical-stretch: 1; background: transparent; }
+                Rectangle {
+                    height: 62px;
+                    border-radius: AppTheme.radius-medium;
+                    background: #ffffff99;
+                    border-width: 1px;
+                    border-color: AppTheme.border;
+                    HorizontalLayout {
+                        padding-left: 16px;
+                        padding-right: 16px;
+                        spacing: 11px;
+                        VerticalLayout {
+                            width: 7px;
+                            alignment: center;
+                            StatusDot { fill: AppTheme.accent; }
+                        }
+                        VerticalLayout {
+                            alignment: center;
+                            spacing: 2px;
+                            Text {
+                                text: "安全登录";
+                                color: AppTheme.ink;
+                                font-size: 13px;
+                                font-weight: 600;
+                            }
+                            Text {
+                                text: "账户信息通过加密连接传输";
+                                color: AppTheme.ink-muted;
+                                font-size: 12px;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        SurfaceCard {
+            x: 470px;
+            y: 10px;
+            width: 430px;
+            height: 500px;
+            border-radius: AppTheme.radius-extra-large;
+            drop-shadow-color: #10231c1c;
+            drop-shadow-blur: 32px;
+            drop-shadow-offset-y: 12px;
+
+            VerticalLayout {
+                padding-left: 36px;
+                padding-right: 36px;
+                padding-top: 36px;
+                padding-bottom: 30px;
+                spacing: 8px;
+
+                Text {
+                    text: "欢迎回来";
+                    color: AppTheme.ink;
+                    font-size: 26px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: "登录您的 TOPNODE 账户";
+                    color: AppTheme.ink-muted;
+                    font-size: 13px;
+                }
+
+                Rectangle { height: 16px; background: transparent; }
+                Text {
+                    text: "邮箱";
+                    color: AppTheme.ink;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                email-input := AppField {
+                    enabled: !root.submitting;
+                    placeholder: "name@example.com";
+                }
+
+                Rectangle { height: 7px; background: transparent; }
+                Text {
+                    text: "密码";
+                    color: AppTheme.ink;
+                    font-size: 12px;
+                    font-weight: 600;
+                }
+                password-input := AppField {
+                    enabled: !root.submitting;
+                    placeholder: "请输入密码";
+                    input-type: InputType.password;
+                    accepted(value) => {
+                        if (!root.submitting && email-input.text != "" && value != "") {
+                            root.submit(email-input.text, value);
+                            password-input.text = "";
+                        }
+                    }
+                }
+
+                if root.error-message != "" : InlineAlert { message: root.error-message; }
+
+                Rectangle { height: 12px; background: transparent; }
+                AppButton {
+                    text: root.submitting ? "正在登录" : "登录";
+                    busy: root.submitting;
+                    enabled: !root.submitting && email-input.text != "" && password-input.text != "";
+                    height: 46px;
+                    clicked => {
+                        root.submit(email-input.text, password-input.text);
+                        password-input.text = "";
+                    }
+                }
+
+                Rectangle { vertical-stretch: 1; background: transparent; }
+                Text {
+                    text: "登录即表示您同意遵守服务条款与隐私政策";
+                    color: AppTheme.ink-subtle;
+                    font-size: 11px;
+                    horizontal-alignment: center;
+                }
+            }
+        }
+    }
+}

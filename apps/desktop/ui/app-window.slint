@@ -1,0 +1,1168 @@
+export { AppTray } from "tray.slint";
+
+import { AppTheme } from "theme.slint";
+import {
+    AppPhase,
+    AffiliateCommissionItem,
+    AffiliateTransferItem,
+    BalanceTransactionItem,
+    ConnectionPhase,
+    GiftCardRewardItem,
+    NavigationPage,
+    NodeItem,
+    OrderItem,
+    PaymentMethodItem,
+    ResourceGroupItem,
+    ResourcePhase,
+    ShopAddonItem,
+    ShopPhase,
+    ShopPlanItem,
+    ShopPriceItem,
+    SubscriptionItem,
+    SupportTicketItem,
+    SupportTicketMessageItem,
+} from "models.slint";
+import { BrandLockup } from "components/brand.slint";
+import { AppButton, BusyIndicator, ButtonKind } from "components/controls.slint";
+import { Sidebar } from "components/sidebar.slint";
+import { LoginPage } from "pages/login-page.slint";
+import { HomePage } from "pages/home-page.slint";
+import { SubscriptionsPage } from "pages/subscriptions-page.slint";
+import { PurchasePage } from "pages/purchase-page.slint";
+import { PurchaseCheckoutSheet } from "pages/purchase-checkout-sheet.slint";
+import { ProfilePage } from "pages/profile-page.slint";
+import { AccountSettingsPage } from "pages/account-settings-page.slint";
+import { BalanceDetailsPage } from "pages/balance-details-sheet.slint";
+import { OrdersPage } from "pages/orders-page.slint";
+import { GiftCardPage } from "pages/gift-card-page.slint";
+import { InvitationPage } from "pages/invitation-page.slint";
+import { SubscriptionLinkPage } from "pages/subscription-link-page.slint";
+import { TicketCloseConfirmation, TicketsPage } from "pages/tickets-page.slint";
+import { NodeSelectorSheet } from "pages/node-selector-sheet.slint";
+import { SettingsPage } from "pages/settings-page.slint";
+import { AboutSlint } from "std-widgets.slint";
+
+component NoticeToast inherits Rectangle {
+    in property <string> message;
+    callback dismissed();
+
+    changed message => {
+        dismiss-timer.restart();
+    }
+
+    width: 520px;
+    height: 54px;
+    border-radius: AppTheme.radius-medium;
+    background: #18342b;
+    border-width: 1px;
+    border-color: #ffffff1f;
+    drop-shadow-color: #10231c38;
+    drop-shadow-blur: 18px;
+    drop-shadow-offset-y: 5px;
+
+    dismiss-timer := Timer {
+        interval: 2s;
+        triggered => {
+            self.stop();
+            root.dismissed();
+        }
+    }
+
+    HorizontalLayout {
+        padding-left: 14px;
+        padding-right: 8px;
+        spacing: 12px;
+
+        VerticalLayout {
+            width: 4px;
+            alignment: center;
+            Rectangle {
+                width: 4px;
+                height: 22px;
+                border-radius: 2px;
+                background: #69d4af;
+            }
+        }
+
+        Text {
+            horizontal-stretch: 1;
+            text: root.message;
+            color: #f7fffb;
+            font-size: 12px;
+            font-weight: 500;
+            wrap: word-wrap;
+            vertical-alignment: center;
+        }
+
+        VerticalLayout {
+            width: 52px;
+            alignment: center;
+            close-button := Rectangle {
+                width: 48px;
+                height: 32px;
+                border-radius: AppTheme.radius-small;
+                background: close-touch.pressed ? #ffffff20
+                    : close-touch.has-hover ? #ffffff14 : transparent;
+                animate background { duration: 100ms; }
+
+                Text {
+                    text: "关闭";
+                    color: #dff7ed;
+                    font-size: 12px;
+                    font-weight: 600;
+                    horizontal-alignment: center;
+                    vertical-alignment: center;
+                }
+
+                close-touch := TouchArea {
+                    mouse-cursor: MouseCursor.pointer;
+                    clicked => { root.dismissed(); }
+                }
+            }
+        }
+    }
+}
+
+export component StartupErrorWindow inherits Window {
+    in-out property <string> error-message;
+    in-out property <bool> retrying: false;
+    callback retry();
+
+    title: "TOPNODE - 启动失败";
+    icon: @image-url("assets/topnode-logo.svg");
+    default-font-family: "Microsoft YaHei UI";
+    preferred-width: 480px;
+    preferred-height: 310px;
+    min-width: 480px;
+    min-height: 310px;
+    max-width: 480px;
+    max-height: 310px;
+    background: AppTheme.canvas;
+
+    VerticalLayout {
+        padding: 28px;
+        spacing: 18px;
+
+        Text {
+            text: "暂时无法启动 TOPNODE";
+            color: AppTheme.ink;
+            font-size: 20px;
+            font-weight: 700;
+        }
+
+        Text {
+            text: root.retrying ? "正在重新获取启动配置并检测服务……" : root.error-message;
+            color: root.retrying ? AppTheme.ink-muted : AppTheme.danger;
+            font-size: 13px;
+            wrap: word-wrap;
+            vertical-stretch: 1;
+        }
+
+        Text {
+            text: "请确认网络连接正常，然后重试。";
+            color: AppTheme.ink-subtle;
+            font-size: 12px;
+        }
+
+        HorizontalLayout {
+            alignment: end;
+            spacing: 10px;
+
+            AppButton {
+                text: "退出";
+                kind: ButtonKind.secondary;
+                enabled: !root.retrying;
+                clicked => { root.close(); }
+            }
+
+            AppButton {
+                text: root.retrying ? "正在重试" : "重试";
+                busy: root.retrying;
+                enabled: !root.retrying;
+                clicked => { root.retry(); }
+            }
+        }
+    }
+}
+
+export component AppWindow inherits Window {
+    in property <bool> administrator-mode: false;
+    title: root.administrator-mode ? "TOPNODE - 管理员模式运行" : "TOPNODE";
+    icon: @image-url("assets/topnode-logo.svg");
+    default-font-family: "Microsoft YaHei UI";
+    preferred-width: 1024px;
+    preferred-height: 720px;
+    min-width: 1024px;
+    min-height: 720px;
+    max-width: 1024px;
+    max-height: 720px;
+    background: AppTheme.canvas;
+
+    in property <AppPhase> app-phase: AppPhase.restoring;
+    in property <bool> login-submitting: false;
+    in property <string> login-error;
+    in property <string> user-display-name;
+    in property <string> user-email;
+    in property <string> user-balance-label: "¥0.00";
+    in property <int> user-balance-cents: 0;
+    in-out property <bool> account-settings-visible: false;
+    in-out property <bool> account-settings-busy: false;
+    in-out property <string> account-settings-error;
+    in-out property <string> account-settings-stage: "overview";
+    in-out property <bool> balance-details-visible: false;
+    in-out property <bool> balance-details-loading: false;
+    in-out property <string> balance-details-error;
+    in-out property <[BalanceTransactionItem]> balance-transactions;
+    in-out property <bool> orders-visible: false;
+    in-out property <bool> orders-loading: false;
+    in-out property <bool> orders-loading-more: false;
+    in-out property <string> orders-error;
+    in-out property <[OrderItem]> orders;
+    in-out property <bool> orders-has-more: false;
+    in-out property <int> orders-page: 1;
+    in-out property <int> orders-total: 0;
+    in-out property <bool> gift-card-visible: false;
+    in-out property <bool> gift-card-initializing: false;
+    in-out property <string> gift-card-initialization-error;
+    in-out property <string> gift-card-purchase-url;
+    in-out property <bool> gift-card-checking: false;
+    in-out property <bool> gift-card-redeeming: false;
+    in-out property <string> gift-card-check-error;
+    in-out property <string> gift-card-redeem-error;
+    in-out property <bool> gift-card-has-check: false;
+    in-out property <bool> gift-card-can-redeem: false;
+    in-out property <string> gift-card-check-reason;
+    in-out property <GiftCardRewardItem> gift-card-reward;
+    in-out property <bool> gift-card-redeemed: false;
+    in-out property <bool> invitation-visible: false;
+    in-out property <bool> invitation-loading: false;
+    in-out property <bool> invitation-has-summary: false;
+    in-out property <string> invitation-error;
+    in-out property <bool> invitation-enabled: true;
+    in-out property <string> invitation-available-commission: "¥0.00";
+    in-out property <string> invitation-total-commission: "¥0.00";
+    in-out property <string> invitation-cooling-commission: "¥0.00";
+    in-out property <string> invitation-rate: "0%";
+    in-out property <string> invitation-count: "0 人";
+    in-out property <string> invitation-code;
+    in-out property <string> invitation-url;
+    in-out property <[AffiliateCommissionItem]> invitation-commissions;
+    in-out property <bool> invitation-commissions-loading: false;
+    in-out property <bool> invitation-commissions-loading-more: false;
+    in-out property <string> invitation-commissions-error;
+    in-out property <bool> invitation-commissions-has-more: false;
+    in-out property <int> invitation-commissions-page: 1;
+    in-out property <int> invitation-commissions-total: 0;
+    in-out property <[AffiliateTransferItem]> invitation-transfers;
+    in-out property <bool> invitation-transfers-loading: false;
+    in-out property <bool> invitation-transfers-loading-more: false;
+    in-out property <string> invitation-transfers-error;
+    in-out property <bool> invitation-transfers-has-more: false;
+    in-out property <int> invitation-transfers-page: 1;
+    in-out property <int> invitation-transfers-total: 0;
+    in-out property <bool> subscription-link-visible: false;
+    in-out property <bool> subscription-link-loading: false;
+    in-out property <bool> subscription-link-has-link: false;
+    in-out property <string> subscription-link-error;
+    in-out property <string> subscription-link-url;
+    in-out property <bool> subscription-link-resetting: false;
+    in-out property <string> subscription-link-reset-error;
+    in-out property <bool> tickets-visible: false;
+    in-out property <string> tickets-mode: "list";
+    in-out property <[SupportTicketItem]> support-tickets;
+    in-out property <bool> tickets-list-loading: false;
+    in-out property <bool> tickets-list-refreshing: false;
+    in-out property <bool> tickets-list-loading-more: false;
+    in-out property <string> tickets-list-error;
+    in-out property <string> tickets-list-more-error;
+    in-out property <bool> tickets-list-has-more: false;
+    in-out property <int> tickets-list-page: 1;
+    in-out property <int> tickets-list-total: 0;
+    in-out property <string> selected-ticket-id;
+    in-out property <string> selected-ticket-title;
+    in-out property <string> selected-ticket-number;
+    in-out property <string> selected-ticket-status-label;
+    in-out property <string> selected-ticket-status-tone;
+    in-out property <string> selected-ticket-priority-label;
+    in-out property <bool> selected-ticket-closed: false;
+    in-out property <[SupportTicketMessageItem]> support-ticket-messages;
+    in-out property <bool> ticket-detail-loading: false;
+    in-out property <string> ticket-detail-error;
+    in-out property <bool> ticket-loading-earlier: false;
+    in-out property <string> ticket-earlier-error;
+    in-out property <bool> ticket-has-earlier: false;
+    in-out property <int> ticket-message-page: 1;
+    in-out property <int> ticket-message-total: 0;
+    in-out property <string> ticket-reply-text;
+    in-out property <bool> ticket-sending: false;
+    in-out property <string> ticket-send-error;
+    in-out property <string> ticket-create-title;
+    in-out property <string> ticket-create-priority: "medium";
+    in-out property <string> ticket-create-message;
+    in-out property <bool> ticket-creating: false;
+    in-out property <string> ticket-create-error;
+    in-out property <bool> ticket-close-confirmation-visible: false;
+    in-out property <bool> ticket-closing: false;
+    in-out property <string> ticket-close-error;
+    in-out property <int> ticket-scroll-request: 0;
+
+    in-out property <NavigationPage> current-page: NavigationPage.home;
+    in property <ResourcePhase> resource-phase: ResourcePhase.idle;
+    in property <string> resource-error;
+    in property <[ResourceGroupItem]> resource-groups;
+    in property <[NodeItem]> visible-nodes;
+    in property <int> available-node-count: 0;
+    in property <NodeItem> selected-node;
+    in property <bool> has-selected-node: false;
+    in property <bool> node-selection-enabled: true;
+    in-out property <bool> node-selector-visible: false;
+    in property <[SubscriptionItem]> subscription-plans;
+    in property <[SubscriptionItem]> subscription-addons;
+    in-out property <string> selected-subscription-plan-id;
+    in-out property <string> selected-subscription-catalog-plan-id;
+    in-out property <int> selected-subscription-addon-count: 0;
+    in property <ShopPhase> shop-phase: ShopPhase.idle;
+    in property <string> shop-error;
+    in property <[ShopPlanItem]> shop-plans;
+    in property <[ShopPriceItem]> shop-prices;
+    in property <[ShopAddonItem]> shop-addons;
+    in property <[PaymentMethodItem]> payment-methods;
+    in property <bool> shop-purchasing: false;
+    in-out property <bool> checkout-visible: false;
+    in-out property <string> checkout-stage: "confirm";
+    in-out property <bool> checkout-polling: false;
+    in-out property <string> checkout-error;
+    in-out property <bool> checkout-coupon-applied: false;
+    in-out property <string> checkout-coupon-code;
+    in-out property <string> checkout-coupon-name;
+    in-out property <string> checkout-coupon-summary;
+    in-out property <string> checkout-coupon-discount-label;
+    in-out property <string> checkout-coupon-payable-label;
+    in-out property <string> checkout-order-id;
+    in-out property <string> checkout-order-number;
+    in-out property <int> checkout-order-amount-cents: 0;
+    in-out property <string> checkout-order-amount-label;
+    in-out property <string> checkout-order-status-label: "待支付";
+    in-out property <string> checkout-payment-url;
+    in property <bool> checkout-payment-qr-mode: true;
+    in-out property <image> checkout-payment-qr;
+    in-out property <bool> checkout-payment-qr-ready: false;
+    in-out property <bool> checkout-fulfillment-pending: false;
+
+    in property <ConnectionPhase> connection-phase: ConnectionPhase.disconnected;
+    in property <string> connection-title: "准备连接";
+    in property <string> connection-detail: "请先选择节点，再建立安全连接";
+    in property <string> connection-button-label: "开始连接";
+    in property <bool> can-toggle: false;
+    in property <string> download-rate: "0 B/s";
+    in property <string> upload-rate: "0 B/s";
+    in property <string> download-total: "0 B";
+    in property <string> upload-total: "0 B";
+    in property <int> active-connections: 0;
+    in property <string> runtime-memory: "未提供";
+    in property <bool> core-available: false;
+    in-out property <bool> tun-mode: false;
+    in-out property <bool> tun-change-pending: false;
+    in-out property <bool> settings-apply-pending: false;
+    in-out property <bool> global-mode: false;
+    in-out property <bool> bypass-mainland: true;
+    in-out property <bool> bypass-lan: true;
+    in-out property <bool> udp-forwarding: true;
+    in-out property <bool> multiplex: false;
+    in-out property <string> notice;
+
+    callback submit-login(string, string);
+    callback logout();
+    callback refresh-resources();
+    callback refresh-subscriptions();
+    callback refresh-shop();
+    callback refresh-profile();
+    callback change-account-password(string, string, string);
+    callback refresh-balance-details();
+    callback load-orders(string, int, bool);
+    callback load-gift-card();
+    callback check-gift-card(string);
+    callback redeem-gift-card(string);
+    callback open-gift-card-purchase(string);
+    callback load-invitations();
+    callback load-invitation-records(string, int, bool);
+    callback copy-invitation-value(string, string);
+    callback load-subscription-link();
+    callback reset-subscription-link();
+    callback copy-subscription-link(string);
+    callback load-support-tickets(int, bool);
+    callback open-support-ticket(string);
+    callback load-earlier-ticket-messages(string);
+    callback create-support-ticket(string, string, string);
+    callback send-support-ticket-message(string, string);
+    callback retry-support-ticket-message(string, string, string);
+    callback close-support-ticket(string);
+    callback cancel-support-ticket-view();
+    callback check-shop-coupon(string, string, string, string);
+    callback create-shop-order(string, string, string, string);
+    callback pay-shop-order(string, string, bool);
+    callback poll-shop-order(string);
+    callback reopen-shop-payment(string);
+    callback open-node-selector();
+    callback close-node-selector();
+    callback select-resource-group(string, string);
+    callback select-node(string);
+    callback toggle-connection();
+    callback tun-mode-changed(bool);
+    callback global-mode-changed(bool);
+    callback bypass-mainland-changed(bool);
+    callback bypass-lan-changed(bool);
+    callback udp-forwarding-changed(bool);
+    callback multiplex-changed(bool);
+
+    public function begin-plan-checkout(plan: ShopPlanItem) {
+        checkout-sheet.prepare-plan(plan);
+        root.checkout-visible = true;
+    }
+
+    public function begin-addon-checkout(addon: ShopAddonItem) {
+        checkout-sheet.prepare-addon(addon);
+        root.checkout-visible = true;
+    }
+
+    public function scroll-ticket-chat-to-bottom() {
+        root.ticket-scroll-request += 1;
+    }
+
+    changed app-phase => {
+        if (root.app-phase != AppPhase.signed-in) {
+            if (root.node-selector-visible) {
+                root.close-node-selector();
+            }
+            root.node-selector-visible = false;
+            root.checkout-visible = false;
+            root.account-settings-visible = false;
+            root.account-settings-stage = "overview";
+            root.balance-details-visible = false;
+            root.orders-visible = false;
+            root.gift-card-visible = false;
+            root.invitation-visible = false;
+            root.subscription-link-visible = false;
+            root.subscription-link-url = "";
+            root.tickets-visible = false;
+            root.support-tickets = [];
+            root.support-ticket-messages = [];
+        }
+    }
+    changed node-selection-enabled => {
+        if (!root.node-selection-enabled) {
+            if (root.node-selector-visible) {
+                root.close-node-selector();
+            }
+            root.node-selector-visible = false;
+        }
+    }
+    changed current-page => {
+        if (root.current-page != NavigationPage.profile) {
+            root.account-settings-visible = false;
+            root.account-settings-stage = "overview";
+            root.account-settings-error = "";
+            root.balance-details-visible = false;
+            root.balance-details-loading = false;
+            root.balance-details-error = "";
+            root.orders-visible = false;
+            root.orders-loading = false;
+            root.orders-loading-more = false;
+            root.orders-error = "";
+            root.gift-card-visible = false;
+            root.gift-card-checking = false;
+            root.gift-card-redeeming = false;
+            root.gift-card-check-error = "";
+            root.gift-card-redeem-error = "";
+            root.invitation-visible = false;
+            root.invitation-loading = false;
+            root.invitation-error = "";
+            root.invitation-commissions-loading = false;
+            root.invitation-commissions-loading-more = false;
+            root.invitation-commissions-error = "";
+            root.invitation-transfers-loading = false;
+            root.invitation-transfers-loading-more = false;
+            root.invitation-transfers-error = "";
+            root.subscription-link-visible = false;
+            root.subscription-link-loading = false;
+            root.subscription-link-resetting = false;
+            root.subscription-link-error = "";
+            root.subscription-link-reset-error = "";
+            root.subscription-link-url = "";
+            root.tickets-visible = false;
+            root.tickets-list-loading = false;
+            root.ticket-detail-loading = false;
+            root.ticket-sending = false;
+            root.ticket-creating = false;
+            root.ticket-closing = false;
+            root.support-ticket-messages = [];
+        }
+        if (root.app-phase == AppPhase.signed-in) {
+            if (root.current-page == NavigationPage.subscriptions) {
+                root.refresh-subscriptions();
+            } else if (root.current-page == NavigationPage.purchase) {
+                root.refresh-profile();
+                root.refresh-shop();
+            } else if (root.current-page == NavigationPage.profile) {
+                root.refresh-profile();
+            }
+        }
+    }
+
+    if root.app-phase == AppPhase.restoring : Rectangle {
+        background: AppTheme.canvas;
+        VerticalLayout {
+            alignment: center;
+            spacing: 16px;
+            HorizontalLayout {
+                alignment: center;
+                BrandLockup { mark-size: 40px; }
+            }
+            Text {
+                text: "正在准备账户…";
+                color: AppTheme.ink-muted;
+                font-size: 13px;
+                horizontal-alignment: center;
+            }
+            HorizontalLayout {
+                alignment: center;
+                BusyIndicator { width: 22px; height: 22px; }
+            }
+        }
+        AboutSlint {
+            x: parent.width - self.width - 24px;
+            y: parent.height - self.height - 18px;
+            width: 280px;
+            height: 96px;
+        }
+    }
+
+    if root.app-phase == AppPhase.signed-out : LoginPage {
+        submitting: root.login-submitting;
+        error-message: root.login-error;
+        submit(email, password) => { root.submit-login(email, password); }
+    }
+
+    if root.app-phase == AppPhase.signed-in : HorizontalLayout {
+        spacing: 0px;
+        Sidebar {
+            current-page: root.current-page;
+            navigate(page) => {
+                if (!root.account-settings-busy) {
+                    if (root.node-selector-visible) {
+                        root.close-node-selector();
+                    }
+                    root.node-selector-visible = false;
+                    root.account-settings-visible = false;
+                    root.account-settings-stage = "overview";
+                    root.account-settings-error = "";
+                    root.balance-details-visible = false;
+                    root.balance-details-loading = false;
+                    root.balance-details-error = "";
+                    root.orders-visible = false;
+                    root.orders-loading = false;
+                    root.orders-loading-more = false;
+                    root.orders-error = "";
+                    root.gift-card-visible = false;
+                    root.gift-card-checking = false;
+                    root.gift-card-redeeming = false;
+                    root.gift-card-check-error = "";
+                    root.gift-card-redeem-error = "";
+                    root.invitation-visible = false;
+                    root.invitation-loading = false;
+                    root.invitation-error = "";
+                    root.invitation-commissions-loading = false;
+                    root.invitation-commissions-loading-more = false;
+                    root.invitation-commissions-error = "";
+                    root.invitation-transfers-loading = false;
+                    root.invitation-transfers-loading-more = false;
+                    root.invitation-transfers-error = "";
+                    root.subscription-link-visible = false;
+                    root.subscription-link-loading = false;
+                    root.subscription-link-resetting = false;
+                    root.subscription-link-error = "";
+                    root.subscription-link-reset-error = "";
+                    root.subscription-link-url = "";
+                    if (root.current-page != page) {
+                        root.current-page = page;
+                    }
+                }
+            }
+        }
+        Rectangle {
+            background: root.current-page == NavigationPage.home
+                ? @linear-gradient(180deg, #ffffff 0%, AppTheme.accent-faint 42%, #ebf8f3 100%)
+                : root.current-page == NavigationPage.subscriptions
+                    || root.current-page == NavigationPage.purchase
+                    || root.current-page == NavigationPage.profile
+                    ? @linear-gradient(135deg, #ffffff 0%, #fbfdfc 50%, #f4faf7 100%)
+                : AppTheme.canvas;
+            horizontal-stretch: 1;
+            VerticalLayout {
+                padding-left: root.current-page == NavigationPage.home ? 0px : 36px;
+                padding-right: root.current-page == NavigationPage.home ? 0px : 36px;
+                padding-top: root.current-page == NavigationPage.home ? 0px : 28px;
+                padding-bottom: root.current-page == NavigationPage.home ? 0px : 28px;
+                spacing: root.current-page == NavigationPage.home ? 0px : 16px;
+                Rectangle {
+                    background: transparent;
+                    horizontal-stretch: 1;
+                    vertical-stretch: 1;
+                    min-width: root.current-page == NavigationPage.home
+                        ? root.width - AppTheme.sidebar-width
+                        : root.width - AppTheme.sidebar-width - 72px;
+                    max-width: self.min-width;
+                    // The surrounding layout already reserves 28px above and
+                    // below non-home pages. Using the full parent height here
+                    // pushed page footers below the native window boundary.
+                    min-height: root.current-page == NavigationPage.home
+                        ? parent.height : parent.height - 56px;
+                    max-height: self.min-height;
+
+                    HomePage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.home;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        connection-phase: root.connection-phase;
+                        connection-title: root.connection-title;
+                        connection-detail: root.connection-detail;
+                        connection-button-label: root.connection-button-label;
+                        can-toggle: root.can-toggle;
+                        actions-enabled: !root.tun-change-pending && !root.settings-apply-pending;
+                        core-available: root.core-available;
+                        download-rate: root.download-rate;
+                        upload-rate: root.upload-rate;
+                        active-connections: root.active-connections;
+                        runtime-memory: root.runtime-memory;
+                        has-selected-node: root.has-selected-node;
+                        selected-node: root.selected-node;
+                        toggle-connection => { root.toggle-connection(); }
+                        choose-node => {
+                            root.node-selector-visible = true;
+                            root.open-node-selector();
+                        }
+                    }
+                    SubscriptionsPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.subscriptions;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        resource-phase: root.resource-phase;
+                        resource-error: root.resource-error;
+                        plans: root.subscription-plans;
+                        addons: root.subscription-addons;
+                        selected-plan-id <=> root.selected-subscription-plan-id;
+                        selected-catalog-plan-id <=> root.selected-subscription-catalog-plan-id;
+                        selected-addon-count <=> root.selected-subscription-addon-count;
+                        refresh => { root.refresh-subscriptions(); }
+                    }
+                    PurchasePage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.purchase;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        phase: root.shop-phase;
+                        error-message: root.shop-error;
+                        plans: root.shop-plans;
+                        addons: root.shop-addons;
+                        refresh => { root.refresh-shop(); }
+                        buy-plan(plan) => { root.begin-plan-checkout(plan); }
+                        buy-addon(addon) => { root.begin-addon-checkout(addon); }
+                    }
+                    ProfilePage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && !root.account-settings-visible
+                            && !root.balance-details-visible
+                            && !root.orders-visible
+                            && !root.gift-card-visible
+                            && !root.invitation-visible
+                            && !root.subscription-link-visible
+                            && !root.tickets-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        user-display-name: root.user-display-name;
+                        user-email: root.user-email;
+                        balance-label: root.user-balance-label;
+                        open-account-settings => {
+                            root.balance-details-visible = false;
+                            root.balance-details-loading = false;
+                            root.balance-details-error = "";
+                            root.orders-visible = false;
+                            root.gift-card-visible = false;
+                            root.invitation-visible = false;
+                            root.subscription-link-visible = false;
+                            root.tickets-visible = false;
+                            account-settings-page.prepare();
+                            root.account-settings-visible = true;
+                        }
+                        open-balance-details => {
+                            root.account-settings-visible = false;
+                            root.orders-visible = false;
+                            root.gift-card-visible = false;
+                            root.invitation-visible = false;
+                            root.subscription-link-visible = false;
+                            root.tickets-visible = false;
+                            balance-details-page.prepare();
+                            root.balance-details-visible = true;
+                            root.refresh-balance-details();
+                        }
+                        open-account-service(service-id) => {
+                            if (service-id == "orders") {
+                                root.account-settings-visible = false;
+                                root.balance-details-visible = false;
+                                root.gift-card-visible = false;
+                                root.invitation-visible = false;
+                                root.subscription-link-visible = false;
+                                root.tickets-visible = false;
+                                orders-page.prepare();
+                                root.orders-visible = true;
+                                root.load-orders("all", 1, false);
+                            } else if (service-id == "gift-card") {
+                                root.account-settings-visible = false;
+                                root.balance-details-visible = false;
+                                root.orders-visible = false;
+                                root.invitation-visible = false;
+                                root.subscription-link-visible = false;
+                                root.tickets-visible = false;
+                                gift-card-page.prepare();
+                                root.gift-card-visible = true;
+                                root.load-gift-card();
+                            } else if (service-id == "invitations") {
+                                root.account-settings-visible = false;
+                                root.balance-details-visible = false;
+                                root.orders-visible = false;
+                                root.gift-card-visible = false;
+                                root.subscription-link-visible = false;
+                                root.tickets-visible = false;
+                                invitation-page.prepare();
+                                root.invitation-visible = true;
+                                root.load-invitations();
+                            } else if (service-id == "subscription-link") {
+                                root.account-settings-visible = false;
+                                root.balance-details-visible = false;
+                                root.orders-visible = false;
+                                root.gift-card-visible = false;
+                                root.invitation-visible = false;
+                                root.tickets-visible = false;
+                                subscription-link-page.prepare();
+                                root.subscription-link-visible = true;
+                                root.load-subscription-link();
+                            } else if (service-id == "tickets") {
+                                root.account-settings-visible = false;
+                                root.balance-details-visible = false;
+                                root.orders-visible = false;
+                                root.gift-card-visible = false;
+                                root.invitation-visible = false;
+                                root.subscription-link-visible = false;
+                                tickets-page.prepare();
+                                root.tickets-visible = true;
+                                root.load-support-tickets(1, false);
+                            }
+                        }
+                        logout => { root.logout(); }
+                    }
+                    account-settings-page := AccountSettingsPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.account-settings-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        username: root.user-display-name;
+                        email: root.user-email;
+                        stage <=> root.account-settings-stage;
+                        busy <=> root.account-settings-busy;
+                        error-message <=> root.account-settings-error;
+                        change-password(current-password, new-password, confirm-password) => {
+                            root.account-settings-error = "";
+                            root.account-settings-busy = true;
+                            root.change-account-password(
+                                current-password,
+                                new-password,
+                                confirm-password,
+                            );
+                        }
+                        dismissed => {
+                            root.account-settings-visible = false;
+                            root.account-settings-stage = "overview";
+                            root.account-settings-busy = false;
+                            root.account-settings-error = "";
+                        }
+                    }
+                    balance-details-page := BalanceDetailsPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.balance-details-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        balance-label: root.user-balance-label;
+                        transactions <=> root.balance-transactions;
+                        loading <=> root.balance-details-loading;
+                        error-message <=> root.balance-details-error;
+                        refresh => { root.refresh-balance-details(); }
+                        dismissed => {
+                            root.balance-details-visible = false;
+                            root.balance-details-loading = false;
+                            root.balance-details-error = "";
+                        }
+                    }
+                    orders-page := OrdersPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.orders-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        orders <=> root.orders;
+                        loading <=> root.orders-loading;
+                        loading-more <=> root.orders-loading-more;
+                        error-message <=> root.orders-error;
+                        has-more <=> root.orders-has-more;
+                        page <=> root.orders-page;
+                        total <=> root.orders-total;
+                        load-orders(filter, page, append) => {
+                            root.load-orders(filter, page, append);
+                        }
+                        dismissed => {
+                            root.orders-visible = false;
+                            root.orders-loading = false;
+                            root.orders-loading-more = false;
+                            root.orders-error = "";
+                        }
+                    }
+                    gift-card-page := GiftCardPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.gift-card-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        balance-label: root.user-balance-label;
+                        initializing <=> root.gift-card-initializing;
+                        initialization-error <=> root.gift-card-initialization-error;
+                        purchase-url <=> root.gift-card-purchase-url;
+                        checking <=> root.gift-card-checking;
+                        redeeming <=> root.gift-card-redeeming;
+                        check-error <=> root.gift-card-check-error;
+                        redeem-error <=> root.gift-card-redeem-error;
+                        has-check <=> root.gift-card-has-check;
+                        can-redeem <=> root.gift-card-can-redeem;
+                        check-reason <=> root.gift-card-check-reason;
+                        reward <=> root.gift-card-reward;
+                        redeemed <=> root.gift-card-redeemed;
+                        load => { root.load-gift-card(); }
+                        check(code) => { root.check-gift-card(code); }
+                        redeem(code) => { root.redeem-gift-card(code); }
+                        open-purchase(url) => { root.open-gift-card-purchase(url); }
+                        dismissed => {
+                            root.gift-card-visible = false;
+                            root.gift-card-checking = false;
+                            root.gift-card-redeeming = false;
+                            root.gift-card-check-error = "";
+                            root.gift-card-redeem-error = "";
+                        }
+                    }
+                    invitation-page := InvitationPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.invitation-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        loading <=> root.invitation-loading;
+                        has-summary <=> root.invitation-has-summary;
+                        error-message <=> root.invitation-error;
+                        affiliate-enabled <=> root.invitation-enabled;
+                        available-commission <=> root.invitation-available-commission;
+                        total-commission <=> root.invitation-total-commission;
+                        cooling-commission <=> root.invitation-cooling-commission;
+                        rate-label <=> root.invitation-rate;
+                        invitation-count <=> root.invitation-count;
+                        invitation-code <=> root.invitation-code;
+                        invitation-url <=> root.invitation-url;
+                        commissions <=> root.invitation-commissions;
+                        commissions-loading <=> root.invitation-commissions-loading;
+                        commissions-loading-more <=> root.invitation-commissions-loading-more;
+                        commissions-error <=> root.invitation-commissions-error;
+                        commissions-has-more <=> root.invitation-commissions-has-more;
+                        commissions-page <=> root.invitation-commissions-page;
+                        commissions-total <=> root.invitation-commissions-total;
+                        transfers <=> root.invitation-transfers;
+                        transfers-loading <=> root.invitation-transfers-loading;
+                        transfers-loading-more <=> root.invitation-transfers-loading-more;
+                        transfers-error <=> root.invitation-transfers-error;
+                        transfers-has-more <=> root.invitation-transfers-has-more;
+                        transfers-page <=> root.invitation-transfers-page;
+                        transfers-total <=> root.invitation-transfers-total;
+                        load => { root.load-invitations(); }
+                        load-records(kind, page, append) => {
+                            root.load-invitation-records(kind, page, append);
+                        }
+                        copy-value(label, value) => {
+                            root.copy-invitation-value(label, value);
+                        }
+                        dismissed => {
+                            root.invitation-visible = false;
+                            root.invitation-loading = false;
+                            root.invitation-error = "";
+                            root.invitation-commissions-loading = false;
+                            root.invitation-commissions-loading-more = false;
+                            root.invitation-commissions-error = "";
+                            root.invitation-transfers-loading = false;
+                            root.invitation-transfers-loading-more = false;
+                            root.invitation-transfers-error = "";
+                        }
+                    }
+                    subscription-link-page := SubscriptionLinkPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.subscription-link-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        loading <=> root.subscription-link-loading;
+                        has-link <=> root.subscription-link-has-link;
+                        error-message <=> root.subscription-link-error;
+                        url <=> root.subscription-link-url;
+                        resetting <=> root.subscription-link-resetting;
+                        reset-error <=> root.subscription-link-reset-error;
+                        load => { root.load-subscription-link(); }
+                        reset => { root.reset-subscription-link(); }
+                        copy(value) => { root.copy-subscription-link(value); }
+                        dismissed => {
+                            root.subscription-link-visible = false;
+                            root.subscription-link-loading = false;
+                            root.subscription-link-resetting = false;
+                            root.subscription-link-error = "";
+                            root.subscription-link-reset-error = "";
+                            root.subscription-link-url = "";
+                        }
+                    }
+                    tickets-page := TicketsPage {
+                        scroll-request: root.ticket-scroll-request;
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.profile
+                            && root.tickets-visible;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        mode <=> root.tickets-mode;
+                        tickets <=> root.support-tickets;
+                        list-loading <=> root.tickets-list-loading;
+                        list-refreshing <=> root.tickets-list-refreshing;
+                        list-loading-more <=> root.tickets-list-loading-more;
+                        list-error <=> root.tickets-list-error;
+                        list-more-error <=> root.tickets-list-more-error;
+                        list-has-more <=> root.tickets-list-has-more;
+                        selected-id <=> root.selected-ticket-id;
+                        selected-title <=> root.selected-ticket-title;
+                        selected-number <=> root.selected-ticket-number;
+                        selected-status-label <=> root.selected-ticket-status-label;
+                        selected-status-tone <=> root.selected-ticket-status-tone;
+                        selected-priority-label <=> root.selected-ticket-priority-label;
+                        selected-closed <=> root.selected-ticket-closed;
+                        messages <=> root.support-ticket-messages;
+                        detail-loading <=> root.ticket-detail-loading;
+                        detail-error <=> root.ticket-detail-error;
+                        loading-earlier <=> root.ticket-loading-earlier;
+                        earlier-error <=> root.ticket-earlier-error;
+                        has-earlier <=> root.ticket-has-earlier;
+                        reply-text <=> root.ticket-reply-text;
+                        sending <=> root.ticket-sending;
+                        send-error <=> root.ticket-send-error;
+                        create-title <=> root.ticket-create-title;
+                        create-priority <=> root.ticket-create-priority;
+                        create-message <=> root.ticket-create-message;
+                        creating <=> root.ticket-creating;
+                        create-error <=> root.ticket-create-error;
+                        close-confirmation-visible <=> root.ticket-close-confirmation-visible;
+                        closing <=> root.ticket-closing;
+                        close-error <=> root.ticket-close-error;
+                        load-list(page, append) => { root.load-support-tickets(page, append); }
+                        open-ticket(id) => { root.open-support-ticket(id); }
+                        load-earlier(id) => { root.load-earlier-ticket-messages(id); }
+                        create-ticket(title, priority, message) => {
+                            root.create-support-ticket(title, priority, message);
+                        }
+                        send-message(id, content) => { root.send-support-ticket-message(id, content); }
+                        retry-message(ticket-id, message-id, content) => {
+                            root.retry-support-ticket-message(ticket-id, message-id, content);
+                        }
+                        cancel-pending => { root.cancel-support-ticket-view(); }
+                        dismissed => {
+                            root.tickets-visible = false;
+                            root.tickets-mode = "list";
+                            root.tickets-list-loading = false;
+                            root.tickets-list-refreshing = false;
+                            root.tickets-list-loading-more = false;
+                            root.tickets-list-error = "";
+                            root.tickets-list-more-error = "";
+                            root.ticket-detail-loading = false;
+                            root.ticket-loading-earlier = false;
+                            root.ticket-sending = false;
+                            root.ticket-creating = false;
+                            root.ticket-closing = false;
+                            root.ticket-close-confirmation-visible = false;
+                            root.ticket-reply-text = "";
+                            root.ticket-create-message = "";
+                            root.support-ticket-messages = [];
+                        }
+                    }
+                    SettingsPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.settings;
+                        opacity: self.visible ? 1 : 0;
+                        animate opacity { duration: 110ms; easing: ease-out; }
+                        tun-mode <=> root.tun-mode;
+                        tun-change-pending: root.tun-change-pending;
+                        settings-apply-pending: root.settings-apply-pending;
+                        preferences-editable: root.connection-phase == ConnectionPhase.disconnected
+                            || root.connection-phase == ConnectionPhase.connected
+                            || root.connection-phase == ConnectionPhase.failed;
+                        global-mode <=> root.global-mode;
+                        bypass-mainland <=> root.bypass-mainland;
+                        bypass-lan <=> root.bypass-lan;
+                        udp-forwarding <=> root.udp-forwarding;
+                        multiplex <=> root.multiplex;
+                        tun-mode-changed(value) => { root.tun-mode-changed(value); }
+                        global-mode-changed(value) => { root.global-mode-changed(value); }
+                        bypass-mainland-changed(value) => { root.bypass-mainland-changed(value); }
+                        bypass-lan-changed(value) => { root.bypass-lan-changed(value); }
+                        udp-forwarding-changed(value) => { root.udp-forwarding-changed(value); }
+                        multiplex-changed(value) => { root.multiplex-changed(value); }
+                    }
+                }
+            }
+        }
+    }
+
+    if root.app-phase == AppPhase.signed-in : NodeSelectorSheet {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        // Opacity alone does not remove descendant touch areas from hit testing.
+        visible: root.node-selector-visible;
+        z: 90;
+        open: root.node-selector-visible;
+        left-inset: AppTheme.sidebar-width;
+        resource-phase: root.resource-phase;
+        resource-error: root.resource-error;
+        resource-groups: root.resource-groups;
+        nodes: root.visible-nodes;
+        available-node-count: root.available-node-count;
+        selection-enabled: root.node-selection-enabled;
+        dismissed => {
+            root.node-selector-visible = false;
+            root.close-node-selector();
+        }
+        refresh-resources => { root.refresh-resources(); }
+        select-resource-group(group-id, entitlement-id) => {
+            root.select-resource-group(group-id, entitlement-id);
+        }
+        select-node(id) => {
+            root.node-selector-visible = false;
+            root.close-node-selector();
+            root.select-node(id);
+        }
+    }
+
+    checkout-sheet := PurchaseCheckoutSheet {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        visible: root.app-phase == AppPhase.signed-in && root.checkout-visible;
+        z: 95;
+        open <=> root.checkout-visible;
+        stage <=> root.checkout-stage;
+        prices: root.shop-prices;
+        addons: root.shop-addons;
+        payment-methods: root.payment-methods;
+        balance-cents: root.user-balance-cents;
+        balance-label: root.user-balance-label;
+        busy: root.shop-purchasing;
+        polling: root.checkout-polling;
+        error-message <=> root.checkout-error;
+        coupon-applied <=> root.checkout-coupon-applied;
+        coupon-code <=> root.checkout-coupon-code;
+        coupon-name <=> root.checkout-coupon-name;
+        coupon-summary <=> root.checkout-coupon-summary;
+        coupon-discount-label <=> root.checkout-coupon-discount-label;
+        coupon-payable-label <=> root.checkout-coupon-payable-label;
+        order-id <=> root.checkout-order-id;
+        order-number <=> root.checkout-order-number;
+        order-amount-cents <=> root.checkout-order-amount-cents;
+        order-amount-label <=> root.checkout-order-amount-label;
+        order-status-label <=> root.checkout-order-status-label;
+        payment-url <=> root.checkout-payment-url;
+        payment-qr-mode: root.checkout-payment-qr-mode;
+        payment-qr <=> root.checkout-payment-qr;
+        payment-qr-ready <=> root.checkout-payment-qr-ready;
+        fulfillment-pending <=> root.checkout-fulfillment-pending;
+        check-coupon(kind, plan-id, product-id, code) => {
+            root.checkout-error = "";
+            root.check-shop-coupon(kind, plan-id, product-id, code);
+        }
+        create-order(kind, plan-id, product-id, coupon-code) => {
+            root.checkout-error = "";
+            root.create-shop-order(kind, plan-id, product-id, coupon-code);
+        }
+        pay-order(order-id, payment-method-id, use-balance) => {
+            root.checkout-error = "";
+            root.checkout-payment-qr-ready = false;
+            root.pay-shop-order(order-id, payment-method-id, use-balance);
+        }
+        poll-order(order-id) => { root.poll-shop-order(order-id); }
+        reopen-payment(url) => { root.reopen-shop-payment(url); }
+        back-to-confirm => {
+            root.checkout-order-id = "";
+            root.checkout-order-number = "";
+            root.checkout-order-amount-cents = 0;
+            root.checkout-order-amount-label = "";
+            root.checkout-order-status-label = "待支付";
+            root.checkout-payment-url = "";
+            root.checkout-payment-qr-ready = false;
+            root.checkout-fulfillment-pending = false;
+        }
+        dismissed => {
+            root.checkout-visible = false;
+            root.checkout-polling = false;
+            root.checkout-error = "";
+            root.checkout-payment-qr-ready = false;
+        }
+    }
+
+    if root.app-phase == AppPhase.signed-in && root.ticket-close-confirmation-visible : TicketCloseConfirmation {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        z: 98;
+        closing: root.ticket-closing;
+        error-message: root.ticket-close-error;
+        dismissed => {
+            root.ticket-close-confirmation-visible = false;
+            root.ticket-close-error = "";
+        }
+        confirmed => { root.close-support-ticket(root.selected-ticket-id); }
+    }
+
+    if root.notice != "" : NoticeToast {
+        x: root.app-phase == AppPhase.signed-in
+            ? AppTheme.sidebar-width + (root.width - AppTheme.sidebar-width - self.width) / 2
+            : (root.width - self.width) / 2;
+        y: root.height - self.height - 20px;
+        z: 100;
+        message: root.notice;
+        dismissed => { root.notice = ""; }
+    }
+}

@@ -1,0 +1,34 @@
+export component AppTray inherits SystemTrayIcon {
+    icon: @image-url("assets/topnode-logo.svg");
+    title: "TOPNODE";
+    tooltip: root.connection-active
+        ? "TOPNODE · 已连接"
+        : "TOPNODE · 未连接";
+
+    in property <bool> connection-active: false;
+    in property <bool> connection-action-enabled: false;
+
+    callback show-main-window();
+    callback toggle-connection();
+    callback quit-application();
+
+    clicked => { root.show-main-window(); }
+
+    Menu {
+        MenuItem {
+            title: "显示主窗口";
+            activated => { root.show-main-window(); }
+        }
+        MenuSeparator { }
+        MenuItem {
+            title: root.connection-active ? "断开连接" : "开始连接";
+            enabled: root.connection-action-enabled;
+            activated => { root.toggle-connection(); }
+        }
+        MenuSeparator { }
+        MenuItem {
+            title: "退出 TOPNODE";
+            activated => { root.quit-application(); }
+        }
+    }
+}

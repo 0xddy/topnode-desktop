@@ -1,0 +1,508 @@
+import { AppTheme } from "../theme.slint";
+import {
+    AppButton,
+    ButtonKind,
+    BusyIndicator,
+    InlineAlert,
+    RefreshIconButton,
+    SurfaceCard,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+import { ScrollView } from "std-widgets.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+component SubscriptionBackButton inherits Rectangle {
+    callback clicked();
+
+    width: 40px;
+    height: 40px;
+    border-radius: 20px;
+    background: touch.pressed ? AppTheme.surface-muted
+        : touch.has-hover ? AppTheme.surface : transparent;
+    animate background { duration: 100ms; }
+
+    Glyph {
+        x: 10px;
+        y: 10px;
+        width: 20px;
+        height: 20px;
+        name: "arrow-left";
+        fill: AppTheme.ink;
+    }
+
+    touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SubscriptionSkeletonBlock inherits Rectangle {
+    in property <length> block-width: 100px;
+    width: root.block-width;
+    height: 12px;
+    border-radius: 6px;
+    background: #e3e9e6;
+    clip: true;
+
+    Rectangle {
+        x: ((animation-tick() / 1350ms) * (parent.width + 74px)) - 74px;
+        width: 74px;
+        height: 100%;
+        border-radius: parent.border-radius;
+        background: @linear-gradient(90deg, #ffffff00 0%, #ffffff80 50%, #ffffff00 100%);
+    }
+}
+
+component SubscriptionSkeleton inherits VerticalLayout {
+    padding-left: 22px;
+    padding-right: 22px;
+    padding-top: 20px;
+    spacing: 20px;
+
+    VerticalLayout {
+        spacing: 8px;
+        SubscriptionSkeletonBlock { block-width: 92px; height: 18px; }
+        SubscriptionSkeletonBlock { block-width: 310px; height: 13px; }
+    }
+    skeleton-url := Rectangle {
+        height: 84px;
+        border-radius: 12px;
+        background: #e3e9e6;
+        VerticalLayout {
+            padding: 15px;
+            spacing: 10px;
+            SubscriptionSkeletonBlock { block-width: skeleton-url.width - 30px; height: 14px; }
+            SubscriptionSkeletonBlock { block-width: min(330px, skeleton-url.width - 30px); }
+        }
+    }
+    SubscriptionSkeletonBlock {
+        block-width: parent.width - 44px;
+        height: 48px;
+        border-radius: 12px;
+    }
+    HorizontalLayout {
+        alignment: center;
+        SubscriptionSkeletonBlock { block-width: 140px; height: 16px; }
+    }
+    Rectangle { height: 36px; background: transparent; }
+    HorizontalLayout {
+        alignment: center;
+        spacing: 9px;
+        SubscriptionSkeletonBlock { block-width: 16px; height: 16px; border-radius: 8px; }
+        SubscriptionSkeletonBlock { block-width: 330px; height: 12px; }
+    }
+}
+
+component SubscriptionCopyButton inherits Rectangle {
+    in property <bool> enabled: true;
+    callback clicked();
+
+    height: 48px;
+    border-radius: 12px;
+    opacity: root.enabled ? 1 : 0.45;
+    background: copy-touch.pressed ? AppTheme.accent-dark
+        : copy-touch.has-hover && root.enabled ? AppTheme.accent-hover : AppTheme.accent;
+    animate background { duration: 110ms; }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 8px;
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            Glyph { name: "copy"; fill: white; width: 18px; height: 18px; }
+        }
+        Text {
+            text: "复制订阅地址";
+            color: white;
+            font-size: 13px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    copy-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SubscriptionResetButton inherits Rectangle {
+    in property <bool> resetting;
+    callback clicked();
+
+    width: 174px;
+    height: 42px;
+    border-radius: 10px;
+    background: reset-touch.pressed ? #f8e7e8
+        : reset-touch.has-hover && !root.resetting ? #fbefef : transparent;
+    animate background { duration: 100ms; }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 7px;
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            if root.resetting : BusyIndicator {
+                width: 16px;
+                height: 16px;
+                indicator-color: AppTheme.danger;
+            }
+            if !root.resetting : Glyph {
+                name: "refresh";
+                fill: AppTheme.danger;
+                width: 17px;
+                height: 17px;
+            }
+        }
+        Text {
+            text: root.resetting ? "正在重置" : "重置订阅地址";
+            color: AppTheme.danger;
+            font-size: 13px;
+            font-weight: 500;
+            vertical-alignment: center;
+        }
+    }
+
+    reset-touch := TouchArea {
+        enabled: !root.resetting;
+        mouse-cursor: root.resetting ? MouseCursor.default : MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+component SubscriptionDialogButton inherits Rectangle {
+    in property <string> label;
+    in property <bool> danger: false;
+    callback clicked();
+
+    height: 40px;
+    border-radius: 10px;
+    background: root.danger
+        ? (dialog-touch.pressed ? #962633 : dialog-touch.has-hover ? #c53c4a : AppTheme.danger)
+        : (dialog-touch.pressed ? AppTheme.surface-muted
+            : dialog-touch.has-hover ? AppTheme.surface-subtle : AppTheme.surface);
+    border-width: root.danger ? 0px : 1px;
+    border-color: AppTheme.border;
+    animate background { duration: 100ms; }
+
+    Text {
+        text: root.label;
+        color: root.danger ? white : AppTheme.ink-muted;
+        font-size: 13px;
+        font-weight: 550;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+    }
+
+    dialog-touch := TouchArea {
+        mouse-cursor: MouseCursor.pointer;
+        clicked => { root.clicked(); }
+    }
+}
+
+export component SubscriptionLinkPage inherits Rectangle {
+    in-out property <bool> loading: false;
+    in-out property <bool> has-link: false;
+    in-out property <string> error-message;
+    in-out property <string> url;
+    in-out property <bool> resetting: false;
+    in-out property <string> reset-error;
+
+    callback load();
+    callback reset();
+    callback copy(string);
+    callback dismissed();
+
+    in-out property <bool> reset-confirmation-visible: false;
+
+    background: transparent;
+    clip: true;
+
+    public function prepare() {
+        subscription-scroll.viewport-y = 0px;
+        root.loading = true;
+        root.has-link = false;
+        root.error-message = "";
+        root.url = "";
+        root.resetting = false;
+        root.reset-error = "";
+        root.reset-confirmation-visible = false;
+    }
+
+    function refresh() {
+        if (root.resetting) {
+            return;
+        }
+        root.loading = true;
+        root.error-message = "";
+        root.load();
+    }
+
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 52px;
+        background: transparent;
+
+        HorizontalLayout {
+            spacing: 12px;
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                SubscriptionBackButton {
+                    clicked => {
+                        if (!root.resetting) {
+                            root.dismissed();
+                        }
+                    }
+                }
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: "订阅链接";
+                color: AppTheme.ink;
+                font-family: "Sora SemiBold";
+                font-size: 22px;
+                font-weight: 600;
+                vertical-alignment: center;
+            }
+            VerticalLayout {
+                width: 40px;
+                alignment: center;
+                if root.has-link : RefreshIconButton {
+                    busy: root.loading;
+                    clicked => { root.refresh(); }
+                }
+            }
+        }
+    }
+
+    subscription-scroll := ScrollView {
+        x: 0px;
+        y: 64px;
+        width: 100%;
+        height: root.height - self.y;
+        viewport-width: self.width;
+        viewport-height: max(self.height, content.preferred-height);
+        viewport-x: 0px;
+        viewport-y: 0px;
+
+        content := VerticalLayout {
+            width: parent.width;
+            padding-bottom: 80px;
+            spacing: 0px;
+
+            if root.loading && !root.has-link : SubscriptionSkeleton { }
+
+            if !root.loading && !root.has-link && root.error-message != "" : Rectangle {
+                height: 410px;
+                background: transparent;
+                VerticalLayout {
+                    padding-left: 26px;
+                    padding-right: 26px;
+                    alignment: center;
+                    spacing: 11px;
+                    HorizontalLayout {
+                        alignment: center;
+                        Glyph { name: "info"; fill: AppTheme.ink-subtle; width: 23px; height: 23px; }
+                    }
+                    Text {
+                        text: "暂时无法读取订阅地址";
+                        color: AppTheme.ink;
+                        font-size: 15px;
+                        font-weight: 550;
+                        horizontal-alignment: center;
+                    }
+                    Text {
+                        text: root.error-message;
+                        color: AppTheme.ink-muted;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                        horizontal-alignment: center;
+                    }
+                    AppButton {
+                        kind: ButtonKind.ghost;
+                        text: "重新加载";
+                        button-min-width: 104px;
+                        clicked => { root.refresh(); }
+                    }
+                }
+            }
+
+            if root.has-link : VerticalLayout {
+                min-height: subscription-scroll.height - 80px;
+                padding-left: 22px;
+                padding-right: 22px;
+                padding-top: 20px;
+                padding-bottom: 0px;
+                spacing: 20px;
+
+                if root.error-message != "" : InlineAlert {
+                    danger: false;
+                    message: "刷新失败，当前显示已加载的订阅地址：" + root.error-message;
+                }
+
+                VerticalLayout {
+                    spacing: 5px;
+                    Text {
+                        text: "订阅地址";
+                        color: AppTheme.ink;
+                        font-size: 18px;
+                        font-weight: 600;
+                    }
+                    Text {
+                        text: "用于支持订阅 URL 的第三方客户端。";
+                        color: AppTheme.ink-muted;
+                        font-size: 13px;
+                    }
+                }
+
+                Rectangle {
+                    min-height: 66px;
+                    border-radius: 12px;
+                    background: #ecefed;
+                    VerticalLayout {
+                        padding-left: 15px;
+                        padding-right: 15px;
+                        padding-top: 13px;
+                        padding-bottom: 13px;
+                        Text {
+                            text: root.url;
+                            color: AppTheme.ink;
+                            font-family: "Consolas";
+                            font-size: 13px;
+                            wrap: word-wrap;
+                        }
+                    }
+                }
+
+                SubscriptionCopyButton {
+                    enabled: !root.loading && !root.resetting && root.url != "";
+                    clicked => { root.copy(root.url); }
+                }
+
+                VerticalLayout {
+                    spacing: 4px;
+                    HorizontalLayout {
+                        alignment: center;
+                        SubscriptionResetButton {
+                            resetting: root.resetting;
+                            clicked => {
+                                root.reset-error = "";
+                                root.reset-confirmation-visible = true;
+                            }
+                        }
+                    }
+                    if root.reset-error != "" : Text {
+                        text: root.reset-error;
+                        color: AppTheme.danger;
+                        font-size: 11px;
+                        wrap: word-wrap;
+                        horizontal-alignment: center;
+                    }
+                }
+
+                Rectangle {
+                    min-height: 18px;
+                    vertical-stretch: 1;
+                    background: transparent;
+                }
+
+            }
+        }
+    }
+
+    if root.has-link : Rectangle {
+        x: 0px;
+        y: root.height - 74px;
+        width: 100%;
+        height: 46px;
+        background: @linear-gradient(180deg, #f8fbf900 0%, #f8fbf9e8 32%, #f8fbf9 100%);
+        HorizontalLayout {
+            padding-left: 42px;
+            padding-right: 42px;
+            alignment: center;
+            spacing: 8px;
+            VerticalLayout {
+                width: 16px;
+                alignment: center;
+                Glyph { name: "lock"; fill: AppTheme.ink-subtle; width: 15px; height: 15px; }
+            }
+            Text {
+                text: "该地址包含专属访问凭证，请勿公开分享。";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+        }
+    }
+
+    if root.reset-confirmation-visible : Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        background: AppTheme.modal-backdrop;
+
+        TouchArea {
+            enabled: !root.resetting;
+            clicked => { root.reset-confirmation-visible = false; }
+        }
+
+        dialog := SurfaceCard {
+            x: (parent.width - self.width) / 2;
+            y: (parent.height - self.height) / 2;
+            width: min(452px, parent.width - 48px);
+            height: 226px;
+            drop-shadow-color: AppTheme.modal-shadow;
+            drop-shadow-blur: 22px;
+            drop-shadow-offset-y: 7px;
+
+            VerticalLayout {
+                padding-left: 22px;
+                padding-right: 22px;
+                padding-top: 22px;
+                padding-bottom: 18px;
+                spacing: 14px;
+                Text {
+                    text: "重置订阅地址";
+                    color: AppTheme.ink;
+                    font-size: 18px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: "重置后当前地址将立即失效，所有已配置的第三方客户端都需要使用新地址重新同步。";
+                    color: AppTheme.ink-muted;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                    vertical-stretch: 1;
+                }
+                HorizontalLayout {
+                    height: 40px;
+                    spacing: 10px;
+                    SubscriptionDialogButton {
+                        horizontal-stretch: 1;
+                        label: "取消";
+                        clicked => { root.reset-confirmation-visible = false; }
+                    }
+                    SubscriptionDialogButton {
+                        horizontal-stretch: 1;
+                        label: "确认重置";
+                        danger: true;
+                        clicked => {
+                            root.reset-confirmation-visible = false;
+                            root.resetting = true;
+                            root.reset-error = "";
+                            root.reset();
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

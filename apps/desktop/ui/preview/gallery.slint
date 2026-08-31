@@ -1,0 +1,1193 @@
+import { AppWindow } from "../app-window.slint";
+import {
+    AppPhase,
+    ConnectionPhase,
+    NavigationPage,
+    ResourcePhase,
+    ShopPlanItem,
+    ShopPhase,
+    SubscriptionStatus,
+} from "../models.slint";
+import { AppTheme } from "../theme.slint";
+import {
+    AppButton,
+    AppField,
+    AppSwitch,
+    BusyIndicator,
+    ButtonKind,
+    CountryMark,
+    InlineAlert,
+    PageHeader,
+    StatusDot,
+    SurfaceCard,
+} from "../components/controls.slint";
+import { BrandLockup } from "../components/brand.slint";
+import { Glyph } from "../components/glyph.slint";
+import { PurchasePage } from "../pages/purchase-page.slint";
+import { InvitationPage } from "../pages/invitation-page.slint";
+import { SubscriptionLinkPage } from "../pages/subscription-link-page.slint";
+import { TicketsPage } from "../pages/tickets-page.slint";
+
+component PreviewShell inherits AppWindow {
+    app-phase: AppPhase.signed-in;
+    user-display-name: "林知远";
+    user-email: "lin.zhiyuan@example.com";
+    user-balance-label: "¥128.50";
+    user-balance-cents: 12850;
+    balance-transactions: [
+        {
+            id: "txn-1004",
+            title: "余额充值",
+            kind-icon: "+",
+            description: "账户余额充值",
+            amount-label: "+100.00",
+            balance-after-label: "¥128.50",
+            balance-before-label: "¥28.50",
+            created-at-label: "2026-08-29 15:42",
+            reference-label: "关联记录 #1004",
+            credit: true,
+        },
+        {
+            id: "txn-1003",
+            title: "订单支付",
+            kind-icon: "−",
+            description: "购买高级套餐",
+            amount-label: "-29.00",
+            balance-after-label: "¥28.50",
+            balance-before-label: "¥57.50",
+            created-at-label: "2026-08-28 20:16",
+            reference-label: "订单 TN202608280003",
+            credit: false,
+        },
+        {
+            id: "txn-1002",
+            title: "订单退款",
+            kind-icon: "+",
+            description: "订单退款到账",
+            amount-label: "+19.90",
+            balance-after-label: "¥57.50",
+            balance-before-label: "¥37.60",
+            created-at-label: "2026-08-26 10:08",
+            reference-label: "订单 TN202608250002",
+            credit: true,
+        },
+    ];
+    orders: [
+        {
+            id: "9004",
+            order-number: "TN202608290004",
+            title: "VIP 黄金套餐",
+            specification: "月付 · 1个月",
+            amount-label: "¥20.00",
+            status-label: "已完成",
+            status-tone: "paid",
+            list-time-label: "08-29 15:42",
+            type-label: "套餐订阅",
+            payment-method-label: "余额支付",
+            balance-refunded-label: "",
+            created-at-label: "2026-08-29 15:41",
+            paid-at-label: "2026-08-29 15:42",
+            refunded-at-label: "",
+            updated-at-label: "2026-08-29 15:42",
+        },
+        {
+            id: "9003",
+            order-number: "TN202608280003",
+            title: "100GB 流量包",
+            specification: "VIP 黄金套餐 · 100.0 GB",
+            amount-label: "¥10.00",
+            status-label: "待支付",
+            status-tone: "pending",
+            list-time-label: "08-28 20:16",
+            type-label: "流量包",
+            payment-method-label: "尚未选择",
+            balance-refunded-label: "",
+            created-at-label: "2026-08-28 20:16",
+            paid-at-label: "",
+            refunded-at-label: "",
+            updated-at-label: "2026-08-28 20:16",
+        },
+        {
+            id: "9002",
+            order-number: "TN202608250002",
+            title: "VIP 黄金套餐",
+            specification: "季付 · 3个月",
+            amount-label: "¥58.00",
+            status-label: "已退款",
+            status-tone: "refunded",
+            list-time-label: "08-26 10:08",
+            type-label: "套餐订阅",
+            payment-method-label: "支付宝",
+            balance-refunded-label: "¥58.00",
+            created-at-label: "2026-08-25 18:30",
+            paid-at-label: "2026-08-25 18:31",
+            refunded-at-label: "2026-08-26 10:08",
+            updated-at-label: "2026-08-26 10:08",
+        },
+        {
+            id: "9001",
+            order-number: "TN202608210001",
+            title: "100GB 流量包",
+            specification: "VIP 黄金套餐 · 100.0 GB",
+            amount-label: "¥10.00",
+            status-label: "处理中",
+            status-tone: "neutral",
+            list-time-label: "08-21 09:20",
+            type-label: "流量包",
+            payment-method-label: "余额支付",
+            balance-refunded-label: "",
+            created-at-label: "2026-08-21 09:20",
+            paid-at-label: "",
+            refunded-at-label: "",
+            updated-at-label: "2026-08-21 09:20",
+        },
+    ];
+    invitation-commissions: [
+        {
+            id: "301",
+            invitee: "u73921548",
+            order-number: "ORD202608290018",
+            rebate-type-label: "首次返佣",
+            rate-label: "10%",
+            base-amount-label: "¥20.00",
+            amount-label: "¥2.00",
+            status-label: "可用",
+            status-tone: "available",
+            created-at-label: "2026-08-29 15:42",
+            available-at-label: "2026-08-29 15:42",
+            released-at-label: "2026-08-29 15:42",
+            reversed-at-label: "",
+            reversed-deducted-label: "",
+        },
+        {
+            id: "300",
+            invitee: "u41830672",
+            order-number: "ORD202608260009",
+            rebate-type-label: "循环返佣",
+            rate-label: "5%",
+            base-amount-label: "¥100.00",
+            amount-label: "¥5.00",
+            status-label: "冷却中",
+            status-tone: "cooling",
+            created-at-label: "2026-08-26 19:08",
+            available-at-label: "2026-09-02 19:08",
+            released-at-label: "",
+            reversed-at-label: "",
+            reversed-deducted-label: "",
+        },
+        {
+            id: "299",
+            invitee: "u20596731",
+            order-number: "ORD202608210003",
+            rebate-type-label: "首次返佣",
+            rate-label: "10%",
+            base-amount-label: "¥20.00",
+            amount-label: "¥2.00",
+            status-label: "已撤销",
+            status-tone: "reversed",
+            created-at-label: "2026-08-21 09:16",
+            available-at-label: "",
+            released-at-label: "",
+            reversed-at-label: "2026-08-22 10:05",
+            reversed-deducted-label: "¥2.00",
+        },
+    ];
+    invitation-transfers: [
+        {
+            id: "84",
+            request-id: "a32ff4dd-7cee-4bd3-bd9f-d4c293162864",
+            amount-label: "¥16.50",
+            balance-after-label: "¥145.00",
+            created-at-label: "2026-08-28 11:20",
+        },
+        {
+            id: "72",
+            request-id: "7f507222-c2a1-49c6-a170-5553f5278871",
+            amount-label: "¥8.00",
+            balance-after-label: "¥128.50",
+            created-at-label: "2026-08-20 18:05",
+        },
+    ];
+    core-available: true;
+    resource-phase: ResourcePhase.ready;
+    available-node-count: 9;
+    has-selected-node: true;
+    node-selection-enabled: true;
+    can-toggle: true;
+    selected-node: {
+        id: "node:tokyo-01",
+        name: "东京 T01",
+        country-code: "JP",
+        status-label: "在线",
+        tags-label: "视频 · 低延迟",
+        multiplier-label: "1.0x",
+        latency-label: "42ms",
+        latency-available: true,
+        selected: true,
+        selectable: true,
+        measuring: false,
+    };
+    resource-groups: [
+        {
+            id: "premium-v1",
+            group-id: "1",
+            entitlement-id: "101",
+            name: "VIP 黄金套餐",
+            quota-label: "剩余 350.0 GB / 400.0 GB",
+            expiry-label: "到期 2026-08-31",
+            selected: true,
+            connectable: true,
+        },
+        {
+            id: "premium-v2",
+            group-id: "1",
+            entitlement-id: "102",
+            name: "VIP 黄金套餐",
+            quota-label: "剩余 400.0 GB / 400.0 GB",
+            expiry-label: "到期 2026-09-03",
+            selected: false,
+            connectable: true,
+        },
+        {
+            id: "backup",
+            group-id: "2",
+            entitlement-id: "201",
+            name: "备用线路",
+            quota-label: "剩余 320 GiB",
+            expiry-label: "到期 2026-09-30",
+            selected: false,
+            connectable: true,
+        },
+        {
+            id: "seasonal",
+            group-id: "3",
+            entitlement-id: "301",
+            name: "流媒体专区",
+            quota-label: "剩余 680 GiB",
+            expiry-label: "到期 2026-11-15",
+            selected: false,
+            connectable: true,
+        },
+    ];
+    visible-nodes: [
+        {
+            id: "node:tokyo-01",
+            name: "东京 T01",
+            country-code: "JP",
+            status-label: "在线",
+            tags-label: "视频 · 低延迟",
+            multiplier-label: "1.0x",
+            latency-label: "42ms",
+            latency-available: true,
+            selected: true,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:frankfurt-01",
+            name: "法兰克福 D01",
+            country-code: "DE",
+            status-label: "在线",
+            tags-label: "欧洲直连",
+            multiplier-label: "0.5x",
+            latency-label: "168ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:los-angeles-01",
+            name: "洛杉矶优化",
+            country-code: "US",
+            status-label: "在线",
+            tags-label: "性价比",
+            multiplier-label: "1.0x",
+            latency-label: "—",
+            latency-available: false,
+            selected: false,
+            selectable: true,
+            measuring: true,
+        },
+        {
+            id: "node:singapore-01",
+            name: "新加坡 S01",
+            country-code: "SG",
+            status-label: "维护中",
+            tags-label: "亚洲线路",
+            multiplier-label: "1.0x",
+            latency-label: "—",
+            latency-available: false,
+            selected: false,
+            selectable: false,
+            measuring: false,
+        },
+        {
+            id: "node:hong-kong-01",
+            name: "香港 H01",
+            country-code: "HK",
+            status-label: "在线",
+            tags-label: "低延迟",
+            multiplier-label: "1.0x",
+            latency-label: "35ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:taipei-01",
+            name: "台北 T01",
+            country-code: "TW",
+            status-label: "在线",
+            tags-label: "亚洲线路",
+            multiplier-label: "1.0x",
+            latency-label: "58ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:london-01",
+            name: "伦敦 L01",
+            country-code: "GB",
+            status-label: "在线",
+            tags-label: "欧洲优化",
+            multiplier-label: "1.5x",
+            latency-label: "192ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:sydney-01",
+            name: "悉尼 S01",
+            country-code: "AU",
+            status-label: "在线",
+            tags-label: "大洋洲线路",
+            multiplier-label: "1.0x",
+            latency-label: "226ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:seoul-01",
+            name: "首尔 S01",
+            country-code: "KR",
+            status-label: "在线",
+            tags-label: "游戏优化",
+            multiplier-label: "1.2x",
+            latency-label: "74ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+        {
+            id: "node:toronto-01",
+            name: "多伦多 T01",
+            country-code: "CA",
+            status-label: "在线",
+            tags-label: "北美线路",
+            multiplier-label: "1.0x",
+            latency-label: "211ms",
+            latency-available: true,
+            selected: false,
+            selectable: true,
+            measuring: false,
+        },
+    ];
+}
+
+export component LoginPreview inherits AppWindow {
+    app-phase: AppPhase.signed-out;
+}
+
+export component LoginErrorPreview inherits AppWindow {
+    app-phase: AppPhase.signed-out;
+    login-error: "邮箱或密码不正确，请重新输入。";
+}
+
+export component HomePreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    connection-phase: ConnectionPhase.disconnected;
+    connection-title: "准备连接";
+    connection-detail: "点击下方按钮，畅享安全稳定的网络连接";
+    connection-button-label: "开始连接";
+}
+
+export component NoNodeHomePreview inherits HomePreview {
+    has-selected-node: false;
+    can-toggle: false;
+}
+
+export component NoticePreview inherits HomePreview {
+    notice: "当前无法获取全局模式所需的系统权限，请稍后重试。";
+}
+
+export component CoreUnavailablePreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    core-available: false;
+    connection-phase: ConnectionPhase.disconnected;
+    connection-title: "准备连接";
+    connection-detail: "点击下方按钮，畅享安全稳定的网络连接";
+    connection-button-label: "开始连接";
+    can-toggle: false;
+}
+
+export component ConnectingPreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    connection-phase: ConnectionPhase.starting;
+    connection-title: "正在连接";
+    connection-detail: "正在建立安全通道，请稍候";
+    connection-button-label: "正在连接";
+    can-toggle: false;
+}
+
+export component ConnectionFailedPreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    connection-phase: ConnectionPhase.failed;
+    connection-title: "连接未完成";
+    connection-detail: "请检查当前网络后重新尝试";
+    connection-button-label: "重新连接";
+}
+
+export component ConnectedPreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    connection-phase: ConnectionPhase.connected;
+    connection-title: "已安全连接";
+    connection-detail: "设备流量正在通过安全通道传输";
+    connection-button-label: "断开连接";
+    download-rate: "12.8 MiB/s";
+    upload-rate: "1.4 MiB/s";
+    download-total: "8.42 GiB";
+    upload-total: "612 MiB";
+    active-connections: 18;
+    runtime-memory: "86 MiB";
+}
+
+export component StoppingPreview inherits PreviewShell {
+    current-page: NavigationPage.home;
+    connection-phase: ConnectionPhase.stopping;
+    connection-title: "正在断开";
+    connection-detail: "正在释放连接资源";
+    connection-button-label: "正在断开";
+    can-toggle: false;
+}
+
+export component TelemetryStressPreview inherits ConnectedPreview {
+    download-rate: "999.9 GiB/s";
+    upload-rate: "1 B/s";
+    active-connections: 2147483647;
+    runtime-memory: "1024.0 GiB";
+}
+
+export component TelemetryDynamicPreview inherits ConnectedPreview {
+    property <bool> show-large-values: false;
+    download-rate: root.show-large-values ? "999.9 GiB/s" : "0 B/s";
+    upload-rate: root.show-large-values ? "1 B/s" : "82.4 MiB/s";
+    active-connections: root.show-large-values ? 2147483647 : 0;
+    runtime-memory: root.show-large-values ? "1024.0 GiB" : "--";
+
+    Timer {
+        interval: 900ms;
+        triggered => { root.show-large-values = !root.show-large-values; }
+    }
+}
+
+export component NodeSelectorPreview inherits HomePreview {
+    node-selector-visible: true;
+}
+
+export component NodeSelectorErrorPreview inherits NodeSelectorPreview {
+    resource-error: "暂时无法获取最新的套餐与节点信息。当前仍显示上一次成功同步的内容；请检查网络连接后稍后重试，或重新启动网络设备。如果问题持续，请保留当前页面并联系客户支持，我们会协助确认您的套餐和节点状态。";
+}
+
+export component SubscriptionsPreview inherits PreviewShell {
+    current-page: NavigationPage.subscriptions;
+    selected-subscription-plan-id: "grant:gold-yearly";
+    selected-subscription-catalog-plan-id: "plan:gold";
+    selected-subscription-addon-count: 3;
+    subscription-plans: [
+        {
+            id: "grant:gold-yearly",
+            plan-id: "plan:gold",
+            related-addon-count: 2,
+            title: "VIP 黄金套餐",
+            badge-label: "年付",
+            status: SubscriptionStatus.active,
+            status-label: "可用",
+            remaining-value: "191.7 GB",
+            total-value: "400.0 GB",
+            usage-label: "已使用 52%",
+            usage-progress: 0.52,
+            expiry-label: "剩余 367 天",
+        },
+        {
+            id: "grant:premium-monthly",
+            plan-id: "plan:premium",
+            related-addon-count: 0,
+            title: "高级 V1",
+            badge-label: "月付",
+            status: SubscriptionStatus.active,
+            status-label: "可用",
+            remaining-value: "1.6 TB",
+            total-value: "1.8 TB",
+            usage-label: "已使用 11%",
+            usage-progress: 0.11,
+            expiry-label: "剩余 42 天",
+        },
+        {
+            id: "grant:starter-quarterly",
+            plan-id: "plan:starter",
+            related-addon-count: 0,
+            title: "轻享套餐",
+            badge-label: "季付",
+            status: SubscriptionStatus.active,
+            status-label: "可用",
+            remaining-value: "82.4 GB",
+            total-value: "100.0 GB",
+            usage-label: "已使用 18%",
+            usage-progress: 0.18,
+            expiry-label: "剩余 76 天",
+        },
+    ];
+    subscription-addons: [
+        {
+            id: "addon:streaming",
+            plan-id: "plan:gold",
+            related-addon-count: 0,
+            title: "流媒体加油包",
+            badge-label: "",
+            status: SubscriptionStatus.active,
+            status-label: "可用",
+            remaining-value: "88.6 GB",
+            total-value: "100.0 GB",
+            usage-label: "已使用 11%",
+            usage-progress: 0.11,
+            expiry-label: "剩余 120 天",
+        },
+        {
+            id: "addon:emergency",
+            plan-id: "plan:gold",
+            related-addon-count: 0,
+            title: "高速流量补充包",
+            badge-label: "",
+            status: SubscriptionStatus.exhausted,
+            status-label: "已耗尽",
+            remaining-value: "0 B",
+            total-value: "20.0 GB",
+            usage-label: "已使用 100%",
+            usage-progress: 1,
+            expiry-label: "剩余 120 天",
+        },
+        {
+            id: "addon:night",
+            plan-id: "plan:gold",
+            related-addon-count: 0,
+            title: "夜间流量包",
+            badge-label: "",
+            status: SubscriptionStatus.active,
+            status-label: "可用",
+            remaining-value: "46.3 GB",
+            total-value: "50.0 GB",
+            usage-label: "已使用 7%",
+            usage-progress: 0.07,
+            expiry-label: "剩余 90 天",
+        },
+    ];
+}
+
+export component SubscriptionsLoadingPreview inherits SubscriptionsPreview {
+    resource-phase: ResourcePhase.loading;
+    subscription-plans: [];
+    subscription-addons: [];
+    selected-subscription-plan-id: "";
+    selected-subscription-catalog-plan-id: "";
+    selected-subscription-addon-count: 0;
+}
+
+export component SubscriptionsNoAddonPreview inherits SubscriptionsPreview {
+    selected-subscription-plan-id: "grant:premium-monthly";
+    selected-subscription-catalog-plan-id: "plan:premium";
+    selected-subscription-addon-count: 0;
+}
+
+export component PurchasePreview inherits PreviewShell {
+    current-page: NavigationPage.purchase;
+    shop-phase: ShopPhase.ready;
+    shop-plans: [
+        {
+            id: "1",
+            title: "VIP 黄金套餐",
+            description: "高速线路 · 流媒体优化 · 多端同时在线",
+            starting-price-label: "¥29.00",
+            default-price-id: "11",
+            default-price-label: "¥29.00",
+            default-price-cents: 2900,
+            default-price-requires-payment: true,
+            traffic-label: "400.0 GB",
+            option-label: "3 种",
+        },
+        {
+            id: "2",
+            title: "轻享套餐",
+            description: "适合轻度浏览与移动办公",
+            starting-price-label: "¥12.00",
+            default-price-id: "21",
+            default-price-label: "¥12.00",
+            default-price-cents: 1200,
+            default-price-requires-payment: true,
+            traffic-label: "100.0 GB",
+            option-label: "2 种",
+        },
+        {
+            id: "3",
+            title: "尊享套餐",
+            description: "跨洲线路与更高流量配额",
+            starting-price-label: "¥59.00",
+            default-price-id: "31",
+            default-price-label: "¥59.00",
+            default-price-cents: 5900,
+            default-price-requires-payment: true,
+            traffic-label: "1.0 TB",
+            option-label: "3 种",
+        },
+    ];
+    shop-prices: [
+        { id: "11", plan-id: "1", option-index: 0, label: "月付", price-label: "¥29.00", traffic-label: "400.0 GB", price-cents: 2900, requires-payment: true },
+        { id: "12", plan-id: "1", option-index: 1, label: "季付", price-label: "¥79.00", traffic-label: "1.2 TB", price-cents: 7900, requires-payment: true },
+        { id: "13", plan-id: "1", option-index: 2, label: "年付", price-label: "¥299.00", traffic-label: "4.8 TB", price-cents: 29900, requires-payment: true },
+        { id: "21", plan-id: "2", option-index: 0, label: "月付", price-label: "¥12.00", traffic-label: "100.0 GB", price-cents: 1200, requires-payment: true },
+        { id: "31", plan-id: "3", option-index: 0, label: "月付", price-label: "¥59.00", traffic-label: "1.0 TB", price-cents: 5900, requires-payment: true },
+    ];
+    shop-addons: [
+        { id: "101", plan-id: "1", option-index: 0, title: "100GB 流量包", plan-title: "VIP 黄金套餐", plan-description: "高速线路 · 流媒体优化 · 多端同时在线", price-label: "¥10.00", traffic-label: "100.0 GB", price-cents: 1000, requires-payment: true, purchase-enabled: true },
+        { id: "102", plan-id: "2", option-index: 0, title: "50GB 流量包", plan-title: "轻享套餐", plan-description: "适合轻度浏览与移动办公", price-label: "¥6.00", traffic-label: "50.0 GB", price-cents: 600, requires-payment: true, purchase-enabled: false },
+    ];
+    payment-methods: [
+        { id: "1", title: "支付宝", subtitle: "即时到账", provider: "alipay", payment-type: "alipay" },
+        { id: "2", title: "微信支付", subtitle: "即时到账", provider: "wxpay", payment-type: "wxpay" },
+    ];
+}
+
+export component PurchaseLoadingPreview inherits PurchasePreview {
+    shop-phase: ShopPhase.loading;
+}
+
+export component PurchaseCheckoutConfirmPreview inherits PurchasePreview {
+    init => {
+        root.begin-addon-checkout(root.shop-addons[0]);
+    }
+}
+
+export component PurchaseCheckoutSinglePlanPreview inherits PurchasePreview {
+    init => {
+        root.begin-plan-checkout(root.shop-plans[1]);
+    }
+}
+
+export component PurchaseCheckoutPaymentPreview inherits PurchasePreview {
+    init => {
+        root.begin-addon-checkout(root.shop-addons[0]);
+        root.checkout-order-id = "9001";
+        root.checkout-order-number = "TN202608230001";
+        root.checkout-order-amount-cents = 1000;
+        root.checkout-order-amount-label = "¥10.00";
+        root.checkout-order-status-label = "待支付";
+        root.checkout-stage = "payment";
+    }
+}
+
+export component PurchaseCheckoutPaymentBusyPreview inherits PurchaseCheckoutPaymentPreview {
+    shop-purchasing: true;
+}
+
+export component PurchaseCheckoutWaitingPreview inherits PurchasePreview {
+    init => {
+        root.begin-plan-checkout(root.shop-plans[0]);
+        root.checkout-order-id = "9001";
+        root.checkout-order-number = "TN202608230001";
+        root.checkout-order-amount-cents = 2900;
+        root.checkout-order-amount-label = "¥29.00";
+        root.checkout-order-status-label = "等待付款";
+        root.checkout-payment-url = "https://pay.example.test/order/TN202608230001";
+        root.checkout-payment-qr = @image-url("../assets/payment-methods/payment-qr-preview.svg");
+        root.checkout-payment-qr-ready = true;
+        root.checkout-stage = "waiting";
+    }
+}
+
+export component PurchaseCheckoutBrowserWaitingPreview inherits PurchaseCheckoutWaitingPreview {
+    checkout-payment-qr-mode: false;
+}
+
+export component PurchaseCheckoutSuccessPreview inherits PurchasePreview {
+    init => {
+        root.begin-plan-checkout(root.shop-plans[0]);
+        root.checkout-order-id = "9001";
+        root.checkout-order-number = "TN202608230001";
+        root.checkout-order-amount-cents = 2900;
+        root.checkout-order-amount-label = "¥29.00";
+        root.checkout-order-status-label = "已完成";
+        root.checkout-fulfillment-pending = false;
+        root.checkout-stage = "success";
+    }
+}
+
+export component PurchaseCheckoutAddonSuccessPreview inherits PurchasePreview {
+    init => {
+        root.begin-addon-checkout(root.shop-addons[0]);
+        root.checkout-order-id = "9002";
+        root.checkout-order-number = "TN202608230002";
+        root.checkout-order-amount-cents = 1000;
+        root.checkout-order-amount-label = "¥10.00";
+        root.checkout-order-status-label = "已完成";
+        root.checkout-fulfillment-pending = false;
+        root.checkout-stage = "success";
+    }
+}
+
+export component ProfilePreview inherits PreviewShell {
+    current-page: NavigationPage.profile;
+}
+
+export component AccountSettingsPreview inherits ProfilePreview {
+    account-settings-visible: true;
+}
+
+export component AccountSettingsPasswordPreview inherits AccountSettingsPreview {
+    account-settings-stage: "password";
+}
+
+export component AccountSettingsPasswordErrorPreview inherits AccountSettingsPasswordPreview {
+    account-settings-error: "当前密码不正确，请重新输入后再试。";
+}
+
+export component BalanceDetailsPreview inherits ProfilePreview {
+    balance-details-visible: true;
+}
+
+export component BalanceDetailsLoadingPreview inherits BalanceDetailsPreview {
+    balance-details-loading: true;
+    balance-transactions: [];
+}
+
+export component OrdersPreview inherits ProfilePreview {
+    orders-visible: true;
+    orders-total: 4;
+}
+
+export component OrdersLoadingPreview inherits OrdersPreview {
+    orders-loading: true;
+    orders: [];
+}
+
+export component OrdersEmptyPreview inherits OrdersPreview {
+    orders: [];
+    orders-total: 0;
+}
+
+export component GiftCardPreview inherits ProfilePreview {
+    gift-card-visible: true;
+    gift-card-purchase-url: "https://store.example.com/gift-cards";
+}
+
+export component GiftCardLoadingPreview inherits GiftCardPreview {
+    gift-card-initializing: true;
+}
+
+export component GiftCardCheckedPreview inherits GiftCardPreview {
+    gift-card-has-check: true;
+    gift-card-can-redeem: true;
+    gift-card-reward: {
+        reward-type: "plan",
+        title: "VIP 黄金套餐",
+        subtitle: "月付 · 黄金节点",
+        summary: "VIP 黄金套餐（月付）",
+    };
+}
+
+export component GiftCardUnavailablePreview inherits GiftCardPreview {
+    gift-card-has-check: true;
+    gift-card-can-redeem: false;
+    gift-card-check-reason: "当前账号没有该套餐的有效订阅，无法领取这份流量权益。";
+    gift-card-reward: {
+        reward-type: "traffic",
+        title: "100.0 GB",
+        subtitle: "VIP 黄金套餐 · 黄金节点",
+        summary: "增加 100.0 GB 总流量",
+    };
+}
+
+export component GiftCardRedeemErrorPreview inherits GiftCardCheckedPreview {
+    gift-card-redeem-error: "这张礼品卡已使用、已过期或已停用。";
+}
+
+export component GiftCardSuccessPreview inherits GiftCardPreview {
+    gift-card-redeemed: true;
+    gift-card-reward: {
+        reward-type: "balance",
+        title: "¥100.00",
+        subtitle: "将充值至当前账户余额",
+        summary: "充值余额 100 元",
+    };
+}
+
+export component InvitationPreview inherits ProfilePreview {
+    invitation-visible: true;
+    invitation-has-summary: true;
+    invitation-enabled: true;
+    invitation-available-commission: "¥12.50";
+    invitation-total-commission: "¥24.50";
+    invitation-cooling-commission: "¥5.00";
+    invitation-rate: "10%";
+    invitation-count: "8 人";
+    invitation-code: "AbCdEf123456";
+    invitation-url: "https://topnode.cc/aff?id=AbCdEf123456";
+    invitation-commissions-total: 3;
+    invitation-transfers-total: 2;
+}
+
+export component InvitationLoadingPreview inherits InvitationPreview {
+    invitation-loading: true;
+    invitation-has-summary: false;
+    invitation-commissions: [];
+    invitation-transfers: [];
+}
+
+export component InvitationEmptyPreview inherits InvitationPreview {
+    invitation-commissions: [];
+    invitation-transfers: [];
+    invitation-commissions-total: 0;
+    invitation-transfers-total: 0;
+}
+
+export component InvitationPausedPreview inherits InvitationPreview {
+    invitation-enabled: false;
+}
+
+export component InvitationMorePreview inherits InvitationPreview {
+    invitation-commissions: [
+        {
+            id: "301",
+            invitee: "u73921548",
+            order-number: "ORD202608290018",
+            rebate-type-label: "首次返佣",
+            rate-label: "10%",
+            base-amount-label: "¥20.00",
+            amount-label: "¥2.00",
+            status-label: "可用",
+            status-tone: "available",
+            created-at-label: "2026-08-29 15:42",
+            available-at-label: "2026-08-29 15:42",
+            released-at-label: "2026-08-29 15:42",
+            reversed-at-label: "",
+            reversed-deducted-label: "",
+        },
+    ];
+    invitation-commissions-total: 8;
+    invitation-commissions-has-more: true;
+}
+
+export component InvitationStickyPreview inherits InvitationPage {
+    width: 732px;
+    height: 240px;
+    loading: false;
+    has-summary: true;
+    affiliate-enabled: true;
+    available-commission: "¥12.50";
+    total-commission: "¥24.50";
+    cooling-commission: "¥5.00";
+    rate-label: "10%";
+    invitation-count: "8 人";
+    invitation-code: "AbCdEf123456";
+    invitation-url: "https://topnode.cc/aff?id=AbCdEf123456";
+    commissions: [
+        {
+            id: "301",
+            invitee: "u73921548",
+            order-number: "ORD202608290018",
+            rebate-type-label: "首次返佣",
+            rate-label: "10%",
+            base-amount-label: "¥20.00",
+            amount-label: "¥2.00",
+            status-label: "可用",
+            status-tone: "available",
+            created-at-label: "2026-08-29 15:42",
+            available-at-label: "2026-08-29 15:42",
+            released-at-label: "2026-08-29 15:42",
+            reversed-at-label: "",
+            reversed-deducted-label: "",
+        },
+    ];
+    commissions-total: 1;
+    page-scroll-y: -340px;
+}
+
+export component SubscriptionLinkPreview inherits ProfilePreview {
+    subscription-link-visible: true;
+    subscription-link-loading: false;
+    subscription-link-has-link: true;
+    subscription-link-url: "https://panel.topnode.cc/api/v1/subscription?uuid=11111111-2222-4333-8444-555555555555";
+}
+
+export component SubscriptionLinkLoadingPreview inherits SubscriptionLinkPreview {
+    subscription-link-loading: true;
+    subscription-link-has-link: false;
+    subscription-link-url: "";
+}
+
+export component SubscriptionLinkErrorPreview inherits SubscriptionLinkLoadingPreview {
+    subscription-link-loading: false;
+    subscription-link-error: "暂时无法连接订阅链接服务，请检查网络后重试。";
+}
+
+export component SubscriptionLinkResetPreview inherits SubscriptionLinkPage {
+    width: 732px;
+    height: 664px;
+    has-link: true;
+    url: "https://panel.topnode.cc/api/v1/subscription?uuid=11111111-2222-4333-8444-555555555555";
+    reset-confirmation-visible: true;
+}
+
+export component TicketsPreview inherits TicketsPage {
+    width: 732px;
+    height: 664px;
+    tickets: [
+        {
+            id: "84",
+            ticket-number: "TKT-20260830-0084",
+            title: "Windows 客户端无法连接东京节点",
+            status-label: "客服已回复",
+            status-tone: "replied",
+            priority-label: "普通优先级",
+            updated-at-label: "刚刚",
+            unread: true,
+            closed: false,
+        },
+        {
+            id: "73",
+            ticket-number: "TKT-20260829-0073",
+            title: "套餐流量显示和网页端不一致",
+            status-label: "待客服回复",
+            status-tone: "pending",
+            priority-label: "高优先级",
+            updated-at-label: "昨天 21:18",
+            unread: false,
+            closed: false,
+        },
+        {
+            id: "51",
+            ticket-number: "TKT-20260824-0051",
+            title: "咨询礼品卡兑换规则",
+            status-label: "已关闭",
+            status-tone: "closed",
+            priority-label: "低优先级",
+            updated-at-label: "08-24 09:42",
+            unread: false,
+            closed: true,
+        },
+    ];
+}
+
+export component TicketChatPreview inherits TicketsPage {
+    width: 732px;
+    height: 664px;
+    mode: "chat";
+    selected-id: "84";
+    selected-title: "Windows 客户端无法连接东京节点";
+    selected-number: "TKT-20260830-0084";
+    selected-status-label: "客服已回复";
+    selected-status-tone: "replied";
+    selected-priority-label: "普通优先级";
+    has-earlier: true;
+    messages: [
+        {
+            id: "901",
+            content: "今天更新客户端以后，东京 T01 一直连接失败，其他节点可以正常使用。",
+            sender-label: "我",
+            time-label: "10:06",
+            own: true,
+            sending: false,
+            failed: false,
+            show-time: true,
+        },
+        {
+            id: "902",
+            content: "您好，已经收到。麻烦确认一下当前使用的是系统代理还是全局模式？",
+            sender-label: "TOPNODE 客服",
+            time-label: "10:09",
+            own: false,
+            sending: false,
+            failed: false,
+            show-time: false,
+        },
+        {
+            id: "903",
+            content: "系统代理模式。切换到德国节点可以连接，东京节点会在准备连接后返回失败。",
+            sender-label: "我",
+            time-label: "10:13",
+            own: true,
+            sending: false,
+            failed: false,
+            show-time: true,
+        },
+        {
+            id: "904",
+            content: "我们刚刚更新了东京节点配置，请点击刷新节点后再试一次。如果仍然失败，直接在这里回复即可。",
+            sender-label: "TOPNODE 客服",
+            time-label: "10:18",
+            own: false,
+            sending: false,
+            failed: false,
+            show-time: true,
+        },
+        {
+            id: "local-1",
+            content: "刷新后已经恢复了，谢谢。",
+            sender-label: "我",
+            time-label: "10:21",
+            own: true,
+            sending: false,
+            failed: true,
+            show-time: false,
+        },
+    ];
+    chat-scroll-y: 0px;
+}
+
+export component TicketWindowChatPreview inherits ProfilePreview {
+    tickets-visible: true;
+    tickets-mode: "chat";
+    selected-ticket-id: "84";
+    selected-ticket-title: "Windows 客户端无法连接东京节点";
+    selected-ticket-number: "TKT-20260830-0084";
+    selected-ticket-status-label: "客服已回复";
+    selected-ticket-status-tone: "replied";
+    selected-ticket-priority-label: "普通优先级";
+    support-ticket-messages: [
+        {
+            id: "901",
+            content: "今天更新客户端以后，东京 T01 一直连接失败。",
+            sender-label: "我",
+            time-label: "10:06",
+            own: true,
+            sending: false,
+            failed: false,
+            show-time: true,
+        },
+        {
+            id: "902",
+            content: "您好，已经收到。麻烦确认一下当前使用的是系统代理还是全局模式？",
+            sender-label: "TOPNODE 客服",
+            time-label: "10:09",
+            own: false,
+            sending: false,
+            failed: false,
+            show-time: false,
+        },
+    ];
+}
+
+export component TicketCloseConfirmationPreview inherits TicketWindowChatPreview {
+    ticket-close-confirmation-visible: true;
+}
+
+export component TicketCreatePreview inherits TicketsPage {
+    width: 732px;
+    height: 664px;
+    mode: "create";
+    create-title: "节点连接频繁超时";
+    create-priority: "medium";
+    create-message: "东京节点从今天上午开始偶尔无法连接，重试后可以恢复。";
+}
+
+export component TicketWindowCreatePreview inherits ProfilePreview {
+    tickets-visible: true;
+    tickets-mode: "create";
+    ticket-create-priority: "medium";
+}
+
+export component SettingsPreview inherits PreviewShell {
+    current-page: NavigationPage.settings;
+    tun-mode: false;
+    global-mode: false;
+    bypass-mainland: true;
+    bypass-lan: true;
+    udp-forwarding: true;
+    multiplex: false;
+}
+
+export component GlobalModeSettingsPreview inherits SettingsPreview {
+    tun-mode: true;
+}
+
+export component PermissionRequestSettingsPreview inherits SettingsPreview {
+    tun-mode: true;
+    tun-change-pending: true;
+}
+
+export component ApplyingSettingsPreview inherits SettingsPreview {
+    connection-phase: ConnectionPhase.connected;
+    settings-apply-pending: true;
+}
+
+export component DesignSystemPreview inherits Window {
+    title: "TOPNODE · 界面组件预览";
+    preferred-width: 900px;
+    preferred-height: 620px;
+    background: AppTheme.canvas;
+
+    VerticalLayout {
+        padding: 32px;
+        spacing: 20px;
+        HorizontalLayout {
+            BrandLockup { mark-size: 40px; show-product-type: true; }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            StatusDot { fill: AppTheme.accent; }
+        }
+        PageHeader {
+            title: "界面组件";
+            subtitle: "颜色、控件与交互状态";
+        }
+        SurfaceCard {
+            VerticalLayout {
+                padding: 24px;
+                spacing: 18px;
+                HorizontalLayout {
+                    spacing: 12px;
+                    AppButton { text: "主要操作"; }
+                    AppButton { text: "次要操作"; kind: ButtonKind.secondary; }
+                    AppButton { text: "文本操作"; kind: ButtonKind.ghost; }
+                    AppButton { text: "不可用"; enabled: false; }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                    BusyIndicator { }
+                }
+                HorizontalLayout {
+                    spacing: 12px;
+                    AppField { width: 260px; placeholder: "输入内容"; }
+                    AppSwitch { checked: true; }
+                    AppSwitch { checked: false; }
+                    CountryMark { code: "JP"; }
+                    CountryMark { code: "DE"; }
+                    Rectangle { horizontal-stretch: 1; background: transparent; }
+                }
+                InlineAlert { message: "这是需要用户关注的重要提示。"; danger: false; }
+                InlineAlert { message: "操作未完成，请检查后重试。"; }
+                HorizontalLayout {
+                    spacing: 20px;
+                    for icon-name in ["home", "subscriptions", "shop", "data-usage", "refresh", "empty-subscriptions", "nodes", "settings", "info", "user", "globe", "bolt", "play", "stop", "lock", "chevron-right"] : Glyph {
+                        name: icon-name;
+                        fill: AppTheme.accent-dark;
+                    }
+                }
+            }
+        }
+        Rectangle { vertical-stretch: 1; background: transparent; }
+    }
+}

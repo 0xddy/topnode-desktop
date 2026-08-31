@@ -1,0 +1,37 @@
+import { AppTheme } from "../theme.slint";
+import "../assets/topnode-brand-semibold.ttf";
+
+export component BrandLockup inherits Rectangle {
+    in property <length> mark-size: 36px;
+    in property <color> name-color: AppTheme.ink;
+    in property <bool> show-product-type: false;
+
+    height: root.mark-size;
+    background: transparent;
+
+    HorizontalLayout {
+        spacing: 10px;
+        Image {
+            source: @image-url("../assets/topnode-logo.svg");
+            width: root.mark-size;
+            height: root.mark-size;
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: "TOPNODE";
+                color: root.name-color;
+                font-family: "Sora SemiBold";
+                font-size: 15px;
+                font-weight: 600;
+                letter-spacing: 1.2px;
+            }
+            if root.show-product-type : Text {
+                text: "桌面客户端";
+                color: AppTheme.ink-muted;
+                font-size: 11px;
+            }
+        }
+    }
+}

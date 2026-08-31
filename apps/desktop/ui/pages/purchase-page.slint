@@ -1,0 +1,711 @@
+import { AppTheme } from "../theme.slint";
+import {
+    ShopAddonItem,
+    ShopPhase,
+    ShopPlanItem,
+} from "../models.slint";
+import {
+    BusyIndicator,
+    PageHeader,
+    RefreshIconButton,
+    SurfaceCard,
+} from "../components/controls.slint";
+import { Glyph } from "../components/glyph.slint";
+
+component ShopPill inherits Rectangle {
+    in property <string> text;
+    in property <bool> danger: false;
+
+    min-width: 72px;
+    height: 26px;
+    border-radius: 13px;
+    background: root.danger ? AppTheme.danger-soft : AppTheme.accent-soft;
+
+    Text {
+        x: 11px;
+        width: parent.width - 22px;
+        text: root.text;
+        color: root.danger ? AppTheme.danger : AppTheme.accent-dark;
+        font-size: 10px;
+        font-weight: AppTheme.font-weight-regular;
+        horizontal-alignment: center;
+        vertical-alignment: center;
+        overflow: elide;
+    }
+}
+
+component SectionHeading inherits VerticalLayout {
+    in property <string> title;
+    in property <string> subtitle;
+
+    spacing: 2px;
+
+    Text {
+        text: root.title;
+        color: AppTheme.ink;
+        font-size: 15px;
+        font-weight: 500;
+    }
+    Text {
+        text: root.subtitle;
+        color: AppTheme.ink-muted;
+        font-size: 11px;
+        font-weight: AppTheme.font-weight-regular;
+        overflow: elide;
+    }
+}
+
+component ModeSelector inherits Rectangle {
+    in-out property <bool> addon-mode: false;
+
+    height: 48px;
+    border-radius: AppTheme.radius-medium;
+    border-width: 1px;
+    border-color: AppTheme.border;
+    background: AppTheme.surface-muted.with-alpha(0.82);
+
+    indicator := Rectangle {
+        x: root.addon-mode ? parent.width / 2 + 2px : 4px;
+        y: 4px;
+        width: parent.width / 2 - 6px;
+        height: parent.height - 8px;
+        border-radius: AppTheme.radius-control;
+        background: AppTheme.accent;
+        drop-shadow-color: AppTheme.shadow;
+        drop-shadow-blur: 8px;
+        drop-shadow-offset-y: 2px;
+        animate x {
+            duration: 280ms;
+            easing: cubic-bezier(0.4, 0, 0.2, 1);
+        }
+    }
+
+    HorizontalLayout {
+        spacing: 4px;
+        padding: 4px;
+
+        tab-plan := Rectangle {
+            horizontal-stretch: 1;
+            background: transparent;
+
+            HorizontalLayout {
+                alignment: center;
+                spacing: 7px;
+                VerticalLayout {
+                    width: 17px;
+                    alignment: center;
+                    Glyph {
+                        width: 17px;
+                        height: 17px;
+                        name: "subscriptions";
+                        fill: !root.addon-mode ? white : AppTheme.ink-muted;
+                    }
+                }
+                Text {
+                    text: "订阅套餐";
+                    color: !root.addon-mode ? white : AppTheme.ink-muted;
+                    font-size: 13px;
+                    font-weight: !root.addon-mode ? 600 : AppTheme.font-weight-regular;
+                    vertical-alignment: center;
+                }
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => { root.addon-mode = false; }
+            }
+        }
+
+        tab-addon := Rectangle {
+            horizontal-stretch: 1;
+            background: transparent;
+
+            HorizontalLayout {
+                alignment: center;
+                spacing: 7px;
+                VerticalLayout {
+                    width: 17px;
+                    alignment: center;
+                    Glyph {
+                        width: 17px;
+                        height: 17px;
+                        name: "data-usage";
+                        fill: root.addon-mode ? white : AppTheme.ink-muted;
+                    }
+                }
+                Text {
+                    text: "流量包";
+                    color: root.addon-mode ? white : AppTheme.ink-muted;
+                    font-size: 13px;
+                    font-weight: root.addon-mode ? 600 : AppTheme.font-weight-regular;
+                    vertical-alignment: center;
+                }
+            }
+
+            TouchArea {
+                mouse-cursor: MouseCursor.pointer;
+                clicked => { root.addon-mode = true; }
+            }
+        }
+    }
+}
+
+component IntroCard inherits SurfaceCard {
+    height: 74px;
+    border-width: 0px;
+    background: AppTheme.accent-soft.with-alpha(0.54);
+    drop-shadow-color: transparent;
+
+    HorizontalLayout {
+        padding-left: 16px;
+        padding-right: 18px;
+        spacing: 13px;
+
+        VerticalLayout {
+            width: 44px;
+            alignment: center;
+            Rectangle {
+                width: 42px;
+                height: 42px;
+                border-radius: 21px;
+                background: AppTheme.accent.with-alpha(0.12);
+                Glyph {
+                    x: 12px;
+                    y: 12px;
+                    name: "subscriptions";
+                    fill: AppTheme.accent;
+                }
+            }
+        }
+
+        VerticalLayout {
+            alignment: center;
+            spacing: 3px;
+            Text {
+                text: "套餐与流量包独立购买";
+                color: AppTheme.accent-dark;
+                font-size: 14px;
+                font-weight: 500;
+            }
+            Text {
+                text: "流量包归属于指定套餐；只有该套餐仍然有效时才能购买和使用。";
+                color: AppTheme.accent-dark.with-alpha(0.78);
+                font-size: 11px;
+                font-weight: AppTheme.font-weight-regular;
+                wrap: word-wrap;
+            }
+        }
+    }
+}
+
+component FeatureTile inherits Rectangle {
+    in property <string> label;
+    in property <string> value;
+    in property <string> icon: "data-usage";
+
+    height: 58px;
+    border-radius: AppTheme.radius-medium;
+    background: AppTheme.surface-muted.with-alpha(0.66);
+
+    HorizontalLayout {
+        padding-left: 11px;
+        padding-right: 11px;
+        spacing: 8px;
+        VerticalLayout {
+            width: 18px;
+            alignment: center;
+            Glyph {
+                width: 18px;
+                height: 18px;
+                name: root.icon;
+                fill: AppTheme.accent;
+            }
+        }
+        VerticalLayout {
+            alignment: center;
+            spacing: 1px;
+            Text {
+                text: root.label;
+                color: AppTheme.ink-muted;
+                font-size: 10px;
+                font-weight: AppTheme.font-weight-regular;
+            }
+            Text {
+                text: root.value;
+                color: AppTheme.ink;
+                font-size: 12px;
+                font-weight: 500;
+                overflow: elide;
+            }
+        }
+    }
+}
+
+component BuyButton inherits Rectangle {
+    in property <bool> enabled: true;
+    in property <bool> blocked: false;
+    callback clicked();
+
+    height: 38px;
+    border-radius: AppTheme.radius-control;
+    opacity: root.enabled ? 1 : 0.48;
+    background: !root.enabled ? AppTheme.surface-muted
+        : buy-touch.pressed ? AppTheme.accent-dark
+        : buy-touch.has-hover ? AppTheme.accent-hover : AppTheme.accent;
+    animate background { duration: 100ms; easing: ease-out; }
+
+    HorizontalLayout {
+        alignment: center;
+        spacing: 7px;
+        Text {
+            text: root.blocked ? "需要有效订阅" : "+  购买";
+            color: root.enabled ? white : AppTheme.ink-muted;
+            font-size: 12px;
+            font-weight: 600;
+            vertical-alignment: center;
+        }
+    }
+
+    buy-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { root.clicked(); }
+    }
+}
+
+component PlanProductCard inherits SurfaceCard {
+    in property <ShopPlanItem> item;
+    callback buy();
+
+    width: 344px;
+    height: 248px;
+    border-radius: AppTheme.radius-extra-large;
+
+    VerticalLayout {
+        padding: 17px;
+        spacing: 9px;
+
+        HorizontalLayout {
+            height: 30px;
+            ShopPill { width: 78px; text: "订阅套餐"; }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            VerticalLayout {
+                width: 120px;
+                alignment: center;
+                Text {
+                    text: root.item.starting-price-label;
+                    color: AppTheme.accent;
+                    font-size: 20px;
+                    font-weight: 700;
+                    horizontal-alignment: right;
+                    overflow: elide;
+                }
+            }
+        }
+
+        Text {
+            height: 25px;
+            text: root.item.title;
+            color: AppTheme.ink;
+            font-size: 18px;
+            font-weight: 600;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+
+        Text {
+            height: 28px;
+            text: root.item.description == "" ? "选择套餐后可继续选择订阅周期" : root.item.description;
+            color: AppTheme.ink-muted;
+            font-size: 11px;
+            font-weight: AppTheme.font-weight-regular;
+            wrap: word-wrap;
+            overflow: elide;
+        }
+
+        HorizontalLayout {
+            height: 58px;
+            spacing: 9px;
+            FeatureTile {
+                horizontal-stretch: 1;
+                label: "流量额度";
+                value: root.item.traffic-label;
+            }
+            FeatureTile {
+                horizontal-stretch: 1;
+                label: "可选周期";
+                value: root.item.option-label;
+                icon: "subscriptions";
+            }
+        }
+
+        BuyButton { clicked => { root.buy(); } }
+    }
+}
+
+component AddonProductCard inherits SurfaceCard {
+    in property <ShopAddonItem> item;
+    callback buy();
+
+    width: 344px;
+    height: 248px;
+    border-radius: AppTheme.radius-extra-large;
+
+    VerticalLayout {
+        padding: 17px;
+        spacing: 9px;
+
+        HorizontalLayout {
+            height: 30px;
+            spacing: 7px;
+            ShopPill { width: 68px; text: "流量包"; }
+            if !root.item.purchase-enabled : ShopPill {
+                width: 84px;
+                text: "需有效订阅";
+                danger: true;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            Text {
+                width: 102px;
+                text: root.item.price-label;
+                color: AppTheme.accent;
+                font-size: 20px;
+                font-weight: 700;
+                horizontal-alignment: right;
+                vertical-alignment: center;
+                overflow: elide;
+            }
+        }
+
+        Text {
+            height: 25px;
+            text: root.item.title;
+            color: AppTheme.ink;
+            font-size: 18px;
+            font-weight: 600;
+            overflow: elide;
+            vertical-alignment: center;
+        }
+
+        Text {
+            height: 28px;
+            text: root.item.purchase-enabled
+                ? "适用于 " + root.item.plan-title
+                : "当前账户没有 " + root.item.plan-title + " 的有效订阅";
+            color: root.item.purchase-enabled ? AppTheme.ink-muted : AppTheme.danger;
+            font-size: 11px;
+            font-weight: AppTheme.font-weight-regular;
+            wrap: word-wrap;
+            overflow: elide;
+        }
+
+        HorizontalLayout {
+            height: 58px;
+            spacing: 9px;
+            FeatureTile {
+                horizontal-stretch: 1;
+                label: "流量额度";
+                value: root.item.traffic-label;
+            }
+            FeatureTile {
+                horizontal-stretch: 1;
+                label: "有效期";
+                value: "随套餐到期";
+                icon: "subscriptions";
+            }
+        }
+
+        BuyButton {
+            enabled: root.item.purchase-enabled;
+            blocked: !root.item.purchase-enabled;
+            clicked => { root.buy(); }
+        }
+    }
+}
+
+component SnapCarousel inherits Flickable {
+    in property <length> snap-step;
+    in-out property <length> scroll-offset: 0px;
+
+    property <bool> snapping: false;
+    property <length> minimum-offset: min(0px, root.width - root.viewport-width);
+
+    viewport-x <=> root.scroll-offset;
+    viewport-y: 0px;
+
+    flicked => {
+        root.snapping = false;
+        snap-finish.stop();
+        if (snap-delay.running) {
+            snap-delay.restart();
+        } else {
+            snap-delay.start();
+        }
+    }
+
+    animate viewport-x {
+        duration: root.snapping ? 240ms : 0ms;
+        easing: cubic-bezier(0.22, 1, 0.36, 1);
+    }
+
+    snap-delay := Timer {
+        interval: 180ms;
+        running: false;
+        triggered => {
+            self.stop();
+            root.snapping = true;
+            root.viewport-x = max(
+                root.minimum-offset,
+                min(0px, -round(-root.viewport-x / root.snap-step) * root.snap-step),
+            );
+            if (snap-finish.running) {
+                snap-finish.restart();
+            } else {
+                snap-finish.start();
+            }
+        }
+    }
+
+    snap-finish := Timer {
+        interval: 240ms;
+        running: false;
+        triggered => {
+            self.stop();
+            root.snapping = false;
+        }
+    }
+
+    @children
+}
+
+component StatePane inherits SurfaceCard {
+    in property <string> title;
+    in property <string> detail;
+    in property <bool> loading: false;
+
+    border-radius: AppTheme.radius-extra-large;
+    background: AppTheme.surface-subtle;
+
+    VerticalLayout {
+        alignment: center;
+        spacing: 10px;
+        HorizontalLayout {
+            alignment: center;
+            if root.loading : BusyIndicator {
+                width: 26px;
+                height: 26px;
+            }
+            if !root.loading : Rectangle {
+                width: 48px;
+                height: 48px;
+                border-radius: 24px;
+                background: AppTheme.accent-soft;
+                Glyph {
+                    x: 15px;
+                    y: 15px;
+                    name: "subscriptions";
+                    fill: AppTheme.accent-dark;
+                }
+            }
+        }
+        Text {
+            text: root.title;
+            color: AppTheme.ink;
+            font-size: 14px;
+            font-weight: 600;
+            horizontal-alignment: center;
+        }
+        Text {
+            text: root.detail;
+            color: AppTheme.ink-muted;
+            font-size: 11px;
+            font-weight: AppTheme.font-weight-regular;
+            horizontal-alignment: center;
+            wrap: word-wrap;
+        }
+    }
+}
+
+component LoadingProductCard inherits SurfaceCard {
+    width: 344px;
+    height: 248px;
+    border-radius: AppTheme.radius-extra-large;
+    opacity: 0.68 + (sin(360deg * animation-tick() / 1200ms) + 1) * 0.08;
+
+    VerticalLayout {
+        padding: 18px;
+        spacing: 12px;
+        Rectangle { width: 82px; height: 26px; border-radius: 13px; background: AppTheme.surface-muted; }
+        Rectangle { width: 176px; height: 24px; border-radius: 6px; background: AppTheme.surface-muted; }
+        Rectangle { width: 260px; height: 12px; border-radius: 5px; background: AppTheme.surface-muted; }
+        HorizontalLayout {
+            spacing: 9px;
+            Rectangle { horizontal-stretch: 1; height: 58px; border-radius: AppTheme.radius-medium; background: AppTheme.surface-muted; }
+            Rectangle { horizontal-stretch: 1; height: 58px; border-radius: AppTheme.radius-medium; background: AppTheme.surface-muted; }
+        }
+        Rectangle { height: 38px; border-radius: AppTheme.radius-control; background: AppTheme.surface-muted; }
+    }
+}
+
+export component PurchasePage inherits Rectangle {
+    in property <ShopPhase> phase: ShopPhase.idle;
+    in property <string> error-message;
+    in property <[ShopPlanItem]> plans;
+    in property <[ShopAddonItem]> addons;
+
+    callback refresh();
+    callback buy-plan(ShopPlanItem);
+    callback buy-addon(ShopAddonItem);
+
+    background: transparent;
+    horizontal-stretch: 1;
+    vertical-stretch: 1;
+
+    property <bool> addon-mode: false;
+    property <length> plan-scroll-offset: 0px;
+    property <length> addon-scroll-offset: 0px;
+    property <bool> busy: root.phase == ShopPhase.idle || root.phase == ShopPhase.loading;
+
+    VerticalLayout {
+        spacing: 16px;
+
+        HorizontalLayout {
+            height: 54px;
+            PageHeader {
+                title: "购买套餐";
+                subtitle: "选择适合你的套餐或流量包";
+                title-size: 22px;
+            }
+            Rectangle { horizontal-stretch: 1; background: transparent; }
+            VerticalLayout {
+                width: 38px;
+                alignment: center;
+                RefreshIconButton {
+                    busy: root.busy;
+                    clicked => { root.refresh(); }
+                }
+            }
+        }
+
+        IntroCard { }
+
+        ModeSelector {
+            addon-mode <=> root.addon-mode;
+        }
+
+        if root.busy : Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: 38px;
+                title: root.addon-mode ? "流量包" : "订阅套餐";
+                subtitle: "正在加载可购买商品";
+            }
+            Rectangle {
+                y: 52px;
+                width: parent.width;
+                height: 248px;
+                clip: true;
+                HorizontalLayout {
+                    spacing: 12px;
+                    LoadingProductCard { }
+                    LoadingProductCard { }
+                    LoadingProductCard { }
+                }
+            }
+        }
+
+        if root.phase == ShopPhase.failed : StatePane {
+            vertical-stretch: 1;
+            title: "商品加载失败";
+            detail: root.error-message == "" ? "请检查网络连接后重试" : root.error-message;
+        }
+
+        if root.phase == ShopPhase.ready && !root.addon-mode && root.plans.length == 0 : StatePane {
+            vertical-stretch: 1;
+            title: "暂无可购买商品";
+            detail: "新的订阅套餐上线后会显示在这里";
+        }
+
+        if root.phase == ShopPhase.ready && root.addon-mode && root.addons.length == 0 : StatePane {
+            vertical-stretch: 1;
+            title: "暂无可购买商品";
+            detail: "当前没有套餐提供额外流量包";
+        }
+
+        if root.phase == ShopPhase.ready && !root.addon-mode && root.plans.length > 0 : Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+            clip: true;
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: 38px;
+                title: "订阅套餐";
+                subtitle: "选择套餐后可继续选择订阅周期";
+            }
+
+            plan-scroll := SnapCarousel {
+                y: 52px;
+                width: parent.width;
+                height: 248px;
+                viewport-width: max(self.width, root.plans.length * 344px + max(0, root.plans.length - 1) * 12px);
+                viewport-height: self.height;
+                snap-step: 356px;
+                scroll-offset <=> root.plan-scroll-offset;
+
+                plan-layout := HorizontalLayout {
+                    width: plan-scroll.viewport-width;
+                    height: parent.height;
+                    spacing: 12px;
+                    for plan in root.plans : PlanProductCard {
+                        item: plan;
+                        buy => { root.buy-plan(plan); }
+                    }
+                }
+            }
+        }
+
+        if root.phase == ShopPhase.ready && root.addon-mode && root.addons.length > 0 : Rectangle {
+            vertical-stretch: 1;
+            background: transparent;
+            clip: true;
+
+            SectionHeading {
+                x: 0px;
+                y: 0px;
+                width: parent.width;
+                height: 38px;
+                title: "流量包";
+                subtitle: "流量包按所属套餐校验有效订阅";
+            }
+
+            addon-scroll := SnapCarousel {
+                y: 52px;
+                width: parent.width;
+                height: 248px;
+                viewport-width: max(self.width, root.addons.length * 344px + max(0, root.addons.length - 1) * 12px);
+                viewport-height: self.height;
+                snap-step: 356px;
+                scroll-offset <=> root.addon-scroll-offset;
+
+                addon-layout := HorizontalLayout {
+                    width: addon-scroll.viewport-width;
+                    height: parent.height;
+                    spacing: 12px;
+                    for addon in root.addons : AddonProductCard {
+                        item: addon;
+                        buy => { root.buy-addon(addon); }
+                    }
+                }
+            }
+        }
+    }
+
+}
