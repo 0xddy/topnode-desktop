@@ -84,6 +84,8 @@ module_name_repetitions = "allow"
 must_use_candidate = "allow"
 
 [profile.release]
-lto = "thin"
+opt-level = "z"
+lto = "fat"
 codegen-units = 1
+panic = "abort"
 strip = "symbols"
