@@ -1,5 +1,5 @@
 #![cfg_attr(
-    not(any(windows, test)),
+    not(windows),
     allow(
         dead_code,
         reason = "the Windows elevation protocol remains compiled on preview platforms so its shared types stay portable and testable"

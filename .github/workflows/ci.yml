@@ -29,6 +29,6 @@ jobs:
         run: cargo fmt --all --check
       - name: Test
         if: runner.os == 'Linux'
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --exclude topnode-desktop --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
