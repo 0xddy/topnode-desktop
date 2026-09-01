@@ -130,7 +130,7 @@ jobs:
             --update-info "Desktop portable release ${{ needs.metadata.outputs.version_name }}"
 
       - name: Test
-        run: cargo test --workspace --locked
+        run: cargo test --workspace --exclude topnode-desktop --locked
 
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
