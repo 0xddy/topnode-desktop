@@ -23,6 +23,10 @@ import zipfile
 VERSION_NAME_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
 TARGET_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
+REQUIRED_STAGE_FILES = (
+    "THIRD_PARTY_NOTICES.md",
+    "runtime/startup.json",
+)
 
 
 def parse_arguments() -> argparse.Namespace:
@@ -65,6 +69,22 @@ def validate_arguments(arguments: argparse.Namespace) -> None:
         raise RuntimeError("--git-commit must be a full hexadecimal Git commit")
     if arguments.source_date_epoch < 315532800:
         raise RuntimeError("--source-date-epoch must be on or after 1980-01-01")
+
+
+def validate_stage_contents(stage: Path, target: str) -> None:
+    application_name = "topnode.exe" if "windows-msvc" in target else "topnode-desktop"
+    core_name = "sing-box.exe" if "windows-msvc" in target else "sing-box"
+    required_files = (application_name, f"runtime/core/{core_name}", *REQUIRED_STAGE_FILES)
+    missing_files = [name for name in required_files if not (stage / name).is_file()]
+    if missing_files:
+        raise RuntimeError(f"stage is missing required package files: {', '.join(missing_files)}")
+    text_files = sorted(
+        path.relative_to(stage).as_posix()
+        for path in stage.rglob("*.txt")
+        if path.is_file()
+    )
+    if text_files:
+        raise RuntimeError(f"stage contains forbidden text files: {', '.join(text_files)}")
 
 
 def copy_stage(stage: Path, root: Path, target: str, version_name: str, version_code: int) -> Path | None:
@@ -165,6 +185,7 @@ def main() -> None:
     validate_arguments(arguments)
     stage = arguments.stage.resolve()
     output = arguments.output.resolve()
+    validate_stage_contents(stage, arguments.target)
     output.mkdir(parents=True, exist_ok=True)
     extension = ".zip" if "windows-msvc" in arguments.target else ".tar.gz"
     archive_stem = f"topnode-desktop-{arguments.version_name}-{arguments.platform_label}"

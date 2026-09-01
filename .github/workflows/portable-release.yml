@@ -240,9 +240,6 @@ jobs:
           path: release-assets
           merge-multiple: true
 
-      - name: Render deployable desktop startup configuration
-        run: python3 scripts/render-release-config.py --template config/desktop-config.json --output release-assets/desktop.config.release.json --repository "${GITHUB_REPOSITORY}" --tag "${{ needs.metadata.outputs.release_tag }}" --version-code "${{ needs.metadata.outputs.version_code }}" --version-name "${{ needs.metadata.outputs.version_name }}" --update-info "Desktop portable release ${{ needs.metadata.outputs.version_name }}"
-
       - name: Verify release asset set and write checksums
         shell: bash
         env:
@@ -275,7 +272,7 @@ jobs:
             exit 1
           fi
           cd release-assets
-          sha256sum desktop.config.release.json topnode-desktop-* > SHA256SUMS.txt
+          sha256sum topnode-desktop-* > SHA256SUMS.txt
 
       - name: Create draft, upload assets, then publish
         shell: bash
@@ -292,7 +289,7 @@ jobs:
             "Source commit: ${GIT_COMMIT}" \
             "Bundled sing-box: ${SING_BOX_VERSION}" \
             "Windows packages are supported. Linux and macOS packages are previews until system-proxy/TUN adapters are implemented." \
-            "After publication, merge the generated version object into all three bootstrap documents; preserve production baseApiServer/apiProbe/fake/payment fields.")"
+            "Generate the version object in the controlled deployment environment, then merge it into all three bootstrap documents; preserve production baseApiServer/apiProbe/fake/payment fields.")"
           if release_json="$(gh release view "${RELEASE_TAG}" --json isDraft,targetCommitish 2>/dev/null)"; then
             if [[ "$(jq -r '.isDraft' <<< "${release_json}")" != "true" ]]; then
               echo "Published release already exists: ${RELEASE_TAG}" >&2

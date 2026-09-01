@@ -7,7 +7,7 @@ not search PATH or the current working directory.
 
 Windows
 -------
-Run topnode-desktop.exe. Windows x86_64 and ARM64 are the complete supported
+Run topnode.exe. Windows x86_64 and ARM64 are the complete supported
 desktop packages. An unsigned build can show a SmartScreen warning; production
 releases should be Authenticode-signed.
 

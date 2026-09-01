@@ -69,12 +69,7 @@ for dependency in "$(dirname -- "$core_path")"/libcronet.*; do
     [ -f "$dependency" ] || continue
     cp "$dependency" "$core_stage/$(basename -- "$dependency")"
 done
-cp "$license_path" "$stage/LICENSE.sing-box.txt"
-cp "$project_root/LICENSE.Sora-OFL-1.1.txt" "$stage/LICENSE.Sora-OFL-1.1.txt"
-cp "$project_root/apps/desktop/ui/assets/flags/LICENSE.country-flags-MIT.txt" \
-    "$stage/LICENSE.country-flags-MIT.txt"
 cp "$project_root/THIRD_PARTY_NOTICES.md" "$stage/THIRD_PARTY_NOTICES.md"
-cp "$project_root/docs/PORTABLE-README.txt" "$stage/PORTABLE-README.txt"
 chmod 0755 "$stage/topnode-desktop" "$core_stage/sing-box"
 version_output=$("$core_stage/sing-box" version 2>&1) || {
     echo "staged sing-box failed its version probe" >&2

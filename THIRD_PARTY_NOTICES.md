@@ -12,7 +12,7 @@ The `TOPNODE` and `GLOBAL NODE` brand typography uses a static weight-600
 subset of Sora. The subset contains only space and uppercase Latin `A-Z`.
 It was generated from `google/fonts` commit
 `7ff85c87f93ea6cca5f41c69f2e4edcb90240f26` and is licensed under the SIL Open
-Font License 1.1. The release package includes the complete license text as
+Font License 1.1. The source tree keeps the complete license text as
 `LICENSE.Sora-OFL-1.1.txt`.
 
 Subset SHA-256:
@@ -22,16 +22,14 @@ Subset SHA-256:
 
 The built-in country flag WebP assets are from `circle-flags` by
 @catamphetamine and are licensed under the MIT License. The complete license
-text is included with the assets as
-`apps/desktop/ui/assets/flags/LICENSE.country-flags-MIT.txt` and is copied into
-portable releases as `LICENSE.country-flags-MIT.txt`.
+text is included with the source assets as
+`apps/desktop/ui/assets/flags/LICENSE.country-flags-MIT.txt`.
 
 ## sing-box
 
 The separately executed sing-box runtime is licensed under GPL-3.0-or-later.
-The release package must include its complete license text as
-LICENSE.sing-box.txt and provide the corresponding source and build information
-for the exact shipped binary:
+Redistributors must provide its complete license text and the corresponding
+source and build information for the exact shipped binary:
 https://github.com/SagerNet/sing-box
 
 This notice is not a replacement for either project's license text.

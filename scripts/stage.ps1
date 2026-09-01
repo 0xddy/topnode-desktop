@@ -54,8 +54,13 @@ $BuildRoot = if ($Target) {
 } else {
     Join-Path $ProjectRoot "target/release"
 }
-$AppName = if ($TargetIsWindows) {
+$BuiltAppName = if ($TargetIsWindows) {
     "topnode-desktop.exe"
+} else {
+    "topnode-desktop"
+}
+$PackagedAppName = if ($TargetIsWindows) {
+    "topnode.exe"
 } else {
     "topnode-desktop"
 }
@@ -64,7 +69,7 @@ $CoreName = if ($TargetIsWindows) {
 } else {
     "sing-box"
 }
-$App = Join-Path $BuildRoot $AppName
+$App = Join-Path $BuildRoot $BuiltAppName
 if (-not (Test-Path -LiteralPath $App -PathType Leaf)) {
     throw "Built application not found: $App"
 }
@@ -81,7 +86,7 @@ if (Test-Path -LiteralPath $Stage) {
 New-Item -ItemType Directory -Force -Path $Stage | Out-Null
 $StagedCoreDirectory = Join-Path $Stage "runtime/core"
 New-Item -ItemType Directory -Force -Path $StagedCoreDirectory | Out-Null
-Copy-Item -LiteralPath $App -Destination (Join-Path $Stage $AppName) -Force
+Copy-Item -LiteralPath $App -Destination (Join-Path $Stage $PackagedAppName) -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "config/startup.json") -Destination (Join-Path $Stage "runtime/startup.json") -Force
 $StagedCore = Join-Path $StagedCoreDirectory $CoreName
 Copy-Item -LiteralPath $Core -Destination $StagedCore -Force
@@ -90,11 +95,7 @@ Get-ChildItem -LiteralPath (Split-Path -Parent $Core) -File |
     ForEach-Object {
         Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $StagedCoreDirectory $_.Name) -Force
     }
-Copy-Item -LiteralPath $CoreLicense -Destination (Join-Path $Stage "LICENSE.sing-box.txt") -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot "LICENSE.Sora-OFL-1.1.txt") -Destination $Stage -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot "apps/desktop/ui/assets/flags/LICENSE.country-flags-MIT.txt") -Destination $Stage -Force
 Copy-Item -LiteralPath (Join-Path $ProjectRoot "THIRD_PARTY_NOTICES.md") -Destination $Stage -Force
-Copy-Item -LiteralPath (Join-Path $ProjectRoot "docs/PORTABLE-README.txt") -Destination $Stage -Force
 
 $VersionOutput = & $StagedCore version 2>&1 | Out-String
 $VersionExitCode = $LASTEXITCODE

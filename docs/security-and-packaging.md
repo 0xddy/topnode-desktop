@@ -179,9 +179,11 @@ different sing-box selection requires a new source commit; repackaging the same
 desktop version with different runtime contents would be invisible to the
 client's update comparison.
 
-The generated `desktop.config.release.json` is a deployment artifact, not an
-automatic boot-origin mutation. Publish the GitHub Release first, then copy the
-version data to all three configured HTTPS origins. Because the renderer starts
+The generated `desktop.config.release.json` is a deployment artifact, not a
+public GitHub Release/Actions artifact or an automatic boot-origin mutation.
+Generate it only inside the controlled deployment environment after publishing
+the GitHub Release, then copy the version data to all three configured HTTPS
+origins. Because the renderer starts
 from the checked-in schema example, deployment must preserve the production
 document's `baseApiServer`, `apiProbe`, `fake`, and `payment` policy; merge only
 the generated `version` object unless those fields have first been synchronized
