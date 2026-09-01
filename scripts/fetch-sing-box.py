@@ -240,7 +240,7 @@ def main() -> None:
     runtime_names = {
         path.name for path in (output / "core").iterdir() if path.is_file()
     }
-    if ("with_purego" in version_output or "with_naive_outbound" in version_output) and not any(
+    if "with_purego" in version_output and not any(
         name.startswith("libcronet.") for name in runtime_names
     ):
         raise RuntimeError("this sing-box build requires a libcronet companion")

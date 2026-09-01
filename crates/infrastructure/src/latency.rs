@@ -14,7 +14,7 @@ pub async fn ping_latency(target: &str, timeout: Duration) -> Option<u64> {
         .flatten()
 }
 
-#[cfg(windows)]
+#[cfg(all(windows, not(target_arch = "aarch64")))]
 async fn native_ping(target: &str, timeout: Duration) -> Option<u64> {
     let address = resolve_target(target).await?;
     let mut pinger = winping::AsyncPinger::new();
@@ -26,7 +26,7 @@ async fn native_ping(target: &str, timeout: Duration) -> Option<u64> {
         .map(|milliseconds| u64::from(milliseconds).max(1))
 }
 
-#[cfg(not(windows))]
+#[cfg(any(not(windows), all(windows, target_arch = "aarch64")))]
 async fn native_ping(target: &str, _timeout: Duration) -> Option<u64> {
     let address = resolve_target(target).await?;
     let (_, elapsed) = surge_ping::ping(address, &[0; 8]).await.ok()?;

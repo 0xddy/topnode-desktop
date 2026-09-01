@@ -82,9 +82,9 @@ version_output=$("$core_stage/sing-box" version 2>&1) || {
 }
 core_version=$(printf '%s\n' "$version_output" | awk '
     NR == 1 {
-        for (index = 1; index <= NF; index++) {
-            if ($index ~ /^[0-9]+\.[0-9]+\.[0-9]+$/) {
-                print $index
+        for (field_number = 1; field_number <= NF; field_number++) {
+            if ($field_number ~ /^[0-9]+\.[0-9]+\.[0-9]+$/) {
+                print $field_number
                 exit
             }
         }
