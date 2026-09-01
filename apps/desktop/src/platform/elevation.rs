@@ -1,3 +1,11 @@
+#![cfg_attr(
+    not(any(windows, test)),
+    allow(
+        dead_code,
+        reason = "the Windows elevation protocol remains compiled on preview platforms so its shared types stay portable and testable"
+    )
+)]
+
 use std::{
     ffi::{OsStr, OsString},
     fmt, io,
@@ -336,6 +344,13 @@ enum AuthenticatedPeer {
 ///
 /// This check has no side effects: it never displays UAC, starts a process, or
 /// mutates settings. Unsupported platforms fail closed.
+#[cfg_attr(
+    not(windows),
+    allow(
+        clippy::unnecessary_wraps,
+        reason = "the platform-neutral permission boundary can fail on Windows"
+    )
+)]
 pub fn tun_permission_available() -> Result<bool, TunElevationError> {
     #[cfg(not(windows))]
     {

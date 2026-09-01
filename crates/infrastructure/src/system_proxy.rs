@@ -674,6 +674,13 @@ trait SystemProxyBackend: Send + Sync {
 enum BackendError {
     #[cfg(not(windows))]
     Unsupported(&'static str),
+    #[cfg_attr(
+        not(any(windows, test)),
+        allow(
+            dead_code,
+            reason = "constructed by the Windows backend and cross-platform fake backend tests"
+        )
+    )]
     Io(io::Error),
 }
 

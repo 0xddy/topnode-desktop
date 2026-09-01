@@ -1077,6 +1077,13 @@ fn configuration_fingerprint(configuration: &RuntimeConfiguration) -> [u8; 32] {
     digest.finalize().into()
 }
 
+#[cfg_attr(
+    not(windows),
+    allow(
+        clippy::unnecessary_wraps,
+        reason = "the platform-neutral permission boundary can fail on Windows"
+    )
+)]
 fn tun_permission_available() -> Result<bool, EngineError> {
     #[cfg(windows)]
     {
@@ -1352,42 +1359,41 @@ async fn terminate_child_immediately(child: &mut Child) -> Result<(), std::io::E
 }
 
 #[cfg(unix)]
+fn signal_process_group(
+    process_group: nix::unistd::Pid,
+    signal: nix::sys::signal::Signal,
+) -> Result<(), std::io::Error> {
+    match nix::sys::signal::killpg(process_group, signal) {
+        Ok(()) | Err(nix::errno::Errno::ESRCH) => Ok(()),
+        Err(error) => Err(std::io::Error::from_raw_os_error(error as i32)),
+    }
+}
+
+#[cfg(unix)]
 async fn stop_child(child: &mut Child) -> Result<(), std::io::Error> {
     let process_group = child
         .id()
         .map(|process_id| nix::unistd::Pid::from_raw(process_id.cast_signed()));
     if let Some(process_group) = process_group {
-        if let Err(error) =
-            nix::sys::signal::killpg(process_group, nix::sys::signal::Signal::SIGTERM)
-            && error != nix::errno::Errno::ESRCH
-        {
-            return Err(std::io::Error::from_raw_os_error(error as i32));
-        }
+        signal_process_group(process_group, nix::sys::signal::Signal::SIGTERM)?;
     }
-    match timeout(Duration::from_secs(4), child.wait()).await {
-        Ok(result) => result.map(|_| ()),
-        Err(_) => {
-            if let Some(process_group) = process_group {
-                if let Err(error) =
-                    nix::sys::signal::killpg(process_group, nix::sys::signal::Signal::SIGKILL)
-                    && error != nix::errno::Errno::ESRCH
-                {
-                    return Err(std::io::Error::from_raw_os_error(error as i32));
-                }
-            } else {
-                child.kill().await?;
-            }
-            timeout(Duration::from_secs(2), child.wait())
-                .await
-                .map_err(|_| {
-                    std::io::Error::new(
-                        std::io::ErrorKind::TimedOut,
-                        "sing-box 进程组未在 SIGKILL 后退出",
-                    )
-                })?
-                .map(|_| ())
-        }
+    if let Ok(result) = timeout(Duration::from_secs(4), child.wait()).await {
+        return result.map(|_| ());
     }
+    if let Some(process_group) = process_group {
+        signal_process_group(process_group, nix::sys::signal::Signal::SIGKILL)?;
+    } else {
+        child.kill().await?;
+    }
+    timeout(Duration::from_secs(2), child.wait())
+        .await
+        .map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::TimedOut,
+                "sing-box 进程组未在 SIGKILL 后退出",
+            )
+        })?
+        .map(|_| ())
 }
 
 #[cfg(windows)]

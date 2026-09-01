@@ -74,6 +74,8 @@ async fn atomic_write_private(
     let path = path.to_path_buf();
     tokio::task::spawn_blocking(move || {
         use std::io::Write;
+        #[cfg(unix)]
+        use std::os::unix::fs::OpenOptionsExt as _;
 
         #[cfg(not(unix))]
         let options = atomic_write_file::OpenOptions::new();
@@ -83,8 +85,6 @@ async fn atomic_write_private(
         {
             atomic_write_file::unix::OpenOptionsExt::preserve_mode(&mut options, false);
             atomic_write_file::unix::OpenOptionsExt::try_preserve_owner(&mut options, false);
-            use std::os::unix::fs::OpenOptionsExt;
-
             options.mode(0o600);
         }
         let mut file = options.open(path)?;

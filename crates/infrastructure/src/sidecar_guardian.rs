@@ -6,6 +6,11 @@ use std::io;
 /// Normal desktop launches return `None` and continue through the regular
 /// bootstrap path. Guardian launches return the exit code that the desktop
 /// entry point must propagate without acquiring the single-instance lock.
+///
+/// # Errors
+///
+/// Returns an I/O error when guardian arguments are invalid or the guarded
+/// sidecar cannot be supervised.
 #[cfg(unix)]
 pub async fn run_if_requested() -> io::Result<Option<i32>> {
     let Some(request) = unix::request_from_process_args()? else {
@@ -280,7 +285,7 @@ mod unix {
         }
 
         #[test]
-        #[ignore]
+        #[ignore = "subprocess helper invoked explicitly by guardian_stdio_is_inherited"]
         fn guardian_subprocess_entry() {
             if env::var_os(HELPER_ENVIRONMENT).as_deref() != Some(std::ffi::OsStr::new("stdio")) {
                 return;
