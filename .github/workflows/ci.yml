@@ -27,6 +27,9 @@ jobs:
       - name: Format
         if: runner.os == 'Linux'
         run: cargo fmt --all --check
+      - name: Test release helpers
+        if: runner.os == 'Linux'
+        run: python3 -m unittest discover -s scripts/tests -v
       - name: Test
         if: runner.os == 'Linux'
         run: cargo test --workspace --exclude topnode-desktop --locked

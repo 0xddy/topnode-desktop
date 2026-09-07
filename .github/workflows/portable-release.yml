@@ -13,7 +13,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: desktop-portable-release-${{ github.ref }}
+  group: desktop-portable-release
   cancel-in-progress: false
 
 jobs:
@@ -111,7 +111,9 @@ jobs:
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
 
       - name: Validate release helpers
-        run: python3 -m py_compile scripts/fetch-sing-box.py scripts/package-portable.py scripts/render-release-config.py
+        run: |
+          python3 -m py_compile scripts/fetch-sing-box.py scripts/package-portable.py scripts/render-release-config.py scripts/publish-dufs.py
+          python3 -m unittest discover -s scripts/tests -v
 
       - name: Format
         run: cargo fmt --all --check
@@ -123,8 +125,7 @@ jobs:
           python3 scripts/render-release-config.py \
             --template "${RUNNER_TEMP}/desktop-config.template.json" \
             --output config/desktop-config.json \
-            --repository "${GITHUB_REPOSITORY}" \
-            --tag "${{ needs.metadata.outputs.release_tag }}" \
+            --download-base-url "https://soft.topstatic.top/soft/desktop/${{ needs.metadata.outputs.release_tag }}" \
             --version-code "${{ needs.metadata.outputs.version_code }}" \
             --version-name "${{ needs.metadata.outputs.version_name }}" \
             --update-info "Desktop portable release ${{ needs.metadata.outputs.version_name }}"
@@ -289,11 +290,22 @@ jobs:
             "Source commit: ${GIT_COMMIT}" \
             "Bundled sing-box: ${SING_BOX_VERSION}" \
             "Windows packages are supported. Linux and macOS packages are previews until system-proxy/TUN adapters are implemented." \
-            "Generate the version object in the controlled deployment environment, then merge it into all three bootstrap documents; preserve production baseApiServer/apiProbe/fake/payment fields.")"
+            "The publish job uploads these packages to dufs, updates desktop.config.json in 0xddy/topnode-bootstrap-config, then retains the latest two desktop versions.")"
           if release_json="$(gh release view "${RELEASE_TAG}" --json isDraft,targetCommitish 2>/dev/null)"; then
             if [[ "$(jq -r '.isDraft' <<< "${release_json}")" != "true" ]]; then
-              echo "Published release already exists: ${RELEASE_TAG}" >&2
-              exit 1
+              git fetch --no-tags origin "refs/tags/${RELEASE_TAG}:refs/tags/${RELEASE_TAG}"
+              if [[ "$(git rev-list -n 1 "${RELEASE_TAG}^{commit}")" != "${GIT_COMMIT}" ]]; then
+                echo "Published release targets a different Git commit" >&2
+                exit 1
+              fi
+              existing_assets="$(mktemp -d)"
+              gh release download "${RELEASE_TAG}" --dir "${existing_assets}" \
+                --pattern 'topnode-desktop-*' --pattern SHA256SUMS.txt
+              for asset in release-assets/*; do
+                cmp "${asset}" "${existing_assets}/$(basename "${asset}")"
+              done
+              echo "Published release already contains these exact assets; continuing to dufs."
+              exit 0
             fi
             if [[ "$(jq -r '.targetCommitish' <<< "${release_json}")" != "${GIT_COMMIT}" ]]; then
               echo "Existing draft targets a different Git commit" >&2
@@ -305,3 +317,100 @@ jobs:
           gh release edit "${RELEASE_TAG}" --draft --target "${GIT_COMMIT}" --title "TOPNODE Desktop ${VERSION_NAME}" --notes "${notes}"
           gh release upload "${RELEASE_TAG}" release-assets/* --clobber
           gh release edit "${RELEASE_TAG}" --draft=false
+
+  publish:
+    name: Upload dufs, update bootstrap, and retain two versions
+    needs: [metadata, release]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      contents: read
+    env:
+      VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
+      VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
+      RELEASE_TAG: ${{ needs.metadata.outputs.release_tag }}
+      GIT_COMMIT: ${{ needs.metadata.outputs.git_commit }}
+      DUFS_BASE_URL: https://soft.topstatic.top
+      TOPNODE_DUFS_USERNAME: admin
+      TOPNODE_DUFS_PASSWORD: ${{ secrets.TOPNODE_DUFS_PASSWORD }}
+    steps:
+      - name: Check publishing credentials
+        env:
+          BOOTSTRAP_CONFIG_SSH_KEY: ${{ secrets.BOOTSTRAP_CONFIG_SSH_KEY }}
+        run: |
+          test -n "${TOPNODE_DUFS_PASSWORD}" || { echo 'Missing TOPNODE_DUFS_PASSWORD secret' >&2; exit 1; }
+          test -n "${BOOTSTRAP_CONFIG_SSH_KEY}" || { echo 'Missing BOOTSTRAP_CONFIG_SSH_KEY secret' >&2; exit 1; }
+
+      - name: Check out release helpers
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download previously built portable archives
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: portable-*
+          path: release-assets
+          merge-multiple: true
+
+      - name: Check out production bootstrap configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: 0xddy/topnode-bootstrap-config
+          ref: main
+          path: bootstrap-config
+          ssh-key: ${{ secrets.BOOTSTRAP_CONFIG_SSH_KEY }}
+
+      - name: Validate configuration update before uploading
+        run: |
+          python3 scripts/render-release-config.py \
+            --template bootstrap-config/desktop.config.json \
+            --output "${RUNNER_TEMP}/desktop.config.release.json" \
+            --download-base-url "${DUFS_BASE_URL}/soft/desktop/${RELEASE_TAG}" \
+            --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}"
+
+      - name: Upload packages and verify anonymous download hashes
+        run: |
+          python3 scripts/publish-dufs.py upload \
+            --assets release-assets --base-url "${DUFS_BASE_URL}" \
+            --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}" \
+            --git-commit "${GIT_COMMIT}"
+
+      - name: Update only desktop version fields in bootstrap main
+        working-directory: bootstrap-config
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            # This is a dedicated Actions checkout. Re-render from the newest
+            # production document on every push attempt to preserve other edits.
+            git fetch origin main
+            git reset --hard origin/main
+            python3 ../scripts/render-release-config.py \
+              --template desktop.config.json --output desktop.config.json \
+              --download-base-url "${DUFS_BASE_URL}/soft/desktop/${RELEASE_TAG}" \
+              --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}"
+            if git diff --quiet -- desktop.config.json; then
+              echo 'Bootstrap configuration already matches this release.'
+              break
+            fi
+            git add -- desktop.config.json
+            git commit -m "chore(desktop): publish ${VERSION_NAME} (${VERSION_CODE})"
+            if git push origin HEAD:main; then
+              break
+            fi
+            if (( attempt == 3 )); then
+              echo 'Bootstrap push failed; dufs versions have not been pruned.' >&2
+              exit 1
+            fi
+            sleep 5
+          done
+
+      - name: Keep only the latest two desktop versions after configuration update
+        run: |
+          python3 scripts/publish-dufs.py cleanup \
+            --assets release-assets --base-url "${DUFS_BASE_URL}" \
+            --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}" \
+            --git-commit "${GIT_COMMIT}"

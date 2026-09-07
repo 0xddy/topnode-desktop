@@ -303,28 +303,58 @@ representative configuration, and builds six native targets: Windows/Linux
 x86_64 and ARM64, plus macOS Intel
 and Apple Silicon. Windows archives use a static Rust CRT; Unix archives are
 tarballs so executable modes survive extraction. Each package contains a build
-manifest, and the release contains `SHA256SUMS.txt` plus a generated
-`desktop.config.release.json`. The workflow publishes a draft only after every
-matrix build succeeds, uploads all assets, then makes the Release visible.
+manifest, and the release contains `SHA256SUMS.txt`. The workflow publishes a
+draft only after every matrix build succeeds, uploads all assets, then makes the
+Release visible.
 
-Release assets are not deployed to the bootstrap origins automatically. Publish
-the generated version data to all three boot domains only after the GitHub
-Release is public. The generated file starts from the checked-in schema example:
-before replacing a production document, preserve its current `baseApiServer`,
-`apiProbe`, `fake`, and `payment` values, or merge only the generated `version`
-object. Merely changing the legacy singular `version.download` is not enough;
-desktop archives must remain in the exact-target `version.downloads` map. A
-core-only rebuild must use a new Git commit because clients compare only
-`versionCode`.
+The separate `publish` job downloads the saved build artifacts and publishes all
+six packages plus checksums to:
 
-Before publishing that merged configuration, verify that its `versionCode` is
-greater than every desktop build already distributed, all six Release URLs are
-anonymously downloadable, and the three boot origins serve byte-identical JSON
-without redirects. If the source repository is private, replace the generated
-GitHub asset URLs with anonymously accessible official/CDN distribution URLs
-before deployment. The verify job also renders the final release document over
-the schema fixture, so the same Rust parser used at startup must accept it before
-any platform build begins.
+    https://soft.topstatic.top/soft/desktop/desktop-v<VERSION_CODE>-<VERSION_NAME>/
+
+It verifies each package by anonymously downloading and comparing its SHA-256
+hash, then writes and verifies `SHA256SUMS.txt` as the completion marker. Only
+then does it update `desktop.config.json` on `main` in
+`0xddy/topnode-bootstrap-config`, using the latest production document as its
+input. It updates `version.metadata.versionCode`, `version.metadata.versionName`,
+the legacy `version.download` directory link, and all six `version.downloads`
+URLs. It preserves `updateInfo`, `forceUpdate`, other metadata, and all unrelated
+API/probe/fake/payment settings. Push conflicts cause a fresh fetch and render;
+older versions and conflicting reuse of a version code are refused.
+
+After the configuration commit succeeds, cleanup keeps the two latest complete
+desktop version directories by numeric `versionCode`. It verifies the current
+release again before deleting older managed directories and incomplete uploads.
+An interrupted upload does not displace the previous complete version. Files and directories outside
+the strict desktop release naming scheme are left alone, including everything
+under `/soft/android/`. Upload, verification, or configuration failures stop
+before cleanup. The single release concurrency group serializes publication.
+The bootstrap repository's existing deployment remains responsible for serving
+its configuration at all three boot domains.
+
+Configure these Actions secrets in `0xddy/topnode-desktop`:
+
+- `TOPNODE_DUFS_PASSWORD`: password for dufs user `admin`; the URL and username
+  are set in the publish job.
+- `BOOTSTRAP_CONFIG_SSH_KEY`: private key of a dedicated SSH Deploy Key with
+  write access to `0xddy/topnode-bootstrap-config`. That repository's `main`
+  branch must permit the key to push configuration commits.
+
+Builds, GitHub Release publication, and dufs/config publication are separate
+jobs. If publication fails, use **Re-run failed jobs** on the same Actions run;
+the completed matrix builds are reused. Artifacts are retained for 14 days, so
+retry within that period. Re-running a successful publish is safe: the same
+version reuses matching completed assets and an unchanged configuration creates
+no commit. Different bytes cannot replace an already completed version.
+Re-running an older release after a newer version exists is refused.
+If a GitHub Release was already published, the release job checks its source
+commit and exact asset bytes before allowing the retry to continue.
+
+A core-only rebuild must use a new Git commit because clients compare only
+`versionCode`. The verify job renders dufs URLs over the schema fixture, so the
+Rust parser used at startup must accept the release document before any
+platform build begins. Release helper tests run in CI and can be run locally
+with `python -m unittest discover -s scripts/tests -v`.
 
 Windows is currently the complete traffic-routing target. Linux and macOS
 archives are explicit previews: the UI starts, but their system-proxy and TUN

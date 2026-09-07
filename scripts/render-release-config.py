@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Render the remote desktop bootstrap document for one GitHub Release."""
+"""Update desktop version fields while preserving deployment configuration."""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ import argparse
 import json
 from pathlib import Path
 import re
-from urllib.parse import quote
+from urllib.parse import quote, urlsplit
 
 
 DOWNLOADS = {
@@ -27,42 +27,56 @@ def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
     parser.add_argument("--template", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
-    parser.add_argument("--repository", required=True)
-    parser.add_argument("--tag", required=True)
+    source = parser.add_mutually_exclusive_group(required=True)
+    source.add_argument("--repository")
+    source.add_argument("--download-base-url")
+    parser.add_argument("--tag")
     parser.add_argument("--version-code", required=True, type=int)
     parser.add_argument("--version-name", required=True)
-    parser.add_argument("--update-info", default="")
+    parser.add_argument("--update-info")
     return parser.parse_args()
 
 
-def main() -> None:
-    arguments = parse_arguments()
+def render_configuration(configuration: dict, arguments: argparse.Namespace) -> dict:
     if not 1 <= arguments.version_code <= 2_100_000_000:
         raise RuntimeError("--version-code must be between 1 and 2100000000")
     if VERSION_NAME_PATTERN.fullmatch(arguments.version_name) is None:
         raise RuntimeError("--version-name is invalid")
-    if REPOSITORY_PATTERN.fullmatch(arguments.repository) is None:
-        raise RuntimeError("--repository must use owner/name")
-    if TAG_PATTERN.fullmatch(arguments.tag) is None:
-        raise RuntimeError("--tag is invalid")
-    configuration = json.loads(arguments.template.read_text(encoding="utf-8"))
+    if arguments.download_base_url:
+        parsed = urlsplit(arguments.download_base_url)
+        if (parsed.scheme != "https" or not parsed.hostname or parsed.username is not None
+                or parsed.password is not None or parsed.query or parsed.fragment
+                or any(character.isspace() for character in arguments.download_base_url)):
+            raise RuntimeError("--download-base-url must be an HTTPS URL without credentials or query")
+        direct_root = arguments.download_base_url.rstrip("/")
+        release_page = direct_root + "/"
+    else:
+        if REPOSITORY_PATTERN.fullmatch(arguments.repository or "") is None:
+            raise RuntimeError("--repository must use owner/name")
+        if TAG_PATTERN.fullmatch(arguments.tag or "") is None:
+            raise RuntimeError("--tag is required with --repository and must be URL-safe")
+        encoded_tag = quote(arguments.tag, safe="")
+        release_root = f"https://github.com/{arguments.repository}/releases"
+        release_page = f"{release_root}/tag/{encoded_tag}"
+        direct_root = f"{release_root}/download/{encoded_tag}"
     version = configuration["version"]
-    version["metadata"] = {
-        "versionCode": arguments.version_code,
-        "versionName": arguments.version_name,
-        "updateInfo": arguments.update_info.strip(),
-        "forceUpdate": False,
-    }
-    encoded_tag = quote(arguments.tag, safe="")
-    release_root = f"https://github.com/{arguments.repository}/releases"
-    release_page = f"{release_root}/tag/{encoded_tag}"
+    metadata = version["metadata"]
+    previous_code = metadata["versionCode"]
+    if type(previous_code) is not int or previous_code < 1:
+        raise RuntimeError("Existing versionCode is invalid")
+    if previous_code > arguments.version_code:
+        raise RuntimeError("Refusing to replace a newer desktop version")
+    if previous_code == arguments.version_code and metadata["versionName"] != arguments.version_name:
+        raise RuntimeError("The same versionCode belongs to a different versionName")
+    metadata.update(versionCode=arguments.version_code, versionName=arguments.version_name)
+    if arguments.update_info is not None:
+        metadata["updateInfo"] = arguments.update_info.strip()
     version["download"] = {
         "downType": "Browser",
         "url": release_page,
         "fileName": f"topnode-desktop-{arguments.version_name}",
         "mimeType": "text/html",
     }
-    direct_root = f"{release_root}/download/{encoded_tag}"
     version["downloads"] = {}
     for target, (platform_label, extension, mime_type) in DOWNLOADS.items():
         filename = f"topnode-desktop-{arguments.version_name}-{platform_label}{extension}"
@@ -72,6 +86,14 @@ def main() -> None:
             "fileName": filename,
             "mimeType": mime_type,
         }
+    return configuration
+
+
+def main() -> None:
+    arguments = parse_arguments()
+    configuration = render_configuration(
+        json.loads(arguments.template.read_text(encoding="utf-8")), arguments
+    )
     arguments.output.parent.mkdir(parents=True, exist_ok=True)
     arguments.output.write_text(
         json.dumps(configuration, ensure_ascii=False, indent=2) + "\n",
