@@ -9,1507 +9,370 @@ export component CountryFlag inherits Rectangle {
     background: transparent;
     clip: true;
 
-    Glyph {
+    // Use exactly one image. A fallback behind a translucent flag bleeds
+    // through when the parent node is disabled or the flag has transparent areas.
+    property <image> empty-image;
+    pure function flag-group-a() -> image {
+        if root.code == "AD" { return @image-url("../assets/flags/flag_ad.webp"); }
+        if root.code == "AE" { return @image-url("../assets/flags/flag_ae.webp"); }
+        if root.code == "AF" { return @image-url("../assets/flags/flag_af.webp"); }
+        if root.code == "AG" { return @image-url("../assets/flags/flag_ag.webp"); }
+        if root.code == "AI" { return @image-url("../assets/flags/flag_ai.webp"); }
+        if root.code == "AL" { return @image-url("../assets/flags/flag_al.webp"); }
+        if root.code == "AM" { return @image-url("../assets/flags/flag_am.webp"); }
+        if root.code == "AO" { return @image-url("../assets/flags/flag_ao.webp"); }
+        if root.code == "AQ" { return @image-url("../assets/flags/flag_aq.webp"); }
+        if root.code == "AR" { return @image-url("../assets/flags/flag_ar.webp"); }
+        if root.code == "AS" { return @image-url("../assets/flags/flag_as.webp"); }
+        if root.code == "AT" { return @image-url("../assets/flags/flag_at.webp"); }
+        if root.code == "AU" { return @image-url("../assets/flags/flag_au.webp"); }
+        if root.code == "AW" { return @image-url("../assets/flags/flag_aw.webp"); }
+        if root.code == "AX" { return @image-url("../assets/flags/flag_ax.webp"); }
+        if root.code == "AZ" { return @image-url("../assets/flags/flag_az.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-b() -> image {
+        if root.code == "BA" { return @image-url("../assets/flags/flag_ba.webp"); }
+        if root.code == "BB" { return @image-url("../assets/flags/flag_bb.webp"); }
+        if root.code == "BD" { return @image-url("../assets/flags/flag_bd.webp"); }
+        if root.code == "BE" { return @image-url("../assets/flags/flag_be.webp"); }
+        if root.code == "BF" { return @image-url("../assets/flags/flag_bf.webp"); }
+        if root.code == "BG" { return @image-url("../assets/flags/flag_bg.webp"); }
+        if root.code == "BH" { return @image-url("../assets/flags/flag_bh.webp"); }
+        if root.code == "BI" { return @image-url("../assets/flags/flag_bi.webp"); }
+        if root.code == "BJ" { return @image-url("../assets/flags/flag_bj.webp"); }
+        if root.code == "BL" { return @image-url("../assets/flags/flag_bl.webp"); }
+        if root.code == "BM" { return @image-url("../assets/flags/flag_bm.webp"); }
+        if root.code == "BN" { return @image-url("../assets/flags/flag_bn.webp"); }
+        if root.code == "BO" { return @image-url("../assets/flags/flag_bo.webp"); }
+        if root.code == "BQ" { return @image-url("../assets/flags/flag_bq.webp"); }
+        if root.code == "BR" { return @image-url("../assets/flags/flag_br.webp"); }
+        if root.code == "BS" { return @image-url("../assets/flags/flag_bs.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-c() -> image {
+        if root.code == "BT" { return @image-url("../assets/flags/flag_bt.webp"); }
+        if root.code == "BV" { return @image-url("../assets/flags/flag_bv.webp"); }
+        if root.code == "BW" { return @image-url("../assets/flags/flag_bw.webp"); }
+        if root.code == "BY" { return @image-url("../assets/flags/flag_by.webp"); }
+        if root.code == "BZ" { return @image-url("../assets/flags/flag_bz.webp"); }
+        if root.code == "CA" { return @image-url("../assets/flags/flag_ca.webp"); }
+        if root.code == "CC" { return @image-url("../assets/flags/flag_cc.webp"); }
+        if root.code == "CD" { return @image-url("../assets/flags/flag_cd.webp"); }
+        if root.code == "CF" { return @image-url("../assets/flags/flag_cf.webp"); }
+        if root.code == "CG" { return @image-url("../assets/flags/flag_cg.webp"); }
+        if root.code == "CH" { return @image-url("../assets/flags/flag_ch.webp"); }
+        if root.code == "CI" { return @image-url("../assets/flags/flag_ci.webp"); }
+        if root.code == "CK" { return @image-url("../assets/flags/flag_ck.webp"); }
+        if root.code == "CL" { return @image-url("../assets/flags/flag_cl.webp"); }
+        if root.code == "CM" { return @image-url("../assets/flags/flag_cm.webp"); }
+        if root.code == "CN" { return @image-url("../assets/flags/flag_cn.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-d() -> image {
+        if root.code == "CO" { return @image-url("../assets/flags/flag_co.webp"); }
+        if root.code == "CR" { return @image-url("../assets/flags/flag_cr.webp"); }
+        if root.code == "CU" { return @image-url("../assets/flags/flag_cu.webp"); }
+        if root.code == "CV" { return @image-url("../assets/flags/flag_cv.webp"); }
+        if root.code == "CW" { return @image-url("../assets/flags/flag_cw.webp"); }
+        if root.code == "CX" { return @image-url("../assets/flags/flag_cx.webp"); }
+        if root.code == "CY" { return @image-url("../assets/flags/flag_cy.webp"); }
+        if root.code == "CZ" { return @image-url("../assets/flags/flag_cz.webp"); }
+        if root.code == "DE" { return @image-url("../assets/flags/flag_de.webp"); }
+        if root.code == "DJ" { return @image-url("../assets/flags/flag_dj.webp"); }
+        if root.code == "DK" { return @image-url("../assets/flags/flag_dk.webp"); }
+        if root.code == "DM" { return @image-url("../assets/flags/flag_dm.webp"); }
+        if root.code == "DO" { return @image-url("../assets/flags/flag_do.webp"); }
+        if root.code == "DZ" { return @image-url("../assets/flags/flag_dz.webp"); }
+        if root.code == "EC" { return @image-url("../assets/flags/flag_ec.webp"); }
+        if root.code == "EE" { return @image-url("../assets/flags/flag_ee.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-e() -> image {
+        if root.code == "EG" { return @image-url("../assets/flags/flag_eg.webp"); }
+        if root.code == "EH" { return @image-url("../assets/flags/flag_eh.webp"); }
+        if root.code == "ER" { return @image-url("../assets/flags/flag_er.webp"); }
+        if root.code == "ES" { return @image-url("../assets/flags/flag_es.webp"); }
+        if root.code == "ET" { return @image-url("../assets/flags/flag_et.webp"); }
+        if root.code == "FI" { return @image-url("../assets/flags/flag_fi.webp"); }
+        if root.code == "FJ" { return @image-url("../assets/flags/flag_fj.webp"); }
+        if root.code == "FK" { return @image-url("../assets/flags/flag_fk.webp"); }
+        if root.code == "FM" { return @image-url("../assets/flags/flag_fm.webp"); }
+        if root.code == "FO" { return @image-url("../assets/flags/flag_fo.webp"); }
+        if root.code == "FR" { return @image-url("../assets/flags/flag_fr.webp"); }
+        if root.code == "GA" { return @image-url("../assets/flags/flag_ga.webp"); }
+        if root.code == "GB" { return @image-url("../assets/flags/flag_gb.webp"); }
+        if root.code == "GD" { return @image-url("../assets/flags/flag_gd.webp"); }
+        if root.code == "GE" { return @image-url("../assets/flags/flag_ge.webp"); }
+        if root.code == "GF" { return @image-url("../assets/flags/flag_gf.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-f() -> image {
+        if root.code == "GG" { return @image-url("../assets/flags/flag_gg.webp"); }
+        if root.code == "GH" { return @image-url("../assets/flags/flag_gh.webp"); }
+        if root.code == "GI" { return @image-url("../assets/flags/flag_gi.webp"); }
+        if root.code == "GL" { return @image-url("../assets/flags/flag_gl.webp"); }
+        if root.code == "GM" { return @image-url("../assets/flags/flag_gm.webp"); }
+        if root.code == "GN" { return @image-url("../assets/flags/flag_gn.webp"); }
+        if root.code == "GP" { return @image-url("../assets/flags/flag_gp.webp"); }
+        if root.code == "GQ" { return @image-url("../assets/flags/flag_gq.webp"); }
+        if root.code == "GR" { return @image-url("../assets/flags/flag_gr.webp"); }
+        if root.code == "GS" { return @image-url("../assets/flags/flag_gs.webp"); }
+        if root.code == "GT" { return @image-url("../assets/flags/flag_gt.webp"); }
+        if root.code == "GU" { return @image-url("../assets/flags/flag_gu.webp"); }
+        if root.code == "GW" { return @image-url("../assets/flags/flag_gw.webp"); }
+        if root.code == "GY" { return @image-url("../assets/flags/flag_gy.webp"); }
+        if root.code == "HK" { return @image-url("../assets/flags/flag_hk.webp"); }
+        if root.code == "HM" { return @image-url("../assets/flags/flag_hm.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-g() -> image {
+        if root.code == "HN" { return @image-url("../assets/flags/flag_hn.webp"); }
+        if root.code == "HR" { return @image-url("../assets/flags/flag_hr.webp"); }
+        if root.code == "HT" { return @image-url("../assets/flags/flag_ht.webp"); }
+        if root.code == "HU" { return @image-url("../assets/flags/flag_hu.webp"); }
+        if root.code == "ID" { return @image-url("../assets/flags/flag_id.webp"); }
+        if root.code == "IE" { return @image-url("../assets/flags/flag_ie.webp"); }
+        if root.code == "IL" { return @image-url("../assets/flags/flag_il.webp"); }
+        if root.code == "IM" { return @image-url("../assets/flags/flag_im.webp"); }
+        if root.code == "IN" { return @image-url("../assets/flags/flag_in.webp"); }
+        if root.code == "IO" { return @image-url("../assets/flags/flag_io.webp"); }
+        if root.code == "IQ" { return @image-url("../assets/flags/flag_iq.webp"); }
+        if root.code == "IR" { return @image-url("../assets/flags/flag_ir.webp"); }
+        if root.code == "IS" { return @image-url("../assets/flags/flag_is.webp"); }
+        if root.code == "IT" { return @image-url("../assets/flags/flag_it.webp"); }
+        if root.code == "JE" { return @image-url("../assets/flags/flag_je.webp"); }
+        if root.code == "JM" { return @image-url("../assets/flags/flag_jm.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-h() -> image {
+        if root.code == "JO" { return @image-url("../assets/flags/flag_jo.webp"); }
+        if root.code == "JP" { return @image-url("../assets/flags/flag_jp.webp"); }
+        if root.code == "KE" { return @image-url("../assets/flags/flag_ke.webp"); }
+        if root.code == "KG" { return @image-url("../assets/flags/flag_kg.webp"); }
+        if root.code == "KH" { return @image-url("../assets/flags/flag_kh.webp"); }
+        if root.code == "KI" { return @image-url("../assets/flags/flag_ki.webp"); }
+        if root.code == "KM" { return @image-url("../assets/flags/flag_km.webp"); }
+        if root.code == "KN" { return @image-url("../assets/flags/flag_kn.webp"); }
+        if root.code == "KP" { return @image-url("../assets/flags/flag_kp.webp"); }
+        if root.code == "KR" { return @image-url("../assets/flags/flag_kr.webp"); }
+        if root.code == "KW" { return @image-url("../assets/flags/flag_kw.webp"); }
+        if root.code == "KY" { return @image-url("../assets/flags/flag_ky.webp"); }
+        if root.code == "KZ" { return @image-url("../assets/flags/flag_kz.webp"); }
+        if root.code == "LA" { return @image-url("../assets/flags/flag_la.webp"); }
+        if root.code == "LB" { return @image-url("../assets/flags/flag_lb.webp"); }
+        if root.code == "LC" { return @image-url("../assets/flags/flag_lc.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-i() -> image {
+        if root.code == "LI" { return @image-url("../assets/flags/flag_li.webp"); }
+        if root.code == "LK" { return @image-url("../assets/flags/flag_lk.webp"); }
+        if root.code == "LR" { return @image-url("../assets/flags/flag_lr.webp"); }
+        if root.code == "LS" { return @image-url("../assets/flags/flag_ls.webp"); }
+        if root.code == "LT" { return @image-url("../assets/flags/flag_lt.webp"); }
+        if root.code == "LU" { return @image-url("../assets/flags/flag_lu.webp"); }
+        if root.code == "LV" { return @image-url("../assets/flags/flag_lv.webp"); }
+        if root.code == "LY" { return @image-url("../assets/flags/flag_ly.webp"); }
+        if root.code == "MA" { return @image-url("../assets/flags/flag_ma.webp"); }
+        if root.code == "MC" { return @image-url("../assets/flags/flag_mc.webp"); }
+        if root.code == "MD" { return @image-url("../assets/flags/flag_md.webp"); }
+        if root.code == "ME" { return @image-url("../assets/flags/flag_me.webp"); }
+        if root.code == "MF" { return @image-url("../assets/flags/flag_mf.webp"); }
+        if root.code == "MG" { return @image-url("../assets/flags/flag_mg.webp"); }
+        if root.code == "MH" { return @image-url("../assets/flags/flag_mh.webp"); }
+        if root.code == "MK" { return @image-url("../assets/flags/flag_mk.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-j() -> image {
+        if root.code == "ML" { return @image-url("../assets/flags/flag_ml.webp"); }
+        if root.code == "MM" { return @image-url("../assets/flags/flag_mm.webp"); }
+        if root.code == "MN" { return @image-url("../assets/flags/flag_mn.webp"); }
+        if root.code == "MO" { return @image-url("../assets/flags/flag_mo.webp"); }
+        if root.code == "MP" { return @image-url("../assets/flags/flag_mp.webp"); }
+        if root.code == "MQ" { return @image-url("../assets/flags/flag_mq.webp"); }
+        if root.code == "MR" { return @image-url("../assets/flags/flag_mr.webp"); }
+        if root.code == "MS" { return @image-url("../assets/flags/flag_ms.webp"); }
+        if root.code == "MT" { return @image-url("../assets/flags/flag_mt.webp"); }
+        if root.code == "MU" { return @image-url("../assets/flags/flag_mu.webp"); }
+        if root.code == "MV" { return @image-url("../assets/flags/flag_mv.webp"); }
+        if root.code == "MW" { return @image-url("../assets/flags/flag_mw.webp"); }
+        if root.code == "MX" { return @image-url("../assets/flags/flag_mx.webp"); }
+        if root.code == "MY" { return @image-url("../assets/flags/flag_my.webp"); }
+        if root.code == "MZ" { return @image-url("../assets/flags/flag_mz.webp"); }
+        if root.code == "NA" { return @image-url("../assets/flags/flag_na.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-k() -> image {
+        if root.code == "NC" { return @image-url("../assets/flags/flag_nc.webp"); }
+        if root.code == "NE" { return @image-url("../assets/flags/flag_ne.webp"); }
+        if root.code == "NF" { return @image-url("../assets/flags/flag_nf.webp"); }
+        if root.code == "NG" { return @image-url("../assets/flags/flag_ng.webp"); }
+        if root.code == "NI" { return @image-url("../assets/flags/flag_ni.webp"); }
+        if root.code == "NL" { return @image-url("../assets/flags/flag_nl.webp"); }
+        if root.code == "NO" { return @image-url("../assets/flags/flag_no.webp"); }
+        if root.code == "NP" { return @image-url("../assets/flags/flag_np.webp"); }
+        if root.code == "NR" { return @image-url("../assets/flags/flag_nr.webp"); }
+        if root.code == "NU" { return @image-url("../assets/flags/flag_nu.webp"); }
+        if root.code == "NZ" { return @image-url("../assets/flags/flag_nz.webp"); }
+        if root.code == "OM" { return @image-url("../assets/flags/flag_om.webp"); }
+        if root.code == "PA" { return @image-url("../assets/flags/flag_pa.webp"); }
+        if root.code == "PE" { return @image-url("../assets/flags/flag_pe.webp"); }
+        if root.code == "PF" { return @image-url("../assets/flags/flag_pf.webp"); }
+        if root.code == "PG" { return @image-url("../assets/flags/flag_pg.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-l() -> image {
+        if root.code == "PH" { return @image-url("../assets/flags/flag_ph.webp"); }
+        if root.code == "PK" { return @image-url("../assets/flags/flag_pk.webp"); }
+        if root.code == "PL" { return @image-url("../assets/flags/flag_pl.webp"); }
+        if root.code == "PM" { return @image-url("../assets/flags/flag_pm.webp"); }
+        if root.code == "PN" { return @image-url("../assets/flags/flag_pn.webp"); }
+        if root.code == "PR" { return @image-url("../assets/flags/flag_pr.webp"); }
+        if root.code == "PS" { return @image-url("../assets/flags/flag_ps.webp"); }
+        if root.code == "PT" { return @image-url("../assets/flags/flag_pt.webp"); }
+        if root.code == "PW" { return @image-url("../assets/flags/flag_pw.webp"); }
+        if root.code == "PY" { return @image-url("../assets/flags/flag_py.webp"); }
+        if root.code == "QA" { return @image-url("../assets/flags/flag_qa.webp"); }
+        if root.code == "RE" { return @image-url("../assets/flags/flag_re.webp"); }
+        if root.code == "RO" { return @image-url("../assets/flags/flag_ro.webp"); }
+        if root.code == "RS" { return @image-url("../assets/flags/flag_rs.webp"); }
+        if root.code == "RU" { return @image-url("../assets/flags/flag_ru.webp"); }
+        if root.code == "RW" { return @image-url("../assets/flags/flag_rw.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-m() -> image {
+        if root.code == "SA" { return @image-url("../assets/flags/flag_sa.webp"); }
+        if root.code == "SB" { return @image-url("../assets/flags/flag_sb.webp"); }
+        if root.code == "SC" { return @image-url("../assets/flags/flag_sc.webp"); }
+        if root.code == "SD" { return @image-url("../assets/flags/flag_sd.webp"); }
+        if root.code == "SE" { return @image-url("../assets/flags/flag_se.webp"); }
+        if root.code == "SG" { return @image-url("../assets/flags/flag_sg.webp"); }
+        if root.code == "SH" { return @image-url("../assets/flags/flag_sh.webp"); }
+        if root.code == "SI" { return @image-url("../assets/flags/flag_si.webp"); }
+        if root.code == "SJ" { return @image-url("../assets/flags/flag_sj.webp"); }
+        if root.code == "SK" { return @image-url("../assets/flags/flag_sk.webp"); }
+        if root.code == "SL" { return @image-url("../assets/flags/flag_sl.webp"); }
+        if root.code == "SM" { return @image-url("../assets/flags/flag_sm.webp"); }
+        if root.code == "SN" { return @image-url("../assets/flags/flag_sn.webp"); }
+        if root.code == "SO" { return @image-url("../assets/flags/flag_so.webp"); }
+        if root.code == "SR" { return @image-url("../assets/flags/flag_sr.webp"); }
+        if root.code == "SS" { return @image-url("../assets/flags/flag_ss.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-n() -> image {
+        if root.code == "ST" { return @image-url("../assets/flags/flag_st.webp"); }
+        if root.code == "SV" { return @image-url("../assets/flags/flag_sv.webp"); }
+        if root.code == "SX" { return @image-url("../assets/flags/flag_sx.webp"); }
+        if root.code == "SY" { return @image-url("../assets/flags/flag_sy.webp"); }
+        if root.code == "SZ" { return @image-url("../assets/flags/flag_sz.webp"); }
+        if root.code == "TC" { return @image-url("../assets/flags/flag_tc.webp"); }
+        if root.code == "TD" { return @image-url("../assets/flags/flag_td.webp"); }
+        if root.code == "TF" { return @image-url("../assets/flags/flag_tf.webp"); }
+        if root.code == "TG" { return @image-url("../assets/flags/flag_tg.webp"); }
+        if root.code == "TH" { return @image-url("../assets/flags/flag_th.webp"); }
+        if root.code == "TJ" { return @image-url("../assets/flags/flag_tj.webp"); }
+        if root.code == "TK" { return @image-url("../assets/flags/flag_tk.webp"); }
+        if root.code == "TL" { return @image-url("../assets/flags/flag_tl.webp"); }
+        if root.code == "TM" { return @image-url("../assets/flags/flag_tm.webp"); }
+        if root.code == "TN" { return @image-url("../assets/flags/flag_tn.webp"); }
+        if root.code == "TO" { return @image-url("../assets/flags/flag_to.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-o() -> image {
+        if root.code == "TR" { return @image-url("../assets/flags/flag_tr.webp"); }
+        if root.code == "TT" { return @image-url("../assets/flags/flag_tt.webp"); }
+        if root.code == "TV" { return @image-url("../assets/flags/flag_tv.webp"); }
+        if root.code == "TW" { return @image-url("../assets/flags/flag_tw.webp"); }
+        if root.code == "TZ" { return @image-url("../assets/flags/flag_tz.webp"); }
+        if root.code == "UA" { return @image-url("../assets/flags/flag_ua.webp"); }
+        if root.code == "UG" { return @image-url("../assets/flags/flag_ug.webp"); }
+        if root.code == "UM" { return @image-url("../assets/flags/flag_um.webp"); }
+        if root.code == "US" { return @image-url("../assets/flags/flag_us.webp"); }
+        if root.code == "UY" { return @image-url("../assets/flags/flag_uy.webp"); }
+        if root.code == "UZ" { return @image-url("../assets/flags/flag_uz.webp"); }
+        if root.code == "VA" { return @image-url("../assets/flags/flag_va.webp"); }
+        if root.code == "VC" { return @image-url("../assets/flags/flag_vc.webp"); }
+        if root.code == "VE" { return @image-url("../assets/flags/flag_ve.webp"); }
+        if root.code == "VG" { return @image-url("../assets/flags/flag_vg.webp"); }
+        if root.code == "VI" { return @image-url("../assets/flags/flag_vi.webp"); }
+        return root.empty-image;
+    }
+
+    pure function flag-group-p() -> image {
+        if root.code == "VN" { return @image-url("../assets/flags/flag_vn.webp"); }
+        if root.code == "VU" { return @image-url("../assets/flags/flag_vu.webp"); }
+        if root.code == "WF" { return @image-url("../assets/flags/flag_wf.webp"); }
+        if root.code == "WS" { return @image-url("../assets/flags/flag_ws.webp"); }
+        if root.code == "YE" { return @image-url("../assets/flags/flag_ye.webp"); }
+        if root.code == "YT" { return @image-url("../assets/flags/flag_yt.webp"); }
+        if root.code == "ZA" { return @image-url("../assets/flags/flag_za.webp"); }
+        if root.code == "ZM" { return @image-url("../assets/flags/flag_zm.webp"); }
+        if root.code == "ZW" { return @image-url("../assets/flags/flag_zw.webp"); }
+        return root.empty-image;
+    }
+
+    property <image> flag-image: {
+        let flag-a = root.flag-group-a();
+        if flag-a.width > 0 { return flag-a; }
+        let flag-b = root.flag-group-b();
+        if flag-b.width > 0 { return flag-b; }
+        let flag-c = root.flag-group-c();
+        if flag-c.width > 0 { return flag-c; }
+        let flag-d = root.flag-group-d();
+        if flag-d.width > 0 { return flag-d; }
+        let flag-e = root.flag-group-e();
+        if flag-e.width > 0 { return flag-e; }
+        let flag-f = root.flag-group-f();
+        if flag-f.width > 0 { return flag-f; }
+        let flag-g = root.flag-group-g();
+        if flag-g.width > 0 { return flag-g; }
+        let flag-h = root.flag-group-h();
+        if flag-h.width > 0 { return flag-h; }
+        let flag-i = root.flag-group-i();
+        if flag-i.width > 0 { return flag-i; }
+        let flag-j = root.flag-group-j();
+        if flag-j.width > 0 { return flag-j; }
+        let flag-k = root.flag-group-k();
+        if flag-k.width > 0 { return flag-k; }
+        let flag-l = root.flag-group-l();
+        if flag-l.width > 0 { return flag-l; }
+        let flag-m = root.flag-group-m();
+        if flag-m.width > 0 { return flag-m; }
+        let flag-n = root.flag-group-n();
+        if flag-n.width > 0 { return flag-n; }
+        let flag-o = root.flag-group-o();
+        if flag-o.width > 0 { return flag-o; }
+        let flag-p = root.flag-group-p();
+        if flag-p.width > 0 { return flag-p; }
+        return root.empty-image;
+    }
+
+    if root.flag-image.width > 0 : Image {
+        width: 100%;
+        height: 100%;
+        source: root.flag-image;
+        image-fit: cover;
+    }
+    if root.flag-image.width == 0 : Glyph {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         name: "globe";
         fill: AppTheme.accent;
         width: 20px;
         height: 20px;
-    }
-
-    if root.code == "AD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ad.webp");
-        image-fit: cover;
-    }
-    if root.code == "AE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ae.webp");
-        image-fit: cover;
-    }
-    if root.code == "AF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_af.webp");
-        image-fit: cover;
-    }
-    if root.code == "AG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ag.webp");
-        image-fit: cover;
-    }
-    if root.code == "AI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ai.webp");
-        image-fit: cover;
-    }
-    if root.code == "AL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_al.webp");
-        image-fit: cover;
-    }
-    if root.code == "AM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_am.webp");
-        image-fit: cover;
-    }
-    if root.code == "AO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ao.webp");
-        image-fit: cover;
-    }
-    if root.code == "AQ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_aq.webp");
-        image-fit: cover;
-    }
-    if root.code == "AR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ar.webp");
-        image-fit: cover;
-    }
-    if root.code == "AS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_as.webp");
-        image-fit: cover;
-    }
-    if root.code == "AT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_at.webp");
-        image-fit: cover;
-    }
-    if root.code == "AU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_au.webp");
-        image-fit: cover;
-    }
-    if root.code == "AW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_aw.webp");
-        image-fit: cover;
-    }
-    if root.code == "AX" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ax.webp");
-        image-fit: cover;
-    }
-    if root.code == "AZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_az.webp");
-        image-fit: cover;
-    }
-    if root.code == "BA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ba.webp");
-        image-fit: cover;
-    }
-    if root.code == "BB" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bb.webp");
-        image-fit: cover;
-    }
-    if root.code == "BD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bd.webp");
-        image-fit: cover;
-    }
-    if root.code == "BE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_be.webp");
-        image-fit: cover;
-    }
-    if root.code == "BF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bf.webp");
-        image-fit: cover;
-    }
-    if root.code == "BG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bg.webp");
-        image-fit: cover;
-    }
-    if root.code == "BH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bh.webp");
-        image-fit: cover;
-    }
-    if root.code == "BI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bi.webp");
-        image-fit: cover;
-    }
-    if root.code == "BJ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bj.webp");
-        image-fit: cover;
-    }
-    if root.code == "BL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bl.webp");
-        image-fit: cover;
-    }
-    if root.code == "BM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bm.webp");
-        image-fit: cover;
-    }
-    if root.code == "BN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bn.webp");
-        image-fit: cover;
-    }
-    if root.code == "BO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bo.webp");
-        image-fit: cover;
-    }
-    if root.code == "BQ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bq.webp");
-        image-fit: cover;
-    }
-    if root.code == "BR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_br.webp");
-        image-fit: cover;
-    }
-    if root.code == "BS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bs.webp");
-        image-fit: cover;
-    }
-    if root.code == "BT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bt.webp");
-        image-fit: cover;
-    }
-    if root.code == "BV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bv.webp");
-        image-fit: cover;
-    }
-    if root.code == "BW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bw.webp");
-        image-fit: cover;
-    }
-    if root.code == "BY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_by.webp");
-        image-fit: cover;
-    }
-    if root.code == "BZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_bz.webp");
-        image-fit: cover;
-    }
-    if root.code == "CA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ca.webp");
-        image-fit: cover;
-    }
-    if root.code == "CC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cc.webp");
-        image-fit: cover;
-    }
-    if root.code == "CD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cd.webp");
-        image-fit: cover;
-    }
-    if root.code == "CF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cf.webp");
-        image-fit: cover;
-    }
-    if root.code == "CG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cg.webp");
-        image-fit: cover;
-    }
-    if root.code == "CH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ch.webp");
-        image-fit: cover;
-    }
-    if root.code == "CI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ci.webp");
-        image-fit: cover;
-    }
-    if root.code == "CK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ck.webp");
-        image-fit: cover;
-    }
-    if root.code == "CL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cl.webp");
-        image-fit: cover;
-    }
-    if root.code == "CM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cm.webp");
-        image-fit: cover;
-    }
-    if root.code == "CN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cn.webp");
-        image-fit: cover;
-    }
-    if root.code == "CO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_co.webp");
-        image-fit: cover;
-    }
-    if root.code == "CR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cr.webp");
-        image-fit: cover;
-    }
-    if root.code == "CU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cu.webp");
-        image-fit: cover;
-    }
-    if root.code == "CV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cv.webp");
-        image-fit: cover;
-    }
-    if root.code == "CW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cw.webp");
-        image-fit: cover;
-    }
-    if root.code == "CX" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cx.webp");
-        image-fit: cover;
-    }
-    if root.code == "CY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cy.webp");
-        image-fit: cover;
-    }
-    if root.code == "CZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_cz.webp");
-        image-fit: cover;
-    }
-    if root.code == "DE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_de.webp");
-        image-fit: cover;
-    }
-    if root.code == "DJ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_dj.webp");
-        image-fit: cover;
-    }
-    if root.code == "DK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_dk.webp");
-        image-fit: cover;
-    }
-    if root.code == "DM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_dm.webp");
-        image-fit: cover;
-    }
-    if root.code == "DO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_do.webp");
-        image-fit: cover;
-    }
-    if root.code == "DZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_dz.webp");
-        image-fit: cover;
-    }
-    if root.code == "EC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ec.webp");
-        image-fit: cover;
-    }
-    if root.code == "EE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ee.webp");
-        image-fit: cover;
-    }
-    if root.code == "EG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_eg.webp");
-        image-fit: cover;
-    }
-    if root.code == "EH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_eh.webp");
-        image-fit: cover;
-    }
-    if root.code == "ER" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_er.webp");
-        image-fit: cover;
-    }
-    if root.code == "ES" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_es.webp");
-        image-fit: cover;
-    }
-    if root.code == "ET" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_et.webp");
-        image-fit: cover;
-    }
-    if root.code == "FI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fi.webp");
-        image-fit: cover;
-    }
-    if root.code == "FJ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fj.webp");
-        image-fit: cover;
-    }
-    if root.code == "FK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fk.webp");
-        image-fit: cover;
-    }
-    if root.code == "FM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fm.webp");
-        image-fit: cover;
-    }
-    if root.code == "FO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fo.webp");
-        image-fit: cover;
-    }
-    if root.code == "FR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_fr.webp");
-        image-fit: cover;
-    }
-    if root.code == "GA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ga.webp");
-        image-fit: cover;
-    }
-    if root.code == "GB" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gb.webp");
-        image-fit: cover;
-    }
-    if root.code == "GD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gd.webp");
-        image-fit: cover;
-    }
-    if root.code == "GE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ge.webp");
-        image-fit: cover;
-    }
-    if root.code == "GF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gf.webp");
-        image-fit: cover;
-    }
-    if root.code == "GG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gg.webp");
-        image-fit: cover;
-    }
-    if root.code == "GH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gh.webp");
-        image-fit: cover;
-    }
-    if root.code == "GI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gi.webp");
-        image-fit: cover;
-    }
-    if root.code == "GL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gl.webp");
-        image-fit: cover;
-    }
-    if root.code == "GM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gm.webp");
-        image-fit: cover;
-    }
-    if root.code == "GN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gn.webp");
-        image-fit: cover;
-    }
-    if root.code == "GP" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gp.webp");
-        image-fit: cover;
-    }
-    if root.code == "GQ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gq.webp");
-        image-fit: cover;
-    }
-    if root.code == "GR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gr.webp");
-        image-fit: cover;
-    }
-    if root.code == "GS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gs.webp");
-        image-fit: cover;
-    }
-    if root.code == "GT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gt.webp");
-        image-fit: cover;
-    }
-    if root.code == "GU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gu.webp");
-        image-fit: cover;
-    }
-    if root.code == "GW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gw.webp");
-        image-fit: cover;
-    }
-    if root.code == "GY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_gy.webp");
-        image-fit: cover;
-    }
-    if root.code == "HK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_hk.webp");
-        image-fit: cover;
-    }
-    if root.code == "HM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_hm.webp");
-        image-fit: cover;
-    }
-    if root.code == "HN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_hn.webp");
-        image-fit: cover;
-    }
-    if root.code == "HR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_hr.webp");
-        image-fit: cover;
-    }
-    if root.code == "HT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ht.webp");
-        image-fit: cover;
-    }
-    if root.code == "HU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_hu.webp");
-        image-fit: cover;
-    }
-    if root.code == "ID" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_id.webp");
-        image-fit: cover;
-    }
-    if root.code == "IE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ie.webp");
-        image-fit: cover;
-    }
-    if root.code == "IL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_il.webp");
-        image-fit: cover;
-    }
-    if root.code == "IM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_im.webp");
-        image-fit: cover;
-    }
-    if root.code == "IN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_in.webp");
-        image-fit: cover;
-    }
-    if root.code == "IO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_io.webp");
-        image-fit: cover;
-    }
-    if root.code == "IQ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_iq.webp");
-        image-fit: cover;
-    }
-    if root.code == "IR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ir.webp");
-        image-fit: cover;
-    }
-    if root.code == "IS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_is.webp");
-        image-fit: cover;
-    }
-    if root.code == "IT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_it.webp");
-        image-fit: cover;
-    }
-    if root.code == "JE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_je.webp");
-        image-fit: cover;
-    }
-    if root.code == "JM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_jm.webp");
-        image-fit: cover;
-    }
-    if root.code == "JO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_jo.webp");
-        image-fit: cover;
-    }
-    if root.code == "JP" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_jp.webp");
-        image-fit: cover;
-    }
-    if root.code == "KE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ke.webp");
-        image-fit: cover;
-    }
-    if root.code == "KG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kg.webp");
-        image-fit: cover;
-    }
-    if root.code == "KH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kh.webp");
-        image-fit: cover;
-    }
-    if root.code == "KI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ki.webp");
-        image-fit: cover;
-    }
-    if root.code == "KM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_km.webp");
-        image-fit: cover;
-    }
-    if root.code == "KN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kn.webp");
-        image-fit: cover;
-    }
-    if root.code == "KP" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kp.webp");
-        image-fit: cover;
-    }
-    if root.code == "KR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kr.webp");
-        image-fit: cover;
-    }
-    if root.code == "KW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kw.webp");
-        image-fit: cover;
-    }
-    if root.code == "KY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ky.webp");
-        image-fit: cover;
-    }
-    if root.code == "KZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_kz.webp");
-        image-fit: cover;
-    }
-    if root.code == "LA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_la.webp");
-        image-fit: cover;
-    }
-    if root.code == "LB" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lb.webp");
-        image-fit: cover;
-    }
-    if root.code == "LC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lc.webp");
-        image-fit: cover;
-    }
-    if root.code == "LI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_li.webp");
-        image-fit: cover;
-    }
-    if root.code == "LK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lk.webp");
-        image-fit: cover;
-    }
-    if root.code == "LR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lr.webp");
-        image-fit: cover;
-    }
-    if root.code == "LS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ls.webp");
-        image-fit: cover;
-    }
-    if root.code == "LT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lt.webp");
-        image-fit: cover;
-    }
-    if root.code == "LU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lu.webp");
-        image-fit: cover;
-    }
-    if root.code == "LV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_lv.webp");
-        image-fit: cover;
-    }
-    if root.code == "LY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ly.webp");
-        image-fit: cover;
-    }
-    if root.code == "MA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ma.webp");
-        image-fit: cover;
-    }
-    if root.code == "MC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mc.webp");
-        image-fit: cover;
-    }
-    if root.code == "MD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_md.webp");
-        image-fit: cover;
-    }
-    if root.code == "ME" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_me.webp");
-        image-fit: cover;
-    }
-    if root.code == "MF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mf.webp");
-        image-fit: cover;
-    }
-    if root.code == "MG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mg.webp");
-        image-fit: cover;
-    }
-    if root.code == "MH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mh.webp");
-        image-fit: cover;
-    }
-    if root.code == "MK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mk.webp");
-        image-fit: cover;
-    }
-    if root.code == "ML" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ml.webp");
-        image-fit: cover;
-    }
-    if root.code == "MM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mm.webp");
-        image-fit: cover;
-    }
-    if root.code == "MN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mn.webp");
-        image-fit: cover;
-    }
-    if root.code == "MO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mo.webp");
-        image-fit: cover;
-    }
-    if root.code == "MP" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mp.webp");
-        image-fit: cover;
-    }
-    if root.code == "MQ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mq.webp");
-        image-fit: cover;
-    }
-    if root.code == "MR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mr.webp");
-        image-fit: cover;
-    }
-    if root.code == "MS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ms.webp");
-        image-fit: cover;
-    }
-    if root.code == "MT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mt.webp");
-        image-fit: cover;
-    }
-    if root.code == "MU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mu.webp");
-        image-fit: cover;
-    }
-    if root.code == "MV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mv.webp");
-        image-fit: cover;
-    }
-    if root.code == "MW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mw.webp");
-        image-fit: cover;
-    }
-    if root.code == "MX" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mx.webp");
-        image-fit: cover;
-    }
-    if root.code == "MY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_my.webp");
-        image-fit: cover;
-    }
-    if root.code == "MZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_mz.webp");
-        image-fit: cover;
-    }
-    if root.code == "NA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_na.webp");
-        image-fit: cover;
-    }
-    if root.code == "NC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nc.webp");
-        image-fit: cover;
-    }
-    if root.code == "NE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ne.webp");
-        image-fit: cover;
-    }
-    if root.code == "NF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nf.webp");
-        image-fit: cover;
-    }
-    if root.code == "NG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ng.webp");
-        image-fit: cover;
-    }
-    if root.code == "NI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ni.webp");
-        image-fit: cover;
-    }
-    if root.code == "NL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nl.webp");
-        image-fit: cover;
-    }
-    if root.code == "NO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_no.webp");
-        image-fit: cover;
-    }
-    if root.code == "NP" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_np.webp");
-        image-fit: cover;
-    }
-    if root.code == "NR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nr.webp");
-        image-fit: cover;
-    }
-    if root.code == "NU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nu.webp");
-        image-fit: cover;
-    }
-    if root.code == "NZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_nz.webp");
-        image-fit: cover;
-    }
-    if root.code == "OM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_om.webp");
-        image-fit: cover;
-    }
-    if root.code == "PA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pa.webp");
-        image-fit: cover;
-    }
-    if root.code == "PE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pe.webp");
-        image-fit: cover;
-    }
-    if root.code == "PF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pf.webp");
-        image-fit: cover;
-    }
-    if root.code == "PG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pg.webp");
-        image-fit: cover;
-    }
-    if root.code == "PH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ph.webp");
-        image-fit: cover;
-    }
-    if root.code == "PK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pk.webp");
-        image-fit: cover;
-    }
-    if root.code == "PL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pl.webp");
-        image-fit: cover;
-    }
-    if root.code == "PM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pm.webp");
-        image-fit: cover;
-    }
-    if root.code == "PN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pn.webp");
-        image-fit: cover;
-    }
-    if root.code == "PR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pr.webp");
-        image-fit: cover;
-    }
-    if root.code == "PS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ps.webp");
-        image-fit: cover;
-    }
-    if root.code == "PT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pt.webp");
-        image-fit: cover;
-    }
-    if root.code == "PW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_pw.webp");
-        image-fit: cover;
-    }
-    if root.code == "PY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_py.webp");
-        image-fit: cover;
-    }
-    if root.code == "QA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_qa.webp");
-        image-fit: cover;
-    }
-    if root.code == "RE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_re.webp");
-        image-fit: cover;
-    }
-    if root.code == "RO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ro.webp");
-        image-fit: cover;
-    }
-    if root.code == "RS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_rs.webp");
-        image-fit: cover;
-    }
-    if root.code == "RU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ru.webp");
-        image-fit: cover;
-    }
-    if root.code == "RW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_rw.webp");
-        image-fit: cover;
-    }
-    if root.code == "SA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sa.webp");
-        image-fit: cover;
-    }
-    if root.code == "SB" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sb.webp");
-        image-fit: cover;
-    }
-    if root.code == "SC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sc.webp");
-        image-fit: cover;
-    }
-    if root.code == "SD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sd.webp");
-        image-fit: cover;
-    }
-    if root.code == "SE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_se.webp");
-        image-fit: cover;
-    }
-    if root.code == "SG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sg.webp");
-        image-fit: cover;
-    }
-    if root.code == "SH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sh.webp");
-        image-fit: cover;
-    }
-    if root.code == "SI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_si.webp");
-        image-fit: cover;
-    }
-    if root.code == "SJ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sj.webp");
-        image-fit: cover;
-    }
-    if root.code == "SK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sk.webp");
-        image-fit: cover;
-    }
-    if root.code == "SL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sl.webp");
-        image-fit: cover;
-    }
-    if root.code == "SM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sm.webp");
-        image-fit: cover;
-    }
-    if root.code == "SN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sn.webp");
-        image-fit: cover;
-    }
-    if root.code == "SO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_so.webp");
-        image-fit: cover;
-    }
-    if root.code == "SR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sr.webp");
-        image-fit: cover;
-    }
-    if root.code == "SS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ss.webp");
-        image-fit: cover;
-    }
-    if root.code == "ST" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_st.webp");
-        image-fit: cover;
-    }
-    if root.code == "SV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sv.webp");
-        image-fit: cover;
-    }
-    if root.code == "SX" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sx.webp");
-        image-fit: cover;
-    }
-    if root.code == "SY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sy.webp");
-        image-fit: cover;
-    }
-    if root.code == "SZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_sz.webp");
-        image-fit: cover;
-    }
-    if root.code == "TC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tc.webp");
-        image-fit: cover;
-    }
-    if root.code == "TD" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_td.webp");
-        image-fit: cover;
-    }
-    if root.code == "TF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tf.webp");
-        image-fit: cover;
-    }
-    if root.code == "TG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tg.webp");
-        image-fit: cover;
-    }
-    if root.code == "TH" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_th.webp");
-        image-fit: cover;
-    }
-    if root.code == "TJ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tj.webp");
-        image-fit: cover;
-    }
-    if root.code == "TK" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tk.webp");
-        image-fit: cover;
-    }
-    if root.code == "TL" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tl.webp");
-        image-fit: cover;
-    }
-    if root.code == "TM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tm.webp");
-        image-fit: cover;
-    }
-    if root.code == "TN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tn.webp");
-        image-fit: cover;
-    }
-    if root.code == "TO" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_to.webp");
-        image-fit: cover;
-    }
-    if root.code == "TR" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tr.webp");
-        image-fit: cover;
-    }
-    if root.code == "TT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tt.webp");
-        image-fit: cover;
-    }
-    if root.code == "TV" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tv.webp");
-        image-fit: cover;
-    }
-    if root.code == "TW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tw.webp");
-        image-fit: cover;
-    }
-    if root.code == "TZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_tz.webp");
-        image-fit: cover;
-    }
-    if root.code == "UA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ua.webp");
-        image-fit: cover;
-    }
-    if root.code == "UG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ug.webp");
-        image-fit: cover;
-    }
-    if root.code == "UM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_um.webp");
-        image-fit: cover;
-    }
-    if root.code == "US" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_us.webp");
-        image-fit: cover;
-    }
-    if root.code == "UY" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_uy.webp");
-        image-fit: cover;
-    }
-    if root.code == "UZ" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_uz.webp");
-        image-fit: cover;
-    }
-    if root.code == "VA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_va.webp");
-        image-fit: cover;
-    }
-    if root.code == "VC" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_vc.webp");
-        image-fit: cover;
-    }
-    if root.code == "VE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ve.webp");
-        image-fit: cover;
-    }
-    if root.code == "VG" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_vg.webp");
-        image-fit: cover;
-    }
-    if root.code == "VI" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_vi.webp");
-        image-fit: cover;
-    }
-    if root.code == "VN" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_vn.webp");
-        image-fit: cover;
-    }
-    if root.code == "VU" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_vu.webp");
-        image-fit: cover;
-    }
-    if root.code == "WF" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_wf.webp");
-        image-fit: cover;
-    }
-    if root.code == "WS" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ws.webp");
-        image-fit: cover;
-    }
-    if root.code == "YE" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_ye.webp");
-        image-fit: cover;
-    }
-    if root.code == "YT" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_yt.webp");
-        image-fit: cover;
-    }
-    if root.code == "ZA" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_za.webp");
-        image-fit: cover;
-    }
-    if root.code == "ZM" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_zm.webp");
-        image-fit: cover;
-    }
-    if root.code == "ZW" : Image {
-        width: 100%;
-        height: 100%;
-        source: @image-url("../assets/flags/flag_zw.webp");
-        image-fit: cover;
     }
 }

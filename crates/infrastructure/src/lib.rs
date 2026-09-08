@@ -2,6 +2,7 @@
 
 mod activation;
 mod api_endpoint;
+mod auto_login;
 mod configuration;
 mod containment;
 mod instance;
@@ -21,6 +22,7 @@ mod tls;
 
 pub use activation::{InstanceActivation, InstanceActivationError};
 pub use api_endpoint::PanelEndpoint;
+pub use auto_login::{AutoLoginError, AutoLoginStore, SavedLogin};
 pub use configuration::DevelopmentConfigurationSource;
 pub use containment::ProcessContainmentGuard;
 pub use instance::{InstanceGuard, InstanceLockError};
@@ -29,8 +31,8 @@ pub use logging::{LogGuard, initialize_logging};
 pub use panel::{HttpPanelClient, PanelClientOptions};
 pub use paths::AppPaths;
 pub use remote_startup::{
-    DESKTOP_STARTUP_CONFIGURATION_URLS, RemoteDesktopVersion, RemoteStartupConfigurationLoader,
-    RemoteStartupError, ResolvedStartupConfiguration,
+    DESKTOP_STARTUP_CONFIGURATION_URLS, PendingStartupConfiguration, RemoteDesktopVersion,
+    RemoteStartupConfigurationLoader, RemoteStartupError, ResolvedStartupConfiguration,
 };
 pub use session_vault::SessionVault;
 pub use settings::{DesktopSettings, SettingsStore};

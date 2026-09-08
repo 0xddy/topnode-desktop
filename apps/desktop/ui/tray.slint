@@ -1,5 +1,7 @@
 export component AppTray inherits SystemTrayIcon {
-    icon: @image-url("assets/topnode-logo.svg");
+    icon: root.connection-active
+        ? @image-url("assets/tray-connected.svg")
+        : @image-url("assets/tray-disconnected.svg");
     title: "TOPNODE";
     tooltip: root.connection-active
         ? "TOPNODE · 已连接"

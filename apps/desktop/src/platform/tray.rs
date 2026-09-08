@@ -35,9 +35,13 @@ impl TrayLifecycle {
             }
         });
 
-        window
-            .window()
-            .on_close_requested(|| CloseRequestResponse::HideWindow);
+        let window_weak = window.as_weak();
+        window.window().on_close_requested(move || {
+            if let Some(window) = window_weak.upgrade() {
+                super::close_window(&window);
+            }
+            CloseRequestResponse::HideWindow
+        });
         tray.show()?;
 
         Ok(Self { tray })

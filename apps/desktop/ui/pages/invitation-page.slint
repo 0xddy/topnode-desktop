@@ -39,20 +39,13 @@ component InvitationCopyIcon inherits Rectangle {
     in property <color> icon-color: AppTheme.ink-subtle;
     background: transparent;
 
-    Path {
+    Image {
         x: 2px;
         y: 2px;
         width: root.width - 2px;
         height: root.height - 2px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 18;
-        viewbox-height: 18;
-        fill: transparent;
-        stroke: root.icon-color;
-        stroke-width: 1.5px;
-        stroke-line-join: round;
-        commands: "M 6 5 H 14 V 14 H 6 Z M 4 12 H 3 V 3 H 11 V 4";
+        source: @image-url("../assets/icons/invitation-invitation-copy-icon.svg");
+        colorize: root.icon-color;
     }
 }
 

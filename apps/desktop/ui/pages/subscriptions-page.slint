@@ -1,3 +1,4 @@
+import { SmoothCard } from "../components/smooth-card.slint";
 import { AppTheme } from "../theme.slint";
 import { ResourcePhase, SubscriptionItem, SubscriptionStatus } from "../models.slint";
 import { PageHeader, RefreshIconButton } from "../components/controls.slint";
@@ -162,7 +163,7 @@ component UsageProgress inherits Rectangle {
     }
 }
 
-component SubscriptionPlanCard inherits Rectangle {
+component SubscriptionPlanCard inherits SmoothCard {
     in property <SubscriptionItem> item;
     in property <bool> selected;
     callback activated();
@@ -170,10 +171,9 @@ component SubscriptionPlanCard inherits Rectangle {
     width: 330px;
     height: 172px;
     border-radius: AppTheme.radius-extra-large;
-    border-width: root.selected ? 1.5px : 1px;
-    border-color: root.selected ? AppTheme.accent : AppTheme.border;
+    outline-color: root.selected ? AppTheme.accent : AppTheme.border;
     background: AppTheme.surface;
-    animate border-color { duration: 180ms; easing: ease-out; }
+    animate outline-color { duration: 180ms; easing: ease-out; }
 
     VerticalLayout {
         padding: 18px;

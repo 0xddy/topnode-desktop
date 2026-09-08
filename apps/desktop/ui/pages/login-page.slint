@@ -1,11 +1,21 @@
 import { BrandLockup } from "../components/brand.slint";
-import { AppButton, AppField, InlineAlert, StatusDot, SurfaceCard } from "../components/controls.slint";
+import { AppButton, AppCheckBox, AppField, InlineAlert, StatusDot, SurfaceCard } from "../components/controls.slint";
 import { AppTheme } from "../theme.slint";
 
 export component LoginPage inherits Rectangle {
     in property <bool> submitting;
     in property <string> error-message;
-    callback submit(string, string);
+    in property <bool> config-ready;
+    in property <bool> config-failed;
+    in property <string> config-status;
+    in property <bool> auto-pending;
+    in-out property <string> email;
+    in-out property <string> password;
+    in-out property <bool> auto-login;
+    callback submit();
+    callback edited();
+    callback auto-login-changed(bool);
+    callback retry();
 
     background: @linear-gradient(135deg, #ffffff 0%, AppTheme.canvas 52%, #e6f5ef 100%);
 
@@ -32,7 +42,7 @@ export component LoginPage inherits Rectangle {
         x: (parent.width - self.width) / 2;
         y: (parent.height - self.height) / 2;
         width: 900px;
-        height: 520px;
+        height: 580px;
         background: transparent;
 
         Rectangle {
@@ -109,7 +119,7 @@ export component LoginPage inherits Rectangle {
             x: 470px;
             y: 10px;
             width: 430px;
-            height: 500px;
+            height: 560px;
             border-radius: AppTheme.radius-extra-large;
             drop-shadow-color: #10231c1c;
             drop-shadow-blur: 32px;
@@ -143,7 +153,9 @@ export component LoginPage inherits Rectangle {
                 }
                 email-input := AppField {
                     enabled: !root.submitting;
-                    placeholder: "name@example.com";
+                    placeholder: "请输入邮箱";
+                    text <=> root.email;
+                    edited => { root.edited(); }
                 }
 
                 Rectangle { height: 7px; background: transparent; }
@@ -157,25 +169,56 @@ export component LoginPage inherits Rectangle {
                     enabled: !root.submitting;
                     placeholder: "请输入密码";
                     input-type: InputType.password;
+                    text <=> root.password;
+                    edited => { root.edited(); }
                     accepted(value) => {
-                        if (!root.submitting && email-input.text != "" && value != "") {
-                            root.submit(email-input.text, value);
-                            password-input.text = "";
+                        root.submit();
+                    }
+                }
+
+                HorizontalLayout {
+                    height: 36px;
+                    spacing: 12px;
+                    AppCheckBox {
+                        text: "自动登录";
+                        checked <=> root.auto-login;
+                        enabled: !root.submitting;
+                        toggled => { root.auto-login-changed(self.checked); }
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.auto-pending ? "2 秒后自动登录" : root.config-status;
+                        color: root.config-failed ? AppTheme.danger
+                            : root.auto-pending ? AppTheme.accent : AppTheme.ink-muted;
+                        font-size: 12px;
+                        horizontal-alignment: right;
+                        vertical-alignment: center;
+                        wrap: word-wrap;
+                    }
+                    if root.config-failed : VerticalLayout {
+                        width: 56px;
+                        height: 36px;
+                        alignment: center;
+                        AppButton {
+                            text: "重试";
+                            kind: ghost;
+                            button-min-width: 44px;
+                            height: 24px;
+                            clicked => { root.retry(); }
                         }
                     }
                 }
 
                 if root.error-message != "" : InlineAlert { message: root.error-message; }
 
-                Rectangle { height: 12px; background: transparent; }
+                Rectangle { height: 8px; background: transparent; }
                 AppButton {
                     text: root.submitting ? "正在登录" : "登录";
                     busy: root.submitting;
-                    enabled: !root.submitting && email-input.text != "" && password-input.text != "";
+                    enabled: root.config-ready && !root.submitting && root.email != "" && root.password != "";
                     height: 46px;
                     clicked => {
-                        root.submit(email-input.text, password-input.text);
-                        password-input.text = "";
+                        root.submit();
                     }
                 }
 

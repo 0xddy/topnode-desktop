@@ -21,6 +21,8 @@ const MAX_FRONTED_ENDPOINTS: usize = 32;
 const MAX_PLATFORM_DOWNLOADS: usize = 16;
 const MAX_VERSION_CODE: u64 = 2_100_000_000;
 const MAX_VERSION_NAME_LENGTH: usize = 64;
+const MAX_UPDATE_INFO_LENGTH: usize = 8192;
+const MAX_WEBSITE_LENGTH: usize = 2048;
 const MAX_TARGET_NAME_LENGTH: usize = 64;
 const MAX_FILE_NAME_LENGTH: usize = 128;
 const MAX_MIME_TYPE_LENGTH: usize = 128;
@@ -35,6 +37,7 @@ pub struct ResolvedStartupConfiguration {
     endpoint: PanelEndpoint,
     payment_presentation: PaymentPresentation,
     desktop_version: RemoteDesktopVersion,
+    website: Option<Url>,
     source_url: String,
     configuration_attempts: usize,
     probe_response_code: u16,
@@ -57,6 +60,10 @@ impl ResolvedStartupConfiguration {
         &self.desktop_version
     }
 
+    pub fn website(&self) -> Option<&str> {
+        self.website.as_ref().map(Url::as_str)
+    }
+
     pub fn source_url(&self) -> &str {
         &self.source_url
     }
@@ -70,11 +77,35 @@ impl ResolvedStartupConfiguration {
     }
 }
 
+/// Validated discovery data available before business API probing or login.
+#[derive(Clone, Debug)]
+pub struct PendingStartupConfiguration {
+    candidates: Vec<PanelEndpoint>,
+    probe: ValidatedProbe,
+    payment_presentation: PaymentPresentation,
+    desktop_version: RemoteDesktopVersion,
+    website: Option<Url>,
+    source_url: String,
+    configuration_attempts: usize,
+}
+
+impl PendingStartupConfiguration {
+    pub const fn desktop_version(&self) -> &RemoteDesktopVersion {
+        &self.desktop_version
+    }
+
+    pub fn website(&self) -> Option<&str> {
+        self.website.as_ref().map(Url::as_str)
+    }
+}
+
 /// Remote desktop release metadata selected for this exact build target.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct RemoteDesktopVersion {
     version_code: u64,
     version_name: String,
+    update_info: String,
+    force_update: bool,
     build_target: String,
     download_url: Option<Url>,
 }
@@ -88,6 +119,18 @@ impl RemoteDesktopVersion {
         &self.version_name
     }
 
+    pub fn update_info(&self) -> &str {
+        &self.update_info
+    }
+
+    pub const fn is_newer_than(&self, current_version_code: u64) -> bool {
+        self.version_code > current_version_code
+    }
+
+    pub const fn requires_update(&self, current_version_code: u64) -> bool {
+        self.force_update && self.is_newer_than(current_version_code)
+    }
+
     pub fn build_target(&self) -> &str {
         &self.build_target
     }
@@ -96,9 +139,9 @@ impl RemoteDesktopVersion {
         self.download_url.as_ref().map(Url::as_str)
     }
 
-    /// Returns a target-specific HTTPS archive only for a strict upgrade.
+    /// Returns the exact-target URL, or the configured default, for a strict upgrade.
     pub fn available_download_url(&self, current_version_code: u64) -> Option<&str> {
-        (self.version_code > current_version_code)
+        self.is_newer_than(current_version_code)
             .then(|| self.download_url())
             .flatten()
     }
@@ -195,6 +238,15 @@ impl RemoteStartupConfigurationLoader {
     /// invalid/unavailable or every selected configuration candidate is
     /// unreachable.
     pub async fn load(&self) -> Result<ResolvedStartupConfiguration, RemoteStartupError> {
+        self.resolve(self.fetch().await?).await
+    }
+
+    /// Fetches and validates configuration without contacting the business API.
+    /// Callers must handle updates before proceeding to `resolve` or login.
+    ///
+    /// # Errors
+    /// Returns a configuration error when no source yields a valid document.
+    pub async fn fetch(&self) -> Result<PendingStartupConfiguration, RemoteStartupError> {
         let mut resolved = None;
         let mut attempts = 0;
         for source_url in self.configuration_urls.iter() {
@@ -217,6 +269,25 @@ impl RemoteStartupConfigurationLoader {
         let desktop_version = configuration
             .version
             .into_remote_desktop_version(&self.desktop_target);
+        Ok(PendingStartupConfiguration {
+            candidates: configuration.candidates,
+            probe: configuration.probe,
+            payment_presentation,
+            desktop_version,
+            website: configuration.website,
+            source_url: source_url.to_string(),
+            configuration_attempts: attempts,
+        })
+    }
+
+    /// Probes API routes only after the caller has handled release metadata.
+    ///
+    /// # Errors
+    /// Returns a connectivity error if every route in the fetched document fails.
+    pub async fn resolve(
+        &self,
+        configuration: PendingStartupConfiguration,
+    ) -> Result<ResolvedStartupConfiguration, RemoteStartupError> {
         let api_probe_attempts = configuration.candidates.len();
         match self
             .selector
@@ -228,14 +299,15 @@ impl RemoteStartupConfigurationLoader {
                 response_code,
             } => Ok(ResolvedStartupConfiguration {
                 endpoint: *endpoint,
-                payment_presentation,
-                desktop_version,
-                source_url: source_url.to_string(),
-                configuration_attempts: attempts,
+                payment_presentation: configuration.payment_presentation,
+                desktop_version: configuration.desktop_version,
+                website: configuration.website,
+                source_url: configuration.source_url,
+                configuration_attempts: configuration.configuration_attempts,
                 probe_response_code: response_code,
             }),
             EndpointSelection::Failure => Err(RemoteStartupError::ApiConnectivity {
-                configuration_attempts: attempts,
+                configuration_attempts: configuration.configuration_attempts,
                 api_probe_attempts,
             }),
         }
@@ -404,6 +476,8 @@ impl EndpointProber for HttpEndpointProber {
 #[derive(Deserialize)]
 #[serde(rename_all = "camelCase")]
 struct RemoteConfigurationWire {
+    #[serde(default)]
+    website: Option<String>,
     #[serde(rename = "baseApiServer")]
     base_api_servers: Vec<String>,
     api_probe: ApiProbeWire,
@@ -440,11 +514,10 @@ struct VersionWire {
 struct VersionMetadataWire {
     version_code: u64,
     version_name: String,
-    #[serde(default, rename = "updateInfo")]
-    _update_info: String,
     #[serde(default)]
-    #[serde(rename = "forceUpdate")]
-    _force_update: bool,
+    update_info: String,
+    #[serde(default)]
+    force_update: bool,
 }
 
 #[derive(Deserialize)]
@@ -479,6 +552,7 @@ struct RemotePaymentWire {
 }
 
 struct ValidatedRemoteConfiguration {
+    website: Option<Url>,
     candidates: Vec<PanelEndpoint>,
     probe: ValidatedProbe,
     version: ValidatedVersion,
@@ -488,22 +562,32 @@ struct ValidatedRemoteConfiguration {
 struct ValidatedVersion {
     version_code: u64,
     version_name: String,
+    update_info: String,
+    force_update: bool,
+    fallback_download: Url,
     downloads: BTreeMap<String, Url>,
 }
 
 impl ValidatedVersion {
     fn into_remote_desktop_version(self, desktop_target: &str) -> RemoteDesktopVersion {
-        let download_url = self.downloads.get(desktop_target).cloned();
+        let download_url = Some(
+            self.downloads
+                .get(desktop_target)
+                .cloned()
+                .unwrap_or(self.fallback_download),
+        );
         RemoteDesktopVersion {
             version_code: self.version_code,
             version_name: self.version_name,
+            update_info: self.update_info,
+            force_update: self.force_update,
             build_target: desktop_target.to_owned(),
             download_url,
         }
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 struct ValidatedProbe {
     path: String,
     connect_timeout: Duration,
@@ -525,6 +609,15 @@ struct ValidatedFakeConfiguration {
 
 fn parse_and_validate_configuration(bytes: &[u8]) -> Option<ValidatedRemoteConfiguration> {
     let wire: RemoteConfigurationWire = serde_json::from_slice(bytes).ok()?;
+    let website = match wire.website {
+        Some(value) if !value.trim().is_empty() => {
+            if value.len() > MAX_WEBSITE_LENGTH {
+                return None;
+            }
+            Some(require_https_url(&value, true)?)
+        }
+        _ => None,
+    };
     if wire.base_api_servers.len() > MAX_API_SERVERS || wire.base_api_servers.is_empty() {
         return None;
     }
@@ -546,6 +639,7 @@ fn parse_and_validate_configuration(bytes: &[u8]) -> Option<ValidatedRemoteConfi
     };
     let candidates = build_candidates(&base_api_servers, fake.as_ref())?;
     Some(ValidatedRemoteConfiguration {
+        website,
         candidates,
         probe,
         version,
@@ -584,10 +678,16 @@ fn validate_version(wire: VersionWire) -> Option<ValidatedVersion> {
         || metadata.version_code > MAX_VERSION_CODE
         || version_name.is_empty()
         || version_name.len() > MAX_VERSION_NAME_LENGTH
+        || version_name.chars().any(char::is_control)
+        || metadata.update_info.len() > MAX_UPDATE_INFO_LENGTH
+        || metadata
+            .update_info
+            .chars()
+            .any(|ch| ch.is_control() && !matches!(ch, '\n' | '\r' | '\t'))
     {
         return None;
     }
-    validate_download(wire.download, None)?;
+    let fallback_download = validate_download(wire.download, None)?;
     if wire.downloads.len() > MAX_PLATFORM_DOWNLOADS {
         return None;
     }
@@ -601,6 +701,9 @@ fn validate_version(wire: VersionWire) -> Option<ValidatedVersion> {
     Some(ValidatedVersion {
         version_code: metadata.version_code,
         version_name: version_name.to_owned(),
+        update_info: metadata.update_info.trim().to_owned(),
+        force_update: metadata.force_update,
+        fallback_download,
         downloads,
     })
 }
@@ -885,9 +988,90 @@ mod tests {
 
         assert_eq!(configuration.candidates.len(), 1);
         assert_eq!(
+            configuration.website.as_ref().map(Url::as_str),
+            Some("https://topnode.cc/")
+        );
+        assert_eq!(
             configuration.payment_presentation,
             Some(PaymentPresentation::QrCode)
         );
+    }
+
+    #[test]
+    fn website_is_optional_but_rejects_unsafe_destinations() {
+        let mut document: serde_json::Value = serde_json::from_str(VALID_CONFIGURATION).unwrap();
+        assert!(
+            parse_and_validate_configuration(VALID_CONFIGURATION.as_bytes())
+                .unwrap()
+                .website
+                .is_none()
+        );
+        for destination in [
+            "https://topnode.cc",
+            " https://example.test/official?from=desktop ",
+        ] {
+            document["website"] = destination.into();
+            assert!(
+                parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap())
+                    .unwrap()
+                    .website
+                    .is_some()
+            );
+        }
+        for destination in [
+            "javascript:alert(1)",
+            "file:///C:/app.exe",
+            "http://example.test",
+            "https://user:pass@example.test",
+            "not a URL",
+        ] {
+            document["website"] = destination.into();
+            assert!(
+                parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap()).is_none()
+            );
+        }
+    }
+
+    #[test]
+    fn release_notes_and_mandatory_update_only_apply_to_a_strict_upgrade() {
+        let mut document: serde_json::Value = serde_json::from_str(VALID_CONFIGURATION).unwrap();
+        document["version"]["metadata"]["forceUpdate"] = true.into();
+        document["version"]["metadata"]["updateInfo"] = " 新版本\n修复连接问题。 ".into();
+        let version = parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap())
+            .unwrap()
+            .version
+            .into_remote_desktop_version("x86_64-pc-windows-msvc");
+        assert_eq!(version.update_info(), "新版本\n修复连接问题。");
+        assert!(version.is_newer_than(15));
+        assert!(version.requires_update(15));
+        for current in [16, 17] {
+            assert!(!version.is_newer_than(current));
+            assert!(!version.requires_update(current));
+            assert!(version.available_download_url(current).is_none());
+        }
+        let unsupported = parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap())
+            .unwrap()
+            .version
+            .into_remote_desktop_version("aarch64-apple-darwin");
+        assert!(unsupported.requires_update(15));
+        assert_eq!(
+            unsupported.available_download_url(15),
+            Some("https://soft.example.test/topnode.apk")
+        );
+    }
+
+    #[test]
+    fn oversized_or_control_character_release_notes_are_rejected() {
+        let mut document: serde_json::Value = serde_json::from_str(VALID_CONFIGURATION).unwrap();
+        for notes in [
+            "x".repeat(super::MAX_UPDATE_INFO_LENGTH + 1),
+            "bad\u{0}notes".to_owned(),
+        ] {
+            document["version"]["metadata"]["updateInfo"] = notes.into();
+            assert!(
+                parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap()).is_none()
+            );
+        }
     }
 
     #[test]
@@ -935,6 +1119,8 @@ mod tests {
         assert_eq!(result.probe_response_code(), 404);
         assert_eq!(result.payment_presentation(), PaymentPresentation::Browser);
         assert_eq!(result.desktop_version().version_code(), 16);
+        assert_eq!(result.desktop_version().update_info(), "版本说明");
+        assert!(!result.desktop_version().requires_update(15));
         assert_eq!(
             result.desktop_version().available_download_url(15),
             Some("https://soft.example.test/topnode-desktop-windows-x86_64.zip")
@@ -944,6 +1130,48 @@ mod tests {
             fetcher.calls(),
             vec![urls[0].to_string(), urls[1].to_string()]
         );
+    }
+
+    #[tokio::test]
+    async fn update_metadata_is_available_before_an_unreachable_business_api_is_probed() {
+        struct UnreachableApi(Arc<AtomicBool>);
+        #[async_trait]
+        impl EndpointProber for UnreachableApi {
+            async fn probe(&self, _: &PanelEndpoint, _: &ValidatedProbe) -> Option<u16> {
+                self.0.store(true, Ordering::SeqCst);
+                None
+            }
+        }
+        let contacted = Arc::new(AtomicBool::new(false));
+        let fetcher = Arc::new(ScriptedFetcher::new(vec![Ok(VALID_CONFIGURATION
+            .as_bytes()
+            .to_vec())]));
+        let loader = RemoteStartupConfigurationLoader::with_adapters(
+            test_urls(),
+            fetcher,
+            Arc::new(UnreachableApi(Arc::clone(&contacted))),
+            PaymentPresentation::QrCode,
+        );
+
+        let pending = loader
+            .fetch()
+            .await
+            .expect("metadata must not depend on API availability");
+        assert!(!contacted.load(Ordering::SeqCst));
+        assert!(pending.desktop_version().is_newer_than(15));
+        assert!(
+            pending
+                .desktop_version()
+                .available_download_url(15)
+                .is_some()
+        );
+        assert_eq!(pending.desktop_version().update_info(), "版本说明");
+
+        assert!(matches!(
+            loader.resolve(pending).await,
+            Err(RemoteStartupError::ApiConnectivity { .. })
+        ));
+        assert!(contacted.load(Ordering::SeqCst));
     }
 
     #[tokio::test]
@@ -1033,7 +1261,10 @@ mod tests {
         let linux = configuration
             .version
             .into_remote_desktop_version("x86_64-unknown-linux-gnu");
-        assert_eq!(linux.download_url(), None);
+        assert_eq!(
+            linux.download_url(),
+            Some("https://soft.example.test/topnode.apk")
+        );
 
         let native_platform_download = VALID_CONFIGURATION.replace(
             "\"downType\": \"Browser\",\n            \"url\": \"https://soft.example.test/topnode-desktop-windows-x86_64.zip\"",
@@ -1053,6 +1284,54 @@ mod tests {
         let unknown_platform =
             VALID_CONFIGURATION.replace("x86_64-pc-windows-msvc", "x86_64-pc-windows-unknown");
         assert!(parse_and_validate_configuration(unknown_platform.as_bytes()).is_none());
+    }
+
+    #[test]
+    fn exact_architecture_wins_and_missing_architecture_uses_the_default_download() {
+        let mut document: serde_json::Value = serde_json::from_str(VALID_CONFIGURATION).unwrap();
+        document["version"]["download"] = serde_json::json!({
+            "downType": "Browser",
+            "url": "https://downloads.example.test/desktop/",
+            "fileName": "topnode-desktop",
+            "mimeType": "text/html"
+        });
+        let version_for = |document: &serde_json::Value, target: &str| {
+            parse_and_validate_configuration(&serde_json::to_vec(document).unwrap())
+                .unwrap()
+                .version
+                .into_remote_desktop_version(target)
+        };
+        let exact = version_for(&document, "x86_64-pc-windows-msvc");
+        assert_eq!(
+            exact.available_download_url(15),
+            Some("https://soft.example.test/topnode-desktop-windows-x86_64.zip")
+        );
+        for target in ["aarch64-pc-windows-msvc", "x86_64-apple-darwin"] {
+            let fallback = version_for(&document, target);
+            assert_eq!(
+                fallback.available_download_url(15),
+                Some("https://downloads.example.test/desktop/")
+            );
+            assert!(fallback.available_download_url(16).is_none());
+            assert!(fallback.available_download_url(17).is_none());
+        }
+        document["version"]["downloads"] = serde_json::json!({});
+        assert_eq!(
+            version_for(&document, "x86_64-pc-windows-msvc").available_download_url(15),
+            Some("https://downloads.example.test/desktop/")
+        );
+        document["version"]
+            .as_object_mut()
+            .unwrap()
+            .remove("downloads");
+        assert_eq!(
+            version_for(&document, "x86_64-pc-windows-msvc").available_download_url(15),
+            Some("https://downloads.example.test/desktop/")
+        );
+        document["version"]["download"]["url"] = "file:///C:/installer.exe".into();
+        assert!(
+            parse_and_validate_configuration(&serde_json::to_vec(&document).unwrap()).is_none()
+        );
     }
 
     #[tokio::test]

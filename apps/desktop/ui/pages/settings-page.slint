@@ -35,6 +35,7 @@ component SettingRow inherits Rectangle {
             width: 42px;
             alignment: center;
             AppSwitch {
+                accessible-label: root.title;
                 checked <=> root.checked;
                 checked-visible: root.checked-visible;
                 enabled: root.enabled;
@@ -54,13 +55,25 @@ component ModeChoice inherits Rectangle {
     in property <bool> pending: false;
     callback chosen();
 
+    forward-focus: mode-focus;
+    accessible-role: radio-button;
+    accessible-checkable: true;
+    accessible-checked: root.selected;
+    accessible-enabled: root.enabled && !root.pending;
+    accessible-label: root.title;
+    accessible-action-default => { root.choose(); }
+
+    function choose() {
+        if root.enabled && !root.pending && !root.selected { root.chosen(); }
+    }
+
     height: 72px;
     min-width: 0px;
     preferred-width: 0px;
     horizontal-stretch: 1;
     border-radius: AppTheme.radius-medium;
-    border-width: 1px;
-    border-color: root.selected ? AppTheme.accent : AppTheme.border;
+    border-width: mode-focus.has-focus ? 2px : 1px;
+    border-color: root.selected || mode-focus.has-focus ? AppTheme.accent : AppTheme.border;
     background: root.selected
         ? AppTheme.accent-faint
         : touch.has-hover && root.enabled ? AppTheme.surface-subtle : transparent;
@@ -142,10 +155,23 @@ component ModeChoice inherits Rectangle {
         y: 0px;
         width: root.width;
         height: root.height;
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        enabled: root.enabled && !root.pending;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
         clicked => {
-            if (!root.selected) { root.chosen(); }
+            mode-focus.focus();
+            root.choose();
+        }
+    }
+    mode-focus := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled && !root.pending;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return {
+                root.choose();
+                return accept;
+            }
+            return reject;
         }
     }
 }
@@ -314,8 +340,8 @@ export component SettingsPage inherits Rectangle {
                 SettingRow {
                     title: "UDP 转发";
                     description: root.tun-mode
-                        ? "用于游戏、语音通话和部分视频应用"
-                        : "用于游戏、语音通话等场景，仅全局模式可用";
+                        ? "支持 HTTP/3、网页通话和游戏等 UDP 流量"
+                        : "UDP 转发需开启全局模式";
                     checked <=> root.udp-forwarding;
                     checked-visible: root.tun-mode;
                     enabled: root.preferences-editable

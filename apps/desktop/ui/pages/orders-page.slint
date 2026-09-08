@@ -109,19 +109,11 @@ component OrderChevron inherits Rectangle {
     height: 14px;
     background: transparent;
 
-    Path {
+    Image {
         width: 14px;
         height: 14px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 14;
-        viewbox-height: 14;
-        fill: transparent;
-        stroke: AppTheme.ink-subtle;
-        stroke-width: 1.4px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 5 3 L 9 7 L 5 11";
+        source: @image-url("../assets/icons/orders-order-chevron.svg");
+        colorize: AppTheme.ink-subtle;
     }
 }
 

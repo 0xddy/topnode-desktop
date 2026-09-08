@@ -835,8 +835,9 @@ fn apply_account_snapshot(
 ) {
     let authenticated = snapshot.is_authenticated();
     let app_phase = match snapshot.phase {
-        AccountPhase::Restoring => AppPhase::Restoring,
-        AccountPhase::SignedOut | AccountPhase::Authenticating => AppPhase::SignedOut,
+        AccountPhase::Restoring | AccountPhase::SignedOut | AccountPhase::Authenticating => {
+            AppPhase::SignedOut
+        }
         AccountPhase::LoadingResources
         | AccountPhase::RefreshingResources
         | AccountPhase::Ready => AppPhase::SignedIn,

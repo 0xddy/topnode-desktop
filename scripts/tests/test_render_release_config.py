@@ -48,6 +48,7 @@ def deployed_configuration() -> dict:
         (PROJECT_ROOT / "config" / "desktop-config.json").read_text(encoding="utf-8")
     )
     configuration["baseApiServer"] = ["https://production.example/api"]
+    configuration["website"] = "https://website.example/official"
     configuration["apiProbe"]["requestTimeoutMs"] = 45000
     configuration["fake"] = {
         "enable": True,

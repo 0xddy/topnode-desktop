@@ -1,0 +1,111 @@
+import { AppTheme } from "../theme.slint";
+import { AppButton, ButtonKind, PageHeader, SurfaceCard } from "../components/controls.slint";
+import { BrandLockup } from "../components/brand.slint";
+
+export component AboutPage inherits Rectangle {
+    in property <string> version;
+    in property <string> website;
+    in property <bool> website-opening;
+    in property <bool> checking;
+    in property <bool> update-available;
+    in property <string> update-status;
+    callback open-website();
+    callback check-for-updates();
+    callback show-update();
+
+    background: transparent;
+    VerticalLayout {
+        spacing: 18px;
+        PageHeader { height: 52px; title: "关于我们"; subtitle: "连接世界，保持简单"; }
+
+        Rectangle {
+            height: 294px;
+            border-radius: 22px;
+            background: #075b43;
+            VerticalLayout {
+                padding: 28px;
+                spacing: 16px;
+                BrandLockup { mark-size: 42px; name-color: white; }
+                Text {
+                    text: "为工作与生活，连接更多可能。";
+                    color: white;
+                    font-size: 25px;
+                    font-weight: 600;
+                }
+                Text {
+                    text: "TOPNODE 将节点连接、订阅管理与账户服务汇聚在一起，让日常网络连接更简单。从远程协作到学习探索，按需选择适合自己的线路与套餐，专注于真正想做的事。";
+                    color: #daeee5;
+                    font-size: 13px;
+                    wrap: word-wrap;
+                }
+                Rectangle { vertical-stretch: 1; background: transparent; }
+                HorizontalLayout {
+                    height: 42px;
+                    spacing: 16px;
+                    AppButton {
+                        width: 132px;
+                        text: root.website-opening ? "正在打开…" : "打开官网";
+                        kind: ButtonKind.secondary;
+                        enabled: root.website != "" && !root.website-opening;
+                        busy: root.website-opening;
+                        clicked => { root.open-website(); }
+                    }
+                    Text {
+                        horizontal-stretch: 1;
+                        text: root.website == "" ? "官网地址暂不可用" : root.website;
+                        color: #c3e2d5;
+                        font-size: 12px;
+                        overflow: elide;
+                        vertical-alignment: center;
+                    }
+                }
+            }
+        }
+
+        SurfaceCard {
+            height: 156px;
+            HorizontalLayout {
+                padding: 24px;
+                spacing: 16px;
+                VerticalLayout {
+                    horizontal-stretch: 1;
+                    alignment: center;
+                    spacing: 9px;
+                    Text { text: "TOPNODE 桌面客户端"; color: AppTheme.ink; font-size: 15px; font-weight: 600; }
+                    Text { text: "当前版本  " + root.version; color: AppTheme.ink-muted; font-size: 12px; overflow: elide; }
+                    Text {
+                        text: root.update-status;
+                        color: root.update-available ? AppTheme.accent : AppTheme.ink-subtle;
+                        font-size: 12px;
+                        wrap: word-wrap;
+                    }
+                }
+                VerticalLayout {
+                    width: 116px;
+                    alignment: center;
+                    spacing: 8px;
+                    if root.update-available : AppButton {
+                        text: "查看更新";
+                        gradient-primary: false;
+                        enabled: !root.checking;
+                        clicked => { root.show-update(); }
+                    }
+                    AppButton {
+                        text: root.checking ? "正在检查…" : "检查更新";
+                        kind: ButtonKind.secondary;
+                        busy: root.checking;
+                        enabled: !root.checking;
+                        clicked => { root.check-for-updates(); }
+                    }
+                }
+            }
+        }
+        Text {
+            text: "了解产品、查看套餐与获取更多服务，请访问 TOPNODE 官网。";
+            color: AppTheme.ink-subtle;
+            font-size: 12px;
+            horizontal-alignment: center;
+        }
+        Rectangle { vertical-stretch: 1; background: transparent; }
+    }
+}

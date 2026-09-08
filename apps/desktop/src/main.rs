@@ -4,9 +4,14 @@
 mod bootstrap;
 mod build_info;
 mod controller;
+mod login;
 mod payment_qr;
 mod platform;
 mod presentation;
+#[cfg(test)]
+mod rendering_tests;
+mod startup;
+mod updates;
 
 slint::include_modules!();
 

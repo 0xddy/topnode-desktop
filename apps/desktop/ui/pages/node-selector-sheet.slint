@@ -1,3 +1,4 @@
+import { SmoothCard } from "../components/smooth-card.slint";
 import { AppTheme } from "../theme.slint";
 import { NodeItem, ResourceGroupItem, ResourcePhase } from "../models.slint";
 import { CountryFlag } from "../components/country-flag.slint";
@@ -8,7 +9,7 @@ import {
 } from "../components/controls.slint";
 import "../assets/topnode-brand-semibold.ttf";
 
-component PlanCard inherits Rectangle {
+component PlanCard inherits SmoothCard {
     in property <ResourceGroupItem> item;
     in property <bool> selection-enabled;
     callback activated();
@@ -19,11 +20,10 @@ component PlanCard inherits Rectangle {
     background: root.item.selected ? AppTheme.accent-faint
         : touch.has-hover && root.item.connectable && root.selection-enabled
             ? AppTheme.surface-subtle : AppTheme.surface;
-    border-width: root.item.selected ? 1.5px : 1px;
-    border-color: root.item.selected ? AppTheme.accent : AppTheme.border;
+    outline-color: root.item.selected ? AppTheme.accent : AppTheme.border;
     opacity: root.item.connectable ? 1 : 0.52;
     animate background { duration: 140ms; easing: ease-out; }
-    animate border-color { duration: 140ms; easing: ease-out; }
+    animate outline-color { duration: 140ms; easing: ease-out; }
 
     VerticalLayout {
         padding-left: 14px;
@@ -111,7 +111,7 @@ component LatencyLoadingDots inherits Rectangle {
     }
 }
 
-component NodeSelectionCard inherits Rectangle {
+component NodeSelectionCard inherits SmoothCard {
     in property <NodeItem> item;
     in property <bool> selection-enabled;
     callback activated();
@@ -121,11 +121,10 @@ component NodeSelectionCard inherits Rectangle {
     border-radius: AppTheme.radius-medium;
     background: touch.has-hover && root.item.selectable && root.selection-enabled
         ? AppTheme.surface-subtle : AppTheme.surface;
-    border-width: root.item.selected ? 1.5px : 1px;
-    border-color: root.item.selected ? AppTheme.accent : AppTheme.border;
+    outline-color: root.item.selected ? AppTheme.accent : AppTheme.border;
     opacity: root.item.selectable ? 1 : 0.52;
     animate background { duration: 140ms; easing: ease-out; }
-    animate border-color { duration: 140ms; easing: ease-out; }
+    animate outline-color { duration: 140ms; easing: ease-out; }
 
     HorizontalLayout {
         padding-left: 14px;
@@ -227,6 +226,7 @@ component EmptySheetState inherits Rectangle {
 export component NodeSelectorSheet inherits Rectangle {
     in property <bool> open: false;
     in property <length> left-inset: 0px;
+    in property <length> top-inset: 0px;
     in property <ResourcePhase> resource-phase;
     in property <string> resource-error;
     in property <[ResourceGroupItem]> resource-groups;
@@ -257,9 +257,9 @@ export component NodeSelectorSheet inherits Rectangle {
 
     sheet := Rectangle {
         x: root.left-inset + 18px;
-        y: root.open ? 18px : 28px;
+        y: root.top-inset + (root.open ? 18px : 28px);
         width: parent.width - root.left-inset - 36px;
-        height: parent.height - 36px;
+        height: parent.height - root.top-inset - 36px;
         opacity: root.open ? 1 : 0;
         border-radius: 20px;
         background: white;

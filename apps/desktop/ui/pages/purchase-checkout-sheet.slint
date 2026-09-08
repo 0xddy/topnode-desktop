@@ -629,6 +629,7 @@ component ErrorStrip inherits Rectangle {
 }
 
 export component PurchaseCheckoutSheet inherits Rectangle {
+    in property <length> top-inset: 0px;
     in-out property <bool> open: false;
     in-out property <string> stage: "confirm";
     in property <[ShopPriceItem]> prices;
@@ -880,11 +881,11 @@ export component PurchaseCheckoutSheet inherits Rectangle {
 
     if root.stage == "confirm" : confirm-card := SurfaceCard {
         x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
+        y: root.top-inset + (parent.height - root.top-inset - self.height) / 2;
         width: min(640px, parent.width - 40px);
-        height: min(parent.height - 36px, max(360px, confirm-body.preferred-height + 142px));
+        height: min(parent.height - root.top-inset - 36px, max(360px, confirm-body.preferred-height + 142px));
         border-radius: AppTheme.radius-extra-large;
-        border-color: AppTheme.border-strong;
+        outline-color: AppTheme.border-strong;
         drop-shadow-color: AppTheme.modal-shadow;
         drop-shadow-blur: 32px;
         drop-shadow-offset-y: 12px;
@@ -1105,7 +1106,7 @@ export component PurchaseCheckoutSheet inherits Rectangle {
         width: min(420px, parent.width - 40px);
         height: root.error-message == "" ? 234px : 278px;
         border-radius: AppTheme.radius-extra-large;
-        border-color: AppTheme.border-strong;
+        outline-color: AppTheme.border-strong;
         drop-shadow-color: AppTheme.modal-shadow;
         drop-shadow-blur: 32px;
         drop-shadow-offset-y: 12px;
@@ -1186,11 +1187,11 @@ export component PurchaseCheckoutSheet inherits Rectangle {
 
     if root.stage == "payment" : payment-card := SurfaceCard {
         x: (parent.width - self.width) / 2;
-        y: (parent.height - self.height) / 2;
+        y: root.top-inset + (parent.height - root.top-inset - self.height) / 2;
         width: min(560px, parent.width - 40px);
-        height: min(parent.height - 36px, max(360px, payment-body.preferred-height + 142px));
+        height: min(parent.height - root.top-inset - 36px, max(360px, payment-body.preferred-height + 142px));
         border-radius: AppTheme.radius-extra-large;
-        border-color: AppTheme.border-strong;
+        outline-color: AppTheme.border-strong;
         drop-shadow-color: AppTheme.modal-shadow;
         drop-shadow-blur: 32px;
         drop-shadow-offset-y: 12px;
@@ -1399,7 +1400,7 @@ export component PurchaseCheckoutSheet inherits Rectangle {
             ? (root.error-message == "" ? 520px : 574px)
             : (root.error-message == "" ? 380px : 434px);
         border-radius: 10px;
-        border-color: transparent;
+        outline-color: transparent;
         drop-shadow-color: AppTheme.modal-shadow;
         drop-shadow-blur: 24px;
         drop-shadow-offset-y: 8px;
@@ -1561,7 +1562,7 @@ export component PurchaseCheckoutSheet inherits Rectangle {
         width: min(380px, parent.width - 40px);
         height: 390px;
         border-radius: AppTheme.radius-extra-large;
-        border-color: AppTheme.border-strong;
+        outline-color: AppTheme.border-strong;
         drop-shadow-color: AppTheme.modal-shadow;
         drop-shadow-blur: 32px;
         drop-shadow-offset-y: 12px;

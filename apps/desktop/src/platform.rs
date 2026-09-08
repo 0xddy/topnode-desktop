@@ -17,16 +17,85 @@ pub(crate) use elevation::{
 };
 pub use tray::TrayLifecycle;
 
-pub fn restore_main_window(window: &impl ComponentHandle, source: &'static str) {
+pub fn initialize_window_backend() -> Result<(), slint::PlatformError> {
+    let mut backend = slint::BackendSelector::new();
+    if cfg!(windows) && std::env::var_os("SLINT_BACKEND").is_none() {
+        // Keep the desktop usable with remote sessions and screen capture, where
+        // the OpenGL compositor may expose an empty or transparent surface.
+        backend = backend
+            .backend_name("winit".into())
+            .renderer_name("software".into());
+        tracing::info!("using the Windows software renderer");
+    }
+    backend.select()
+}
+
+pub fn restore_main_window(window: &(impl ComponentHandle + 'static), source: &'static str) {
     window.window().set_minimized(false);
     if let Err(error) = window.show() {
         tracing::warn!(%error, source, "failed to restore main window");
     }
+    finish_window_frame(window);
     window.window().request_redraw();
 }
 
+/// Restore the native outer edge after removing the title bar, including after
+/// a hidden window is recreated by the backend. Keep content fully opaque.
+#[cfg(windows)]
+pub fn finish_window_frame(window: &(impl ComponentHandle + 'static)) {
+    use slint::winit_030::{
+        WinitWindowAccessor,
+        winit::platform::windows::{Color, CornerPreference, WindowExtWindows},
+    };
+
+    let weak = window.as_weak();
+    if let Err(error) = slint::spawn_local(async move {
+        let Some(window) = weak.upgrade() else { return };
+        // show() can return before winit creates the native window. Await that
+        // event so the very first launch gets the same frame as later restores.
+        let Ok(native) = window.window().winit_window().await else {
+            return;
+        };
+        let frameless = !native.is_decorated();
+        native.set_undecorated_shadow(frameless);
+        native.set_corner_preference(CornerPreference::Round);
+        native.set_border_color(Some(if frameless {
+            Color::from_rgb(0xd0, 0xde, 0xd7)
+        } else {
+            Color::SYSTEM_DEFAULT
+        }));
+    }) {
+        tracing::warn!(%error, "failed to schedule native window frame styling");
+    }
+}
+
+#[cfg(not(windows))]
+pub fn finish_window_frame(_window: &(impl ComponentHandle + 'static)) {}
+
 pub fn open_url(url: &str) -> io::Result<()> {
     webbrowser::open(url)
+}
+
+pub fn drag_window(window: &impl ComponentHandle) {
+    use slint::winit_030::WinitWindowAccessor;
+
+    window.window().with_winit_window(|native| {
+        if let Err(error) = native.drag_window() {
+            tracing::warn!(%error, "failed to drag the desktop window");
+        }
+    });
+}
+
+/// Match the custom close control and the OS close gesture. An authenticated
+/// session keeps running in the tray; closing the login page exits the app.
+pub fn close_window(window: &crate::AppWindow) {
+    if window.get_app_phase() == crate::AppPhase::SignedIn {
+        if let Err(error) = window.hide() {
+            tracing::warn!(%error, "failed to hide the main window");
+        }
+    } else if let Err(error) = slint::quit_event_loop() {
+        tracing::warn!(%error, "failed to close the login window");
+    }
 }
 
 pub fn copy_text(value: &str) -> io::Result<()> {

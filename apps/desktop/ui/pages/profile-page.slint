@@ -1,23 +1,15 @@
 import { AppTheme } from "../theme.slint";
-import { PageHeader, SurfaceCard } from "../components/controls.slint";
+import { AppButton, ButtonKind, PageHeader, SurfaceCard } from "../components/controls.slint";
 import { Glyph } from "../components/glyph.slint";
 import "../assets/topnode-brand-semibold.ttf";
 
-component Chevron inherits Path {
+component Chevron inherits Image {
     in property <color> stroke-color: AppTheme.ink-subtle;
 
     width: 14px;
     height: 14px;
-    viewbox-x: 0;
-    viewbox-y: 0;
-    viewbox-width: 24;
-    viewbox-height: 24;
-    fill: transparent;
-    stroke: root.stroke-color;
-    stroke-width: 2px;
-    stroke-line-cap: round;
-    stroke-line-join: round;
-    commands: "M 9 5 L 16 12 L 9 19";
+    source: @image-url("../assets/icons/profile-chevron.svg");
+    colorize: root.stroke-color;
 }
 
 component ServiceGlyph inherits Rectangle {
@@ -28,79 +20,39 @@ component ServiceGlyph inherits Rectangle {
     height: 19px;
     background: transparent;
 
-    if root.kind == "orders" : Path {
+    if root.kind == "orders" : Image {
         width: 19px;
         height: 19px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 6 3.5 H 18 V 20.5 L 15.7 19 L 13.3 20.5 L 10.8 19 L 8.4 20.5 L 6 19 Z M 9 8 H 15 M 9 12 H 15 M 9 16 H 13";
+        source: @image-url("../assets/icons/profile-orders.svg");
+        colorize: root.fill;
     }
 
-    if root.kind == "gift-card" : Path {
+    if root.kind == "gift-card" : Image {
         width: 19px;
         height: 19px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 4 10 H 20 V 20 H 4 Z M 3 6 H 21 V 10 H 3 Z M 12 6 V 20 M 12 6 C 10.2 6 7.5 5.2 7.5 3.8 C 7.5 2.7 8.4 2.2 9.3 2.6 C 10.5 3.1 11.3 4.5 12 6 Z M 12 6 C 13.8 6 16.5 5.2 16.5 3.8 C 16.5 2.7 15.6 2.2 14.7 2.6 C 13.5 3.1 12.7 4.5 12 6 Z";
+        source: @image-url("../assets/icons/profile-gift-card.svg");
+        colorize: root.fill;
     }
 
-    if root.kind == "invitations" : Path {
+    if root.kind == "invitations" : Image {
         width: 19px;
         height: 19px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 9 11 A 3.5 3.5 0 1 0 9 4 A 3.5 3.5 0 1 0 9 11 M 3 20 C 3 16.5 5.3 14 9 14 C 12.7 14 15 16.5 15 20 M 16 6.5 A 2.5 2.5 0 0 1 16 11.5 M 17 14.5 C 19.5 15.2 21 17.1 21 20";
+        source: @image-url("../assets/icons/profile-invitations.svg");
+        colorize: root.fill;
     }
 
-    if root.kind == "tickets" : Path {
+    if root.kind == "tickets" : Image {
         width: 19px;
         height: 19px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 4 13 V 11 A 8 8 0 0 1 20 11 V 13 M 4 12 H 7 V 18 H 5.5 A 1.5 1.5 0 0 1 4 16.5 Z M 20 12 H 17 V 18 H 18.5 A 1.5 1.5 0 0 0 20 16.5 Z M 17 19 C 16 20 14.7 20.5 13 20.5";
+        source: @image-url("../assets/icons/profile-tickets.svg");
+        colorize: root.fill;
     }
 
-    if root.kind == "subscription-link" : Path {
+    if root.kind == "subscription-link" : Image {
         width: 19px;
         height: 19px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.9px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 10 14 L 14 10 M 8.2 16.8 L 6.7 18.3 A 3.5 3.5 0 0 1 1.7 13.3 L 5.3 9.7 A 3.5 3.5 0 0 1 10.3 9.7 M 13.7 14.3 A 3.5 3.5 0 0 0 18.7 14.3 L 22.3 10.7 A 3.5 3.5 0 0 0 17.3 5.7 L 15.8 7.2";
+        source: @image-url("../assets/icons/profile-subscription-link.svg");
+        colorize: root.fill;
     }
 }
 
@@ -186,35 +138,14 @@ component ServiceCell inherits Rectangle {
     }
 }
 
-component DialogButton inherits Rectangle {
-    in property <string> text;
+component DialogButton inherits AppButton {
     in property <bool> destructive: false;
-    callback clicked();
-
     width: 104px;
     height: 38px;
-    border-radius: AppTheme.radius-control;
-    border-width: root.destructive ? 0px : 1px;
-    border-color: AppTheme.border;
-    background: root.destructive
-        ? (dialog-touch.pressed ? #962633 : dialog-touch.has-hover ? #c53c4a : AppTheme.danger)
-        : (dialog-touch.pressed ? AppTheme.surface-muted
-            : dialog-touch.has-hover ? AppTheme.surface-subtle : AppTheme.surface);
-    animate background { duration: 110ms; }
-
-    Text {
-        text: root.text;
-        color: root.destructive ? white : AppTheme.ink;
-        font-size: 13px;
-        font-weight: AppTheme.font-weight-regular;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    dialog-touch := TouchArea {
-        mouse-cursor: MouseCursor.pointer;
-        clicked => { root.clicked(); }
-    }
+    kind: root.destructive ? ButtonKind.primary : ButtonKind.secondary;
+    primary-color: AppTheme.danger;
+    primary-hover-color: #c53c4a;
+    primary-pressed-color: #962633;
 }
 
 export component ProfilePage inherits Rectangle {
@@ -226,8 +157,6 @@ export component ProfilePage inherits Rectangle {
     callback open-balance-details();
     callback open-account-service(string);
     callback logout();
-
-    property <bool> logout-confirm-visible: false;
 
     width: 732px;
     height: 664px;
@@ -511,73 +440,84 @@ export component ProfilePage inherits Rectangle {
 
                 logout-touch := TouchArea {
                     mouse-cursor: MouseCursor.pointer;
-                    clicked => { root.logout-confirm-visible = true; }
+                    clicked => { root.logout(); }
                 }
             }
         }
     }
 
-    if root.logout-confirm-visible : Rectangle {
-        x: 0px;
-        y: 0px;
-        width: root.width;
-        height: root.height;
-        z: 20;
-        background: AppTheme.modal-backdrop;
+}
 
-        dismiss-touch := TouchArea {
-            clicked => { root.logout-confirm-visible = false; }
-        }
+export component LogoutConfirmation inherits Rectangle {
+    callback dismissed();
+    callback confirmed();
+    forward-focus: cancel-action;
+    init => { cancel-action.focus(); }
+    x: 0px;
+    y: 0px;
+    background: AppTheme.modal-backdrop;
 
-        dialog := SurfaceCard {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            width: 420px;
-            height: 204px;
-            z: 2;
-            border-radius: 24px;
-            drop-shadow-color: AppTheme.modal-shadow;
-            drop-shadow-blur: 24px;
-            drop-shadow-offset-y: 8px;
+    dismiss-touch := TouchArea {
+        clicked => { root.dismissed(); }
+    }
 
-            TouchArea { }
+    dialog := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 420px;
+        height: 204px;
+        z: 2;
+        border-radius: 24px;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 24px;
+        drop-shadow-offset-y: 8px;
 
-            VerticalLayout {
-                padding-left: 24px;
-                padding-right: 24px;
-                padding-top: 22px;
-                padding-bottom: 20px;
-                spacing: 12px;
+        TouchArea { }
 
-                Text {
-                    text: "退出当前账户？";
-                    color: AppTheme.ink;
-                    font-size: 18px;
-                    font-weight: 600;
-                }
-                Text {
-                    horizontal-stretch: 1;
-                    text: "退出后将清除本机登录状态，需要重新登录才能继续使用。";
-                    color: AppTheme.ink-muted;
-                    font-size: 13px;
-                    font-weight: AppTheme.font-weight-regular;
-                    wrap: word-wrap;
-                }
-                Rectangle { vertical-stretch: 1; background: transparent; }
-                HorizontalLayout {
-                    alignment: end;
-                    spacing: 10px;
-                    DialogButton {
-                        text: "取消";
-                        clicked => { root.logout-confirm-visible = false; }
+        VerticalLayout {
+            padding-left: 24px;
+            padding-right: 24px;
+            padding-top: 22px;
+            padding-bottom: 20px;
+            spacing: 12px;
+
+            Text {
+                text: "退出当前账户？";
+                color: AppTheme.ink;
+                font-size: 18px;
+                font-weight: 600;
+            }
+            Text {
+                horizontal-stretch: 1;
+                text: "退出后将清除本机登录状态，需要重新登录才能继续使用。";
+                color: AppTheme.ink-muted;
+                font-size: 13px;
+                font-weight: AppTheme.font-weight-regular;
+                wrap: word-wrap;
+            }
+            Rectangle { vertical-stretch: 1; background: transparent; }
+            HorizontalLayout {
+                alignment: end;
+                spacing: 10px;
+                cancel-action := DialogButton {
+                    text: "取消";
+                    clicked => { root.dismissed(); }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab { confirm-action.focus(); return accept; }
+                        if event.text == Key.Escape { root.dismissed(); return accept; }
+                        return reject;
                     }
-                    DialogButton {
-                        text: "退出登录";
-                        destructive: true;
-                        clicked => {
-                            root.logout-confirm-visible = false;
-                            root.logout();
-                        }
+                }
+                confirm-action := DialogButton {
+                    text: "退出登录";
+                    destructive: true;
+                    clicked => {
+                        root.confirmed();
+                    }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab { cancel-action.focus(); return accept; }
+                        if event.text == Key.Escape { root.dismissed(); return accept; }
+                        return reject;
                     }
                 }
             }

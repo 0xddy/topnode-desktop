@@ -155,10 +155,44 @@ Panel route. Desktop versions follow Android: a complete-history Git commit
 count becomes the numeric `versionCode`, while the commit date and eight-character
 SHA become `versionName`. Only a strictly greater remote code can update. The
 updater selects an exact Rust-target key from `version.downloads`, requires a
-Browser/HTTPS entry with the expected platform archive extension and MIME type,
-and delegates the URL to the hardened system-browser
-adapter. It never uses the legacy singular `download`, downloads code inside
-the process, accepts a non-web scheme, or treats inequality as an upgrade.
+Browser/HTTPS entry with the expected platform archive extension and MIME type.
+If the exact build target is absent (including an absent or empty `downloads`
+map), it uses the validated HTTPS URL in the singular `version.download` as the
+deployment-controlled fallback. That default may be a download directory or a
+file; it is opened by the same hardened system-browser adapter. The client never
+chooses a different architecture's entry, downloads code inside the process,
+accepts a non-web scheme, or treats inequality as an upgrade.
+
+Cold starts first show the frameless login page and fetch version metadata.
+Updates appear over that login page before business API probing or authentication.
+Only after an optional update is deferred (or no upgrade exists) does discovery
+continue; successful discovery enables login in the same window. Startup never
+restores a stored account session, including internal elevation restarts.
+Opening a startup download exits without attempting login; browser failure keeps
+the prompt open for retry. Closing the login page cancels discovery and exits.
+Configuration failures keep the login button disabled and offer an inline retry.
+
+Auto-login is explicit opt-in. A separate OS credential entry stores email and
+password after successful authentication, never in TOML or logs. Prefilled
+passwords remain masked. With saved inputs and no update, a cancellable two-second
+delay submits the same login callback used by the button. User edits, unchecking
+or an update cancel the delay; update deferral does not resume it for that launch.
+Logout and password change clear the saved inputs; failed login does not loop.
+
+Optional updates can be deferred; `metadata.forceUpdate` on a strictly newer
+release requires updating or exiting and also guards the tray connection action.
+`metadata.updateInfo` is displayed as bounded plain text; empty notes have an
+explicit placeholder. Missing target archives use `download.url`, never another
+architecture's entry from `downloads`.
+The About page below Personal Center can check metadata again without probing the
+business API, with a single check in flight and visible retry feedback. TUN
+handoff completes before optional prompts are shown on the login page.
+
+The optional top-level `website` field supplies the About page's official-site
+button. Only a validated HTTPS URL without credentials is accepted. Missing or
+empty values disable the button; unsupported-target update dialogs can offer the
+same official website. Browser launches run outside Slint callbacks and report
+failures in the UI. Release-config generation preserves the deployment's website.
 
 The manual release workflow queries the official SagerNet GitHub Release by an
 exact stable version and asset name, requires GitHub's SHA-256 asset digest,
@@ -187,8 +221,9 @@ origins. Because the renderer starts
 from the checked-in schema example, deployment must preserve the production
 document's `baseApiServer`, `apiProbe`, `fake`, and `payment` policy; merge only
 the generated `version` object unless those fields have first been synchronized
-into the template. Updating only the legacy singular `version.download` does not
-enable desktop updates. Deployment credentials and server access are
+into the template. `version.download` supplies the fallback for missing target
+entries; a matching `version.downloads` entry still takes precedence, so keep both
+in sync with the release metadata. Deployment credentials and server access are
 intentionally outside this repository workflow.
 
 Generated GitHub URLs are anonymous only for a public repository. A private
@@ -207,6 +242,6 @@ redistribution obligations. Ship the GPL license, notices, corresponding source
 or a compliant source offer, build metadata, and consult legal counsel for the
 combined distribution.
 
-Slint has its own royalty-free/commercial terms. The restoring splash screen includes
+Slint has its own royalty-free/commercial terms. The login page while loading configuration includes
 the AboutSlint badge required by the royalty-free option. Preserve it or obtain
 the appropriate commercial license.

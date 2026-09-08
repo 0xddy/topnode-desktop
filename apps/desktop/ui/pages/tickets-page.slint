@@ -423,21 +423,13 @@ component PrioritySelector inherits Rectangle {
         vertical-alignment: center;
     }
 
-    Path {
+    Image {
         x: parent.width - 31px;
         y: 12px;
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: AppTheme.ink-muted;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 6 9 L 12 15 L 18 9";
+        source: @image-url("../assets/icons/tickets-priority-selector.svg");
+        colorize: AppTheme.ink-muted;
     }
 
     selector-touch := TouchArea {

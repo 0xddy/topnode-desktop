@@ -22,7 +22,6 @@ import {
     SupportTicketItem,
     SupportTicketMessageItem,
 } from "models.slint";
-import { BrandLockup } from "components/brand.slint";
 import { AppButton, BusyIndicator, ButtonKind } from "components/controls.slint";
 import { Sidebar } from "components/sidebar.slint";
 import { LoginPage } from "pages/login-page.slint";
@@ -30,16 +29,19 @@ import { HomePage } from "pages/home-page.slint";
 import { SubscriptionsPage } from "pages/subscriptions-page.slint";
 import { PurchasePage } from "pages/purchase-page.slint";
 import { PurchaseCheckoutSheet } from "pages/purchase-checkout-sheet.slint";
-import { ProfilePage } from "pages/profile-page.slint";
+import { LogoutConfirmation, ProfilePage } from "pages/profile-page.slint";
 import { AccountSettingsPage } from "pages/account-settings-page.slint";
 import { BalanceDetailsPage } from "pages/balance-details-sheet.slint";
 import { OrdersPage } from "pages/orders-page.slint";
 import { GiftCardPage } from "pages/gift-card-page.slint";
 import { InvitationPage } from "pages/invitation-page.slint";
-import { SubscriptionLinkPage } from "pages/subscription-link-page.slint";
+import { SubscriptionLinkPage, SubscriptionLinkResetConfirmation } from "pages/subscription-link-page.slint";
 import { TicketCloseConfirmation, TicketsPage } from "pages/tickets-page.slint";
 import { NodeSelectorSheet } from "pages/node-selector-sheet.slint";
 import { SettingsPage } from "pages/settings-page.slint";
+import { AboutPage } from "pages/about-page.slint";
+import { UpdateDialog } from "components/update-dialog.slint";
+import { WindowControls } from "components/window-controls.slint";
 import { AboutSlint } from "std-widgets.slint";
 
 component NoticeToast inherits Rectangle {
@@ -123,68 +125,6 @@ component NoticeToast inherits Rectangle {
     }
 }
 
-export component StartupErrorWindow inherits Window {
-    in-out property <string> error-message;
-    in-out property <bool> retrying: false;
-    callback retry();
-
-    title: "TOPNODE - 启动失败";
-    icon: @image-url("assets/topnode-logo.svg");
-    default-font-family: "Microsoft YaHei UI";
-    preferred-width: 480px;
-    preferred-height: 310px;
-    min-width: 480px;
-    min-height: 310px;
-    max-width: 480px;
-    max-height: 310px;
-    background: AppTheme.canvas;
-
-    VerticalLayout {
-        padding: 28px;
-        spacing: 18px;
-
-        Text {
-            text: "暂时无法启动 TOPNODE";
-            color: AppTheme.ink;
-            font-size: 20px;
-            font-weight: 700;
-        }
-
-        Text {
-            text: root.retrying ? "正在重新获取启动配置并检测服务……" : root.error-message;
-            color: root.retrying ? AppTheme.ink-muted : AppTheme.danger;
-            font-size: 13px;
-            wrap: word-wrap;
-            vertical-stretch: 1;
-        }
-
-        Text {
-            text: "请确认网络连接正常，然后重试。";
-            color: AppTheme.ink-subtle;
-            font-size: 12px;
-        }
-
-        HorizontalLayout {
-            alignment: end;
-            spacing: 10px;
-
-            AppButton {
-                text: "退出";
-                kind: ButtonKind.secondary;
-                enabled: !root.retrying;
-                clicked => { root.close(); }
-            }
-
-            AppButton {
-                text: root.retrying ? "正在重试" : "重试";
-                busy: root.retrying;
-                enabled: !root.retrying;
-                clicked => { root.retry(); }
-            }
-        }
-    }
-}
-
 export component AppWindow inherits Window {
     in property <bool> administrator-mode: false;
     title: root.administrator-mode ? "TOPNODE - 管理员模式运行" : "TOPNODE";
@@ -197,14 +137,83 @@ export component AppWindow inherits Window {
     max-width: 1024px;
     max-height: 720px;
     background: AppTheme.canvas;
+    no-frame: true;
 
-    in property <AppPhase> app-phase: AppPhase.restoring;
+    in property <AppPhase> app-phase: AppPhase.signed-out;
+    in property <string> app-version;
+    in property <string> website-url;
+    in-out property <bool> website-opening: false;
+    in-out property <bool> update-visible: false;
+    in property <bool> update-available: false;
+    in property <bool> update-required: false;
+    in property <string> update-version;
+    in property <string> update-notes;
+    in property <string> update-url;
+    in-out property <bool> update-checking: false;
+    in-out property <bool> update-opening: false;
+    in-out property <string> update-check-status;
+    in-out property <string> update-error;
+    callback open-website();
+    callback check-for-updates();
+    callback download-update();
+    callback dismiss-update();
+    callback quit-for-update();
     in property <bool> login-submitting: false;
     in property <string> login-error;
+    in-out property <string> login-email;
+    in-out property <string> login-password;
+    in-out property <bool> login-auto: false;
+    in-out property <bool> login-auto-pending: false;
+    in-out property <bool> login-edited: false;
+    in-out property <bool> login-auto-blocked: false;
+    in-out property <bool> login-config-ready: false;
+    in-out property <bool> login-config-failed: false;
+    in-out property <string> login-config-status: "加载配置中…";
+    in-out property <string> login-storage-message;
+    callback retry-startup();
+    callback auto-login-changed(bool);
+    callback close-window();
+    callback drag-window();
+
+    public function arm-auto-login() {
+        root.login-auto-pending = root.login-config-ready && root.login-auto
+            && !root.login-auto-blocked && !root.login-edited && !root.update-visible
+            && root.login-email != "" && root.login-password != "";
+    }
+
+    public function trigger-login() {
+        root.login-auto-pending = false;
+        if root.app-phase == AppPhase.signed-out && root.login-config-ready
+            && !root.update-visible && !root.login-submitting
+            && root.login-email != "" && root.login-password != "" {
+            root.submit-login(root.login-email, root.login-password);
+        }
+    }
+
+    public function cancel-auto-login() {
+        root.login-edited = true;
+        root.login-auto-pending = false;
+    }
+
+    changed update-visible => {
+        if root.update-visible {
+            root.login-auto-blocked = true;
+            root.login-auto-pending = false;
+        }
+    }
+
+    Timer {
+        interval: 2s;
+        running: root.login-auto-pending && root.login-config-ready && !root.update-visible
+            && root.login-auto && root.app-phase == AppPhase.signed-out;
+        triggered => { root.trigger-login(); }
+    }
     in property <string> user-display-name;
     in property <string> user-email;
     in property <string> user-balance-label: "¥0.00";
     in property <int> user-balance-cents: 0;
+    in-out property <bool> logout-confirmation-visible: false;
+    in-out property <bool> subscription-link-reset-confirmation-visible: false;
     in-out property <bool> account-settings-visible: false;
     in-out property <bool> account-settings-busy: false;
     in-out property <string> account-settings-error;
@@ -431,6 +440,8 @@ export component AppWindow inherits Window {
 
     changed app-phase => {
         if (root.app-phase != AppPhase.signed-in) {
+            root.logout-confirmation-visible = false;
+            root.subscription-link-reset-confirmation-visible = false;
             if (root.node-selector-visible) {
                 root.close-node-selector();
             }
@@ -459,6 +470,8 @@ export component AppWindow inherits Window {
     }
     changed current-page => {
         if (root.current-page != NavigationPage.profile) {
+            root.logout-confirmation-visible = false;
+            root.subscription-link-reset-confirmation-visible = false;
             root.account-settings-visible = false;
             root.account-settings-stage = "overview";
             root.account-settings-error = "";
@@ -509,38 +522,23 @@ export component AppWindow inherits Window {
         }
     }
 
-    if root.app-phase == AppPhase.restoring : Rectangle {
-        background: AppTheme.canvas;
-        VerticalLayout {
-            alignment: center;
-            spacing: 16px;
-            HorizontalLayout {
-                alignment: center;
-                BrandLockup { mark-size: 40px; }
-            }
-            Text {
-                text: "正在准备账户…";
-                color: AppTheme.ink-muted;
-                font-size: 13px;
-                horizontal-alignment: center;
-            }
-            HorizontalLayout {
-                alignment: center;
-                BusyIndicator { width: 22px; height: 22px; }
-            }
-        }
-        AboutSlint {
-            x: parent.width - self.width - 24px;
-            y: parent.height - self.height - 18px;
-            width: 280px;
-            height: 96px;
-        }
-    }
-
     if root.app-phase == AppPhase.signed-out : LoginPage {
         submitting: root.login-submitting;
-        error-message: root.login-error;
-        submit(email, password) => { root.submit-login(email, password); }
+        error-message: root.login-error != "" ? root.login-error : root.login-storage-message;
+        email <=> root.login-email;
+        password <=> root.login-password;
+        auto-login <=> root.login-auto;
+        auto-pending: root.login-auto-pending;
+        config-ready: root.login-config-ready && !root.update-visible;
+        config-failed: root.login-config-failed;
+        config-status: root.login-config-status;
+        submit => { root.trigger-login(); }
+        edited => { root.cancel-auto-login(); }
+        auto-login-changed(enabled) => {
+            root.cancel-auto-login();
+            root.auto-login-changed(enabled);
+        }
+        retry => { root.retry-startup(); }
     }
 
     if root.app-phase == AppPhase.signed-in : HorizontalLayout {
@@ -599,10 +597,12 @@ export component AppWindow inherits Window {
                 : AppTheme.canvas;
             horizontal-stretch: 1;
             VerticalLayout {
+                y: window-controls.height;
+                height: parent.height - self.y;
                 padding-left: root.current-page == NavigationPage.home ? 0px : 36px;
                 padding-right: root.current-page == NavigationPage.home ? 0px : 36px;
-                padding-top: root.current-page == NavigationPage.home ? 0px : 28px;
-                padding-bottom: root.current-page == NavigationPage.home ? 0px : 28px;
+                padding-top: root.current-page == NavigationPage.home ? 0px : 12px;
+                padding-bottom: root.current-page == NavigationPage.home ? 0px : 16px;
                 spacing: root.current-page == NavigationPage.home ? 0px : 16px;
                 Rectangle {
                     background: transparent;
@@ -612,11 +612,10 @@ export component AppWindow inherits Window {
                         ? root.width - AppTheme.sidebar-width
                         : root.width - AppTheme.sidebar-width - 72px;
                     max-width: self.min-width;
-                    // The surrounding layout already reserves 28px above and
-                    // below non-home pages. Using the full parent height here
-                    // pushed page footers below the native window boundary.
+                    // Reserve both the custom title bar and page padding so
+                    // controls and page footers stay inside the content area.
                     min-height: root.current-page == NavigationPage.home
-                        ? parent.height : parent.height - 56px;
+                        ? parent.height : parent.height - 28px;
                     max-height: self.min-height;
 
                     HomePage {
@@ -765,7 +764,7 @@ export component AppWindow inherits Window {
                                 root.load-support-tickets(1, false);
                             }
                         }
-                        logout => { root.logout(); }
+                        logout => { root.logout-confirmation-visible = true; }
                     }
                     account-settings-page := AccountSettingsPage {
                         width: 100%;
@@ -934,7 +933,7 @@ export component AppWindow inherits Window {
                         resetting <=> root.subscription-link-resetting;
                         reset-error <=> root.subscription-link-reset-error;
                         load => { root.load-subscription-link(); }
-                        reset => { root.reset-subscription-link(); }
+                        request-reset => { root.subscription-link-reset-confirmation-visible = true; }
                         copy(value) => { root.copy-subscription-link(value); }
                         dismissed => {
                             root.subscription-link-visible = false;
@@ -1039,6 +1038,20 @@ export component AppWindow inherits Window {
                         udp-forwarding-changed(value) => { root.udp-forwarding-changed(value); }
                         multiplex-changed(value) => { root.multiplex-changed(value); }
                     }
+                    AboutPage {
+                        width: 100%;
+                        height: 100%;
+                        visible: root.current-page == NavigationPage.about;
+                        version: root.app-version;
+                        website: root.website-url;
+                        website-opening: root.website-opening;
+                        checking: root.update-checking;
+                        update-available: root.update-available;
+                        update-status: root.update-check-status;
+                        open-website => { root.open-website(); }
+                        check-for-updates => { root.check-for-updates(); }
+                        show-update => { root.update-visible = true; }
+                    }
                 }
             }
         }
@@ -1054,6 +1067,7 @@ export component AppWindow inherits Window {
         z: 90;
         open: root.node-selector-visible;
         left-inset: AppTheme.sidebar-width;
+        top-inset: window-controls.height;
         resource-phase: root.resource-phase;
         resource-error: root.resource-error;
         resource-groups: root.resource-groups;
@@ -1080,6 +1094,7 @@ export component AppWindow inherits Window {
         y: 0px;
         width: 100%;
         height: 100%;
+        top-inset: window-controls.height;
         visible: root.app-phase == AppPhase.signed-in && root.checkout-visible;
         z: 95;
         open <=> root.checkout-visible;
@@ -1156,6 +1171,36 @@ export component AppWindow inherits Window {
         confirmed => { root.close-support-ticket(root.selected-ticket-id); }
     }
 
+    // Confirmations belong to the window so the backdrop also blocks the sidebar
+    // and covers the page padding, independently of page clipping and scrolling.
+    if root.app-phase == AppPhase.signed-in && root.logout-confirmation-visible : LogoutConfirmation {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        z: 98;
+        dismissed => { root.logout-confirmation-visible = false; }
+        confirmed => {
+            root.logout-confirmation-visible = false;
+            root.logout();
+        }
+    }
+
+    if root.app-phase == AppPhase.signed-in && root.subscription-link-reset-confirmation-visible : SubscriptionLinkResetConfirmation {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        z: 98;
+        dismissed => { root.subscription-link-reset-confirmation-visible = false; }
+        confirmed => {
+            root.subscription-link-reset-confirmation-visible = false;
+            root.subscription-link-resetting = true;
+            root.subscription-link-reset-error = "";
+            root.reset-subscription-link();
+        }
+    }
+
     if root.notice != "" : NoticeToast {
         x: root.app-phase == AppPhase.signed-in
             ? AppTheme.sidebar-width + (root.width - AppTheme.sidebar-width - self.width) / 2
@@ -1164,5 +1209,46 @@ export component AppWindow inherits Window {
         z: 100;
         message: root.notice;
         dismissed => { root.notice = ""; }
+    }
+
+    if root.update-visible : UpdateDialog {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        z: 110;
+        version: root.update-version;
+        notes: root.update-notes;
+        required: root.update-required;
+        can-download: root.update-url != "";
+        has-website: root.website-url != "";
+        opening: root.update-opening || root.website-opening;
+        error-message: root.update-error;
+        dismissed => { root.dismiss-update(); }
+        download => { root.download-update(); }
+        website => { root.open-website(); }
+        quit => { root.quit-for-update(); }
+    }
+
+    window-controls := WindowControls {
+        x: root.app-phase == AppPhase.signed-in ? AppTheme.sidebar-width : 0px;
+        y: 0px;
+        width: root.width - self.x;
+        z: 120;
+        compact: root.app-phase == AppPhase.signed-in;
+        overlay: root.update-visible || (root.app-phase == AppPhase.signed-in
+            && (root.node-selector-visible || root.checkout-visible
+                || root.ticket-close-confirmation-visible || root.logout-confirmation-visible
+                || root.subscription-link-reset-confirmation-visible));
+        minimize => { root.minimized = true; }
+        close => { root.close-window(); }
+        drag => { root.drag-window(); }
+    }
+
+    if root.app-phase == AppPhase.signed-out && !root.login-config-ready && !root.update-visible : AboutSlint {
+        x: 80px;
+        y: parent.height - 104px;
+        width: 280px;
+        height: 96px;
     }
 }

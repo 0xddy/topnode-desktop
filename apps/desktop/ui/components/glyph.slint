@@ -7,15 +7,11 @@ export component Glyph inherits Rectangle {
     height: 18px;
     background: transparent;
 
-    if root.name == "home" : Path {
+    if root.name == "home" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 4 11 L 12 4 L 20 11 V 20 H 14.5 V 14 H 9.5 V 20 H 4 Z";
+        source: @image-url("../assets/icons/glyph-home.svg");
+        colorize: root.fill;
     }
 
     if root.name == "nodes" : Rectangle {
@@ -28,204 +24,112 @@ export component Glyph inherits Rectangle {
 
     if root.name == "subscriptions" : Rectangle {
         background: transparent;
-        Path {
+        Image {
             width: 18px;
             height: 18px;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.8px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 14.5 4.5 C 17.2 4.1 19.4 4.5 19.4 4.5 C 19.4 4.5 19.8 6.8 19.4 9.5 C 19 12.2 17.4 14.5 15.1 16.2 L 11.9 13 L 8.7 9.8 C 10.4 7.5 11.8 5.3 14.5 4.5 Z M 8.9 10.2 L 6.2 10.5 L 4.6 12.1 L 8.6 13.1 M 14.9 15.8 L 13.9 19.8 L 12.3 21.4 L 11.8 16.9 M 14.7 8.7 A 1.5 1.5 0 1 0 17.7 8.7 A 1.5 1.5 0 1 0 14.7 8.7 M 7 17 C 6.1 17.4 5.4 18.1 5 19 C 5.9 18.6 6.6 17.9 7 17 Z";
+            source: @image-url("../assets/icons/glyph-subscriptions.svg");
+            colorize: root.fill;
         }
     }
 
     if root.name == "shop" : Rectangle {
         background: transparent;
-        Path {
+        Image {
             width: 18px;
             height: 18px;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.8px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 5 8 H 19 L 18 20 H 6 Z M 9 9 V 6 A 3 3 0 0 1 15 6 V 9";
+            source: @image-url("../assets/icons/glyph-shop.svg");
+            colorize: root.fill;
         }
     }
 
-    if root.name == "package" : Path {
+    if root.name == "package" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 4 7.5 L 12 3.5 L 20 7.5 V 17 L 12 21 L 4 17 Z M 4 7.5 L 12 11.5 L 20 7.5 M 12 11.5 V 21";
+        source: @image-url("../assets/icons/glyph-package.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "coupon" : Path {
+    if root.name == "coupon" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.7px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 12 4 L 14.2 5.6 L 16.9 5.4 L 17.7 8 L 20 9.4 L 19.2 12 L 20 14.6 L 17.7 16 L 16.9 18.6 L 14.2 18.4 L 12 20 L 9.8 18.4 L 7.1 18.6 L 6.3 16 L 4 14.6 L 4.8 12 L 4 9.4 L 6.3 8 L 7.1 5.4 L 9.8 5.6 Z M 9 15.5 L 15 8.5 M 9.1 9.2 H 9.2 M 14.8 14.8 H 14.9";
+        source: @image-url("../assets/icons/glyph-coupon.svg");
+        colorize: root.fill;
     }
 
     if root.name == "data-usage" : Rectangle {
         background: transparent;
-        Path {
+        Image {
             width: 18px;
             height: 18px;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.9px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 8 4 V 20 M 4.5 16.5 L 8 20 L 11.5 16.5 M 16 20 V 4 M 12.5 7.5 L 16 4 L 19.5 7.5";
+            source: @image-url("../assets/icons/glyph-data-usage.svg");
+            colorize: root.fill;
         }
     }
 
-    if root.name == "refresh" : Path {
+    if root.name == "refresh" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.9px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 20 7 V 12 H 15 M 4 17 V 12 H 9 M 18.3 9 A 7 7 0 0 0 6.1 7 M 5.7 15 A 7 7 0 0 0 17.9 17";
+        source: @image-url("../assets/icons/glyph-refresh.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "copy" : Path {
+    if root.name == "copy" : Image {
         width: root.width;
         height: root.height;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 8 8 H 19 V 19 H 8 Z M 5 16 H 4 V 4 H 16 V 5";
+        source: @image-url("../assets/icons/glyph-copy.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "support" : Path {
+    if root.name == "support" : Image {
         width: 24px;
         height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 5 13 V 11 A 7 7 0 0 1 19 11 V 16 A 3 3 0 0 1 16 19 H 14 M 5 11 H 4 A 2 2 0 0 0 2 13 V 15 A 2 2 0 0 0 4 17 H 5 Z M 19 11 H 20 A 2 2 0 0 1 22 13 V 15 A 2 2 0 0 1 20 17 H 19 Z M 10 19 H 14";
+        source: @image-url("../assets/icons/glyph-support.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "send" : Path {
+    if root.name == "send" : Image {
         width: 24px;
         height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 3 11.5 L 21 3 L 14.5 21 L 11 13 Z M 11 13 L 21 3";
+        source: @image-url("../assets/icons/glyph-send.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "plus" : Path {
+    if root.name == "plus" : Image {
         width: 24px;
         height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 2px;
-        stroke-line-cap: round;
-        commands: "M 12 5 V 19 M 5 12 H 19";
+        source: @image-url("../assets/icons/glyph-plus.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "more" : Path {
+    if root.name == "more" : Image {
         width: 24px;
         height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 6 10 A 2 2 0 1 0 6 14 A 2 2 0 1 0 6 10 M 12 10 A 2 2 0 1 0 12 14 A 2 2 0 1 0 12 10 M 18 10 A 2 2 0 1 0 18 14 A 2 2 0 1 0 18 10";
+        source: @image-url("../assets/icons/glyph-more.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "error" : Path {
+    if root.name == "error" : Image {
         width: 24px;
         height: 24px;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.9px;
-        stroke-line-cap: round;
-        commands: "M 12 3 A 9 9 0 1 0 12 21 A 9 9 0 1 0 12 3 M 12 7 V 13 M 12 17 L 12 17.1";
+        source: @image-url("../assets/icons/glyph-error.svg");
+        colorize: root.fill;
     }
 
     if root.name == "empty-subscriptions" : Rectangle {
         background: transparent;
-        Path {
+        Image {
             width: 18px;
             height: 18px;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.8px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 6 7.5 H 18 A 2 2 0 0 1 20 9.5 V 18 A 2 2 0 0 1 18 20 H 6 A 2 2 0 0 1 4 18 V 9.5 A 2 2 0 0 1 6 7.5 Z M 9 7.5 V 6 A 3 3 0 0 1 15 6 V 7.5 M 8 12 H 16 M 8 16 H 13";
+            source: @image-url("../assets/icons/glyph-empty-subscriptions.svg");
+            colorize: root.fill;
         }
     }
 
-    if root.name == "settings" : Path {
+    if root.name == "settings" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 19.43 12.98 C 19.47 12.66 19.5 12.34 19.5 12 C 19.5 11.66 19.47 11.34 19.42 11.02 L 21.54 9.37 C 21.73 9.22 21.78 8.95 21.66 8.73 L 19.66 5.27 C 19.54 5.05 19.27 4.96 19.05 5.05 L 16.56 6.05 C 16.04 5.66 15.48 5.32 14.87 5.07 L 14.49 2.42 C 14.46 2.18 14.25 2 14 2 H 10 C 9.75 2 9.54 2.18 9.51 2.42 L 9.13 5.07 C 8.52 5.32 7.96 5.66 7.44 6.05 L 4.95 5.05 C 4.73 4.97 4.46 5.05 4.34 5.27 L 2.34 8.73 C 2.21 8.95 2.27 9.22 2.46 9.37 L 4.58 11.02 C 4.53 11.34 4.5 11.67 4.5 12 C 4.5 12.33 4.53 12.66 4.58 12.98 L 2.46 14.63 C 2.27 14.78 2.21 15.05 2.34 15.27 L 4.34 18.73 C 4.46 18.95 4.73 19.04 4.95 18.95 L 7.44 17.95 C 7.96 18.34 8.52 18.68 9.13 18.93 L 9.51 21.58 C 9.54 21.82 9.75 22 10 22 H 14 C 14.25 22 14.46 21.82 14.49 21.58 L 14.87 18.93 C 15.48 18.68 16.04 18.34 16.56 17.95 L 19.05 18.95 C 19.27 19.03 19.54 18.95 19.66 18.73 L 21.66 15.27 C 21.78 15.05 21.73 14.78 21.54 14.63 L 19.43 12.98 Z M 12 15.5 C 10.07 15.5 8.5 13.93 8.5 12 C 8.5 10.07 10.07 8.5 12 8.5 C 13.93 8.5 15.5 10.07 15.5 12 C 15.5 13.93 13.93 15.5 12 15.5 Z";
+        source: @image-url("../assets/icons/glyph-settings.svg");
+        colorize: root.fill;
     }
 
     if root.name == "info" : Rectangle {
@@ -256,19 +160,11 @@ export component Glyph inherits Rectangle {
             border-color: root.fill;
             background: transparent;
         }
-        Path {
+        Image {
             width: 18px;
             height: 18px;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 18;
-            viewbox-height: 18;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.7px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 9 4.8 V 9 L 12 10.8";
+            source: @image-url("../assets/icons/glyph-clock.svg");
+            colorize: root.fill;
         }
     }
 
@@ -278,26 +174,18 @@ export component Glyph inherits Rectangle {
         Rectangle { x: 3px; y: 10px; width: 12px; height: 7px; border-radius: 6px; background: root.fill; }
     }
 
-    if root.name == "play" : Path {
+    if root.name == "play" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 8 6 L 8 18 L 19 12 Z";
+        source: @image-url("../assets/icons/glyph-play.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "bolt" : Path {
+    if root.name == "bolt" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 13 2 L 4 14 H 11 L 10 22 L 20 9 H 13 Z";
+        source: @image-url("../assets/icons/glyph-bolt.svg");
+        colorize: root.fill;
     }
 
     if root.name == "globe" : Rectangle {
@@ -334,30 +222,18 @@ export component Glyph inherits Rectangle {
         background: root.fill;
     }
 
-    if root.name == "logout" : Path {
+    if root.name == "logout" : Image {
         width: 18px;
         height: 18px;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.8px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 10 5 H 6 A 2 2 0 0 0 4 7 V 17 A 2 2 0 0 0 6 19 H 10 M 13 8 L 17 12 L 13 16 M 8 12 H 17";
+        source: @image-url("../assets/icons/glyph-logout.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "check" : Path {
+    if root.name == "check" : Image {
         width: root.width;
         height: root.height;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 9 19 L 3.5 13.5 L 5.3 11.7 L 9 15.4 L 18.7 5.7 L 20.5 7.5 Z";
+        source: @image-url("../assets/icons/glyph-check.svg");
+        colorize: root.fill;
     }
 
     if root.name == "lock" : Rectangle {
@@ -382,48 +258,28 @@ export component Glyph inherits Rectangle {
         }
     }
 
-    if root.name == "chevron-right" : Path {
+    if root.name == "chevron-right" : Image {
         width: root.width;
         height: root.height;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: root.fill;
-        commands: "M 9.4 5.4 L 8.1 6.7 L 13.4 12 L 8.1 17.3 L 9.4 18.6 L 16 12 Z";
+        source: @image-url("../assets/icons/glyph-chevron-right.svg");
+        colorize: root.fill;
     }
 
-    if root.name == "arrow-left" : Path {
+    if root.name == "arrow-left" : Image {
         width: root.width;
         height: root.height;
-        viewbox-x: 0;
-        viewbox-y: 0;
-        viewbox-width: 24;
-        viewbox-height: 24;
-        fill: transparent;
-        stroke: root.fill;
-        stroke-width: 1.9px;
-        stroke-line-cap: round;
-        stroke-line-join: round;
-        commands: "M 19 12 H 5 M 11 6 L 5 12 L 11 18";
+        source: @image-url("../assets/icons/glyph-arrow-left.svg");
+        colorize: root.fill;
     }
 
     if root.name == "eye" : Rectangle {
         background: transparent;
 
-        Path {
+        Image {
             width: root.width;
             height: root.height;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.8px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 2.5 12 C 4.8 7.8 8.1 5.7 12 5.7 C 15.9 5.7 19.2 7.8 21.5 12 C 19.2 16.2 15.9 18.3 12 18.3 C 8.1 18.3 4.8 16.2 2.5 12 Z";
+            source: @image-url("../assets/icons/glyph-eye.svg");
+            colorize: root.fill;
         }
         Rectangle {
             x: root.width / 2 - 2.6px;
@@ -438,19 +294,11 @@ export component Glyph inherits Rectangle {
     if root.name == "eye-off" : Rectangle {
         background: transparent;
 
-        Path {
+        Image {
             width: root.width;
             height: root.height;
-            viewbox-x: 0;
-            viewbox-y: 0;
-            viewbox-width: 24;
-            viewbox-height: 24;
-            fill: transparent;
-            stroke: root.fill;
-            stroke-width: 1.8px;
-            stroke-line-cap: round;
-            stroke-line-join: round;
-            commands: "M 3 12 C 5.2 8 8.3 6 12 6 C 15.7 6 18.8 8 21 12 C 18.8 16 15.7 18 12 18 C 8.3 18 5.2 16 3 12 Z M 4 4 L 20 20";
+            source: @image-url("../assets/icons/glyph-eye-off.svg");
+            colorize: root.fill;
         }
     }
 }

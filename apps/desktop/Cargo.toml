@@ -12,7 +12,7 @@ anyhow.workspace = true
 copypasta.workspace = true
 image.workspace = true
 qrcode.workspace = true
-slint.workspace = true
+slint = { workspace = true, features = ["unstable-winit-030"] }
 thiserror.workspace = true
 time.workspace = true
 tokio.workspace = true

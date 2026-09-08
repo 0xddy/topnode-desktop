@@ -173,34 +173,16 @@ component SubscriptionResetButton inherits Rectangle {
     }
 }
 
-component SubscriptionDialogButton inherits Rectangle {
+component SubscriptionDialogButton inherits AppButton {
     in property <string> label;
     in property <bool> danger: false;
-    callback clicked();
-
+    text: root.label;
     height: 40px;
-    border-radius: 10px;
-    background: root.danger
-        ? (dialog-touch.pressed ? #962633 : dialog-touch.has-hover ? #c53c4a : AppTheme.danger)
-        : (dialog-touch.pressed ? AppTheme.surface-muted
-            : dialog-touch.has-hover ? AppTheme.surface-subtle : AppTheme.surface);
-    border-width: root.danger ? 0px : 1px;
-    border-color: AppTheme.border;
-    animate background { duration: 100ms; }
-
-    Text {
-        text: root.label;
-        color: root.danger ? white : AppTheme.ink-muted;
-        font-size: 13px;
-        font-weight: 550;
-        horizontal-alignment: center;
-        vertical-alignment: center;
-    }
-
-    dialog-touch := TouchArea {
-        mouse-cursor: MouseCursor.pointer;
-        clicked => { root.clicked(); }
-    }
+    corner-radius: 10px;
+    kind: root.danger ? ButtonKind.primary : ButtonKind.secondary;
+    primary-color: AppTheme.danger;
+    primary-hover-color: #c53c4a;
+    primary-pressed-color: #962633;
 }
 
 export component SubscriptionLinkPage inherits Rectangle {
@@ -212,11 +194,9 @@ export component SubscriptionLinkPage inherits Rectangle {
     in-out property <string> reset-error;
 
     callback load();
-    callback reset();
+    callback request-reset();
     callback copy(string);
     callback dismissed();
-
-    in-out property <bool> reset-confirmation-visible: false;
 
     background: transparent;
     clip: true;
@@ -229,7 +209,6 @@ export component SubscriptionLinkPage inherits Rectangle {
         root.url = "";
         root.resetting = false;
         root.reset-error = "";
-        root.reset-confirmation-visible = false;
     }
 
     function refresh() {
@@ -393,7 +372,7 @@ export component SubscriptionLinkPage inherits Rectangle {
                             resetting: root.resetting;
                             clicked => {
                                 root.reset-error = "";
-                                root.reset-confirmation-visible = true;
+                                root.request-reset();
                             }
                         }
                     }
@@ -442,64 +421,77 @@ export component SubscriptionLinkPage inherits Rectangle {
         }
     }
 
-    if root.reset-confirmation-visible : Rectangle {
-        x: 0px;
-        y: 0px;
-        width: 100%;
-        height: 100%;
-        background: AppTheme.modal-backdrop;
+}
 
-        TouchArea {
-            enabled: !root.resetting;
-            clicked => { root.reset-confirmation-visible = false; }
-        }
+export component SubscriptionLinkResetConfirmation inherits Rectangle {
+    callback dismissed();
+    callback confirmed();
+    forward-focus: cancel-action;
+    init => { cancel-action.focus(); }
+    x: 0px;
+    y: 0px;
+    width: 100%;
+    height: 100%;
+    background: AppTheme.modal-backdrop;
 
-        dialog := SurfaceCard {
-            x: (parent.width - self.width) / 2;
-            y: (parent.height - self.height) / 2;
-            width: min(452px, parent.width - 48px);
-            height: 226px;
-            drop-shadow-color: AppTheme.modal-shadow;
-            drop-shadow-blur: 22px;
-            drop-shadow-offset-y: 7px;
+    TouchArea {
+        clicked => { root.dismissed(); }
+    }
 
-            VerticalLayout {
-                padding-left: 22px;
-                padding-right: 22px;
-                padding-top: 22px;
-                padding-bottom: 18px;
-                spacing: 14px;
-                Text {
-                    text: "重置订阅地址";
-                    color: AppTheme.ink;
-                    font-size: 18px;
-                    font-weight: 600;
-                }
-                Text {
-                    text: "重置后当前地址将立即失效，所有已配置的第三方客户端都需要使用新地址重新同步。";
-                    color: AppTheme.ink-muted;
-                    font-size: 13px;
-                    wrap: word-wrap;
-                    vertical-stretch: 1;
-                }
-                HorizontalLayout {
-                    height: 40px;
-                    spacing: 10px;
-                    SubscriptionDialogButton {
-                        horizontal-stretch: 1;
-                        label: "取消";
-                        clicked => { root.reset-confirmation-visible = false; }
+    dialog := SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: min(452px, parent.width - 48px);
+        height: 226px;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 22px;
+        drop-shadow-offset-y: 7px;
+
+        TouchArea { }
+
+        VerticalLayout {
+            padding-left: 22px;
+            padding-right: 22px;
+            padding-top: 22px;
+            padding-bottom: 18px;
+            spacing: 14px;
+            Text {
+                text: "重置订阅地址";
+                color: AppTheme.ink;
+                font-size: 18px;
+                font-weight: 600;
+            }
+            Text {
+                text: "重置后当前地址将立即失效，所有已配置的第三方客户端都需要使用新地址重新同步。";
+                color: AppTheme.ink-muted;
+                font-size: 13px;
+                wrap: word-wrap;
+                vertical-stretch: 1;
+            }
+            HorizontalLayout {
+                height: 40px;
+                spacing: 10px;
+                cancel-action := SubscriptionDialogButton {
+                    horizontal-stretch: 1;
+                    label: "取消";
+                    clicked => { root.dismissed(); }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab { confirm-action.focus(); return accept; }
+                        if event.text == Key.Escape { root.dismissed(); return accept; }
+                        return reject;
                     }
-                    SubscriptionDialogButton {
-                        horizontal-stretch: 1;
-                        label: "确认重置";
-                        danger: true;
-                        clicked => {
-                            root.reset-confirmation-visible = false;
-                            root.resetting = true;
-                            root.reset-error = "";
-                            root.reset();
-                        }
+                }
+                confirm-action := SubscriptionDialogButton {
+                    horizontal-stretch: 1;
+                    label: "确认重置";
+                    danger: true;
+                    clicked => {
+                        root.confirmed();
+                    }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab { cancel-action.focus(); return accept; }
+                        if event.text == Key.Escape { root.dismissed(); return accept; }
+                        return reject;
                     }
                 }
             }

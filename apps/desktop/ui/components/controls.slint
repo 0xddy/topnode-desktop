@@ -1,3 +1,4 @@
+import { SmoothCard } from "./smooth-card.slint";
 import { AppTheme } from "../theme.slint";
 import { Glyph } from "glyph.slint";
 
@@ -76,10 +77,21 @@ export component AppButton inherits Rectangle {
     in property <color> primary-color: AppTheme.accent;
     in property <color> primary-hover-color: AppTheme.accent-hover;
     in property <color> primary-pressed-color: AppTheme.accent-dark;
-    in property <bool> gradient-primary: true;
+    in property <bool> gradient-primary: false;
     in property <length> button-min-width: 80px;
     in property <length> corner-radius: AppTheme.radius-control;
+    out property <bool> has-focus: button-focus.has-focus;
     callback clicked();
+    callback key-pressed(KeyEvent) -> EventResult;
+    key-pressed(event) => { return reject; }
+
+    forward-focus: button-focus;
+    accessible-role: button;
+    accessible-label: root.text;
+    accessible-enabled: root.enabled && !root.busy;
+    accessible-action-default => {
+        if root.enabled && !root.busy { root.clicked(); }
+    }
 
     min-width: root.button-min-width;
     height: 40px;
@@ -115,6 +127,7 @@ export component AppButton inherits Rectangle {
         }
         Text {
             text: root.text;
+            accessible-role: none;
             color: root.kind == ButtonKind.primary ? white
                 : root.kind == ButtonKind.ghost ? AppTheme.ink-muted : AppTheme.ink;
             font-size: 13px;
@@ -125,9 +138,35 @@ export component AppButton inherits Rectangle {
     }
 
     touch := TouchArea {
-        enabled: root.enabled;
-        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
-        clicked => { root.clicked(); }
+        enabled: root.enabled && !root.busy;
+        mouse-cursor: self.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => {
+            button-focus.focus();
+            root.clicked();
+        }
+    }
+    button-focus := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled && !root.busy;
+        key-pressed(event) => {
+            if root.key-pressed(event) == accept { return accept; }
+            if event.text == " " || event.text == Key.Return {
+                if root.enabled && !root.busy { root.clicked(); }
+                return accept;
+            }
+            return reject;
+        }
+    }
+    if root.has-focus && root.enabled && !root.busy : Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: root.corner-radius + 3px;
+        border-width: 2px;
+        border-color: AppTheme.accent.with-alpha(0.5);
+        background: transparent;
     }
 }
 
@@ -138,6 +177,7 @@ export component AppField inherits Rectangle {
     in property <InputType> input-type: InputType.text;
     in property <length> trailing-inset: 0px;
     callback accepted(string);
+    callback edited();
 
     height: 44px;
     border-radius: AppTheme.radius-control;
@@ -171,6 +211,88 @@ export component AppField inherits Rectangle {
         font-size: 14px;
         vertical-alignment: center;
         accepted => { root.accepted(self.text); }
+        edited => { root.edited(); }
+    }
+}
+
+export component AppCheckBox inherits Rectangle {
+    in property <string> text;
+    in property <bool> enabled: true;
+    in-out property <bool> checked;
+    callback toggled();
+
+    width: 104px;
+    height: 36px;
+    background: transparent;
+    opacity: root.enabled ? 1 : 0.45;
+    forward-focus: check-focus;
+    accessible-role: checkbox;
+    accessible-label: root.text;
+    accessible-checkable: true;
+    accessible-checked: root.checked;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.toggle(); }
+
+    function toggle() {
+        if root.enabled {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
+
+    box := Rectangle {
+        x: 0px;
+        y: (parent.height - self.height) / 2;
+        width: 18px;
+        height: 18px;
+        border-radius: 5px;
+        border-width: 1.5px;
+        border-color: root.checked || check-touch.has-hover ? AppTheme.accent : AppTheme.border-strong;
+        background: root.checked ? (check-touch.pressed ? AppTheme.accent-dark : AppTheme.accent)
+            : check-touch.has-hover ? AppTheme.accent-faint : AppTheme.surface;
+        animate background, border-color { duration: 120ms; }
+        if root.checked : Image {
+            width: 18px;
+            height: 18px;
+            source: @image-url("../assets/icons/controls-app-check-box.svg");
+            colorize: white;
+        }
+    }
+    Text {
+        x: 28px;
+        width: parent.width - self.x;
+        height: parent.height;
+        text: root.text;
+        color: root.checked ? AppTheme.ink : AppTheme.ink-muted;
+        font-size: 13px;
+        vertical-alignment: center;
+    }
+    check-touch := TouchArea {
+        enabled: root.enabled;
+        mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
+        clicked => { check-focus.focus(); root.toggle(); }
+    }
+    check-focus := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return {
+                root.toggle();
+                return accept;
+            }
+            return reject;
+        }
+    }
+    if check-focus.has-focus && root.enabled : Rectangle {
+        x: box.x - 3px;
+        y: box.y - 3px;
+        width: 24px;
+        height: 24px;
+        border-radius: 8px;
+        border-width: 2px;
+        border-color: AppTheme.accent.with-alpha(0.25);
+        background: transparent;
     }
 }
 
@@ -179,6 +301,20 @@ export component AppSwitch inherits Rectangle {
     in property <bool> checked-visible: true;
     in property <bool> enabled: true;
     callback toggled();
+
+    forward-focus: switch-focus;
+    accessible-role: checkbox;
+    accessible-checkable: true;
+    accessible-checked: root.checked && root.checked-visible;
+    accessible-enabled: root.enabled;
+    accessible-action-default => { root.toggle(); }
+
+    function toggle() {
+        if root.enabled {
+            root.checked = !root.checked;
+            root.toggled();
+        }
+    }
 
     width: 42px;
     height: 26px;
@@ -204,9 +340,31 @@ export component AppSwitch inherits Rectangle {
         enabled: root.enabled;
         mouse-cursor: root.enabled ? MouseCursor.pointer : MouseCursor.default;
         clicked => {
-            root.checked = !root.checked;
-            root.toggled();
+            switch-focus.focus();
+            root.toggle();
         }
+    }
+    switch-focus := FocusScope {
+        x: 0px;
+        width: 0px;
+        enabled: root.enabled;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return {
+                root.toggle();
+                return accept;
+            }
+            return reject;
+        }
+    }
+    if switch-focus.has-focus && root.enabled : Rectangle {
+        x: -3px;
+        y: -3px;
+        width: parent.width + 6px;
+        height: parent.height + 6px;
+        border-radius: 16px;
+        border-width: 2px;
+        border-color: AppTheme.accent.with-alpha(0.5);
+        background: transparent;
     }
 }
 
@@ -229,11 +387,10 @@ export component PageHeader inherits VerticalLayout {
     }
 }
 
-export component SurfaceCard inherits Rectangle {
+export component SurfaceCard inherits SmoothCard {
     border-radius: AppTheme.radius-large;
     background: AppTheme.surface;
-    border-width: 1px;
-    border-color: AppTheme.border;
+    outline-color: AppTheme.border;
     drop-shadow-color: #10231c0a;
     drop-shadow-blur: 12px;
     drop-shadow-offset-y: 3px;

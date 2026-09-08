@@ -1,0 +1,162 @@
+import { AppTheme } from "../theme.slint";
+import { AppButton, ButtonKind, SurfaceCard } from "controls.slint";
+import { Glyph } from "glyph.slint";
+import { ScrollView } from "std-widgets.slint";
+
+export component UpdateDialog inherits Rectangle {
+    in property <string> version;
+    in property <string> notes;
+    in property <bool> required;
+    in property <bool> can-download;
+    in property <bool> has-website;
+    in property <bool> opening;
+    in property <string> error-message;
+    callback dismissed();
+    callback download();
+    callback website();
+    callback quit();
+    forward-focus: dialog-focus;
+    init => { dialog-focus.focus(); }
+
+    // Opening a dialog must not preselect an action. Keep initial keyboard
+    // input inside the modal until the user explicitly tabs to a button.
+    dialog-focus := FocusScope {
+        width: 0px;
+        height: 0px;
+        key-pressed(event) => {
+            if event.text == Key.Tab {
+                if event.modifiers.shift && upgrade-action.enabled {
+                    upgrade-action.focus();
+                } else if secondary-action.enabled {
+                    secondary-action.focus();
+                }
+                return accept;
+            }
+            if event.text == Key.Escape { root.handle-escape(); }
+            return accept;
+        }
+    }
+
+    function handle-escape() {
+        if !root.required && !root.opening { root.dismissed(); }
+    }
+
+    background: AppTheme.modal-backdrop;
+    TouchArea {
+        clicked => { if !root.required && !root.opening { root.dismissed(); } }
+    }
+    SurfaceCard {
+        x: (parent.width - self.width) / 2;
+        y: (parent.height - self.height) / 2;
+        width: 528px;
+        height: (root.notes == "" ? 286px : 350px)
+            + (root.required || !root.can-download ? 32px : 0px)
+            + (root.error-message == "" ? 0px : 44px);
+        border-radius: 22px;
+        drop-shadow-color: AppTheme.modal-shadow;
+        drop-shadow-blur: 28px;
+        drop-shadow-offset-y: 8px;
+        TouchArea { }
+        VerticalLayout {
+            padding: 26px;
+            spacing: 14px;
+            HorizontalLayout {
+                height: 42px;
+                spacing: 12px;
+                Rectangle {
+                    width: 42px;
+                    height: 42px;
+                    border-radius: 13px;
+                    background: AppTheme.accent-soft;
+                    Glyph { x: 11px; y: 11px; width: 20px; height: 20px; name: "refresh"; fill: AppTheme.accent; }
+                }
+                VerticalLayout {
+                    alignment: center;
+                    spacing: 4px;
+                    Text { text: root.required ? "请升级后继续使用" : "发现新版本"; color: AppTheme.ink; font-size: 21px; font-weight: 600; }
+                    Text { text: root.version; color: AppTheme.ink-muted; font-size: 12px; }
+                }
+            }
+            Text { text: "更新说明"; color: AppTheme.ink; font-size: 13px; font-weight: 600; }
+            Rectangle {
+                height: root.notes == "" ? 66px : 130px;
+                border-radius: 12px;
+                background: AppTheme.surface-subtle;
+                ScrollView {
+                    x: 12px;
+                    y: 10px;
+                    width: parent.width - 24px;
+                    height: parent.height - 20px;
+                    viewport-width: self.width;
+                    viewport-height: max(self.height, notes-text.preferred-height);
+                    notes-text := Text {
+                        x: 0px;
+                        y: 0px;
+                        width: parent.width;
+                        text: root.notes == "" ? "此版本暂未提供更新说明。" : root.notes;
+                        color: AppTheme.ink-muted;
+                        font-size: 13px;
+                        vertical-alignment: top;
+                        wrap: word-wrap;
+                    }
+                }
+            }
+            if root.required || !root.can-download : Text {
+                text: !root.can-download ? "当前系统暂未提供下载包，请稍后重试或前往官网查看。"
+                    : "此版本为必要更新，请升级后继续使用。";
+                color: root.can-download ? AppTheme.ink-muted : AppTheme.warning;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            if root.error-message != "" : Text {
+                text: root.error-message;
+                color: AppTheme.danger;
+                font-size: 12px;
+                wrap: word-wrap;
+            }
+            Rectangle { vertical-stretch: 1; background: transparent; }
+            HorizontalLayout {
+                height: 40px;
+                alignment: end;
+                spacing: 10px;
+                secondary-action := AppButton {
+                    width: 104px;
+                    text: root.required ? "退出应用" : "稍后再说";
+                    kind: ButtonKind.secondary;
+                    enabled: !root.opening;
+                    clicked => { if root.required { root.quit(); } else { root.dismissed(); } }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab {
+                            if upgrade-action.enabled { upgrade-action.focus(); }
+                            return accept;
+                        }
+                        if event.text == Key.Escape {
+                            root.handle-escape();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+                upgrade-action := AppButton {
+                    width: 132px;
+                    text: root.opening ? "正在打开…" : root.can-download ? "立即升级" : "打开官网";
+                    gradient-primary: false;
+                    busy: root.opening;
+                    enabled: (root.can-download || root.has-website) && !root.opening;
+                    clicked => { if root.can-download { root.download(); } else { root.website(); } }
+                    key-pressed(event) => {
+                        if event.text == Key.Tab {
+                            if secondary-action.enabled { secondary-action.focus(); }
+                            return accept;
+                        }
+                        if event.text == Key.Escape {
+                            root.handle-escape();
+                            return accept;
+                        }
+                        return reject;
+                    }
+                }
+            }
+        }
+    }
+}

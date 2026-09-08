@@ -13,6 +13,39 @@ vaults, files, or processes are implemented.
 
 ## Workspace responsibilities
 
+Windows selects Slint's Winit software renderer by default to keep startup and
+login surfaces visible in remote sessions and native capture. An explicit
+`SLINT_BACKEND` setting retains its override. Other platforms keep Slint's
+default selection. Shared buttons use solid fills so rounded corners render
+consistently. The frameless login page owns configuration discovery and update
+prompts. The same window and custom window controls remain in use after login.
+Large node and checkout dialogs reserve space below these controls while their
+backdrops cover the full window.
+
+Static icons are SVG assets drawn through `Image`, with `colorize` retaining
+their theme and state colours. Slint 1.17.1's software path drawing does not
+restrict its writes to dirty regions like texture drawing does; this allowed
+hidden `Path` icons to bleed over dialogs during partial repaint. Keep icons
+on the image path until that upstream behaviour is fixed and verified. The
+desktop rendering regression compares reused-buffer frames after pointer
+movement with a full redraw of the same UI state. Country flags choose either
+their image or a fallback glyph, never both under a translucent node card.
+
+Shared buttons, navigation items, mode selectors, and settings switches expose
+accessible actions and keyboard focus. Update, logout, and subscription-reset
+confirmations keep Tab navigation inside the dialog. Updates initially focus
+the dialog itself without highlighting a button; logout and subscription reset
+focus their secondary action. Escape dismisses optional confirmations;
+mandatory updates continue to require upgrade or exit.
+
+`SmoothCard` gives shared surfaces, subscription plans and node cards a uniform
+1px outline. Individual SVG corner assets render at the displayed corner size;
+only straight edges stretch. This avoids the software renderer's coarse rounded
+border coverage and integer truncation of a selected card's former 1.5px border.
+Native fills, shadows and clipping remain in place. Use `outline-color` and
+`outlined` to customize these borders. Navigation uses its fill and left marker
+for selection, with a muted fill for keyboard focus and no focus outline.
+
 ### `crates/domain`
 
 - `ConnectionState`, `StopReason`, and connection lifecycle types.
@@ -99,11 +132,11 @@ vaults, files, or processes are implemented.
 - `bootstrap.rs` acquires single-instance ownership, loads the packaged
   payment-presentation fallback, and resolves the reusable remote Panel route
   before constructing the client. It then wires the encrypted session vault,
-  coordinators, sidecar, Slint window, and native system tray. A failed remote
-  load opens a bounded-detail startup window with Retry and Exit actions;
-  Retry repeats the complete ordered discovery sequence. Startup also
-  reconciles a stale system-proxy journal before probing the core or restoring
-  an account.
+  coordinators, sidecar, Slint window, and native system tray. `startup.rs` shows
+  the login page before network discovery starts, then hosts update
+  overlays or retry feedback in that same window. Retry repeats the complete
+  ordered discovery sequence. Closing the page cancels pending discovery. Startup also
+  reconciles a stale system-proxy journal before probing the core or enabling login.
 - `controller.rs` translates UI intents into account and connection use cases,
   reconciles resource selections, persists non-secret settings, and performs
   the first TUN permission gate.
@@ -116,37 +149,46 @@ vaults, files, or processes are implemented.
   settings and primary lock. UAC cancellation leaves both unchanged.
 - `presentation.rs` maps domain snapshots onto Slint properties on the UI event
   loop.
-- `ui` contains declarative restoring/login/signed-in states, resource-group
+- `ui` contains declarative login/signed-in states, resource-group
   and node views, subscriptions, purchase, profile, settings, and callbacks. Callbacks never perform
   blocking I/O directly.
 
 ## Cold-start bootstrap and payment-presentation flow
 
-The bootstrap implementation follows this flow before encrypted session
-restoration or any Panel request:
+The bootstrap implementation follows this flow before any login request:
 
     launch
       -> acquire single-instance ownership and initialize activation routing
       -> load local runtime/startup.json payment.presentation default
+      -> show frameless login page; read opted-in inputs from the OS credential store
       -> GET https://0x10.topboot.top/desktop.config.json
          -> invalid/unreachable -> GET https://0x11.boot1.top/desktop.config.json
          -> invalid/unreachable -> GET https://0x12.boot2.top/desktop.config.json
       -> accept the first structurally valid document
-      -> validate baseApiServer, fake, apiProbe, version, and optional payment
+      -> validate baseApiServer, fake, apiProbe, version, optional website and payment
       -> compare remote versionCode with the Git-derived desktop versionCode
-         -> greater + exact build-target Browser download -> open default browser
+         -> newer version -> update overlay on login page before API probing or login
+            -> upgrade -> use downloads[current target], else download.url
+                       -> open selected URL; keep app and prompt available
+            -> optional defer -> continue startup
+            -> required update -> upgrade or exit; keep login disabled
       -> apply remote payment.presentation over the local default when present
       -> build direct and fake-fronted route candidates
       -> probe every valid baseApiServer route concurrently
       -> first TLS-complete candidate returning any HTTP response wins
       -> cancel every remaining probe
       -> reuse the winning route for all Panel traffic
+      -> enable the login button; remain on the same login page
+      -> saved auto-login inputs, no update and no user edit -> wait 2 seconds -> submit login
+      -> otherwise wait for a manual login
 
 Bootstrap source requests are strictly sequential; API route probes begin only
-after one source has supplied a valid document. An HTTP 404 or 500 response is
+after one source has supplied a valid document and any startup update prompt has
+been handled. Every launch displays the login page; stored session tokens never bypass it. About-page manual update checks fetch metadata without probing the API.
+An HTTP 404 or 500 response is
 enough to win an API probe, while DNS, connect, TLS, and timeout failures are
 not. If all bootstrap sources fail, or if no route from the accepted document
-wins, startup shows a Retry/Exit error window. Retry and any later launch start
+wins, the login page shows retry feedback and keeps login disabled. Retry and any later launch start
 again from the first source. It does not try a fixed API, a later bootstrap
 source after accepting a valid document, or a cached/packaged remote document.
 
@@ -165,10 +207,9 @@ different routes.
 The remote `version` object keeps the Android-compatible singular `download`
 for structural/older-client compatibility and adds a `downloads` map keyed by
 the exact Rust target triple. A strict `remote.versionCode > local.versionCode`
-comparison may open only that target's HTTPS `Browser` entry. There is no
-fallback to the legacy field, no downgrade, and no in-process download or
-installer. UAC successor restarts skip the browser step so one user launch
-cannot open the update twice. The only remote payment setting is optional
+comparison may open only that target's HTTPS `Browser` entry. An unmatched target uses the legacy download URL. There is no downgrade or
+in-process installer. UAC successors complete their authenticated handoff before
+presenting optional updates and enabling login. The only remote payment setting is optional
 `payment.presentation = qr_code|browser`; it overrides the read-only local
 default from `runtime/startup.json`. It is a UI policy, not a payment-method
 catalog. Once authenticated, the existing shop-catalog path continues to load
@@ -179,16 +220,17 @@ public bootstrap document.
 
 ## Account and Panel flow
 
-    launch
-      -> restore encrypted session
-         -> no session / expired refresh token -> SignedOut
-         -> session present -> GET resources -> Ready
+    launch (including an internal elevation restart)
+      -> SignedOut, with login disabled during configuration discovery
+      -> read explicit auto-login consent and inputs from the OS credential store
+      -> no opted-in inputs -> manual login
+      -> opted-in inputs + no update + no user edit -> wait 2 seconds -> POST auth/login
 
     login
       -> POST auth/login
       -> atomically persist encrypted session
       -> GET users/client/resources
-      -> select group and node
+      -> user selects a node for this run
 
     open or refresh shop catalog
       -> authenticated GET users/shop/plans
@@ -331,3 +373,21 @@ does not add another distributable binary.
 Android-only application package routing is intentionally absent. Desktop TUN
 and system-proxy support remain capability-specific platform adapters rather
 than pretending Android package routing works across operating systems.
+
+## Explicit auto-login inputs
+
+`AutoLoginStore` uses a separate versioned OS credential entry for email and
+password. An absent entry means auto-login is off. Only successful authentication
+can replace it; failed login never overwrites a working saved credential. Invalid
+stored entries are cleared, and storage failure leaves manual login available.
+Credentials and serialized secret buffers are redacted from Debug and zeroed on
+drop; neither field is written to TOML, logs, or command-line arguments.
+
+Configuration and saved-input loading run while the login window is visible.
+The two-second countdown starts after discovery, API selection and controller
+preflight finish. Manual input, unchecking auto-login or discovering an update
+cancels it. Discovering an update disables auto-login for that launch even after
+an optional defer; the user can log in manually. Failed auto-login is not retried
+in a loop. Unchecking, explicit logout and successful password change remove
+saved inputs. The existing encrypted token vault remains for authenticated
+request refresh, but application startup no longer restores it.

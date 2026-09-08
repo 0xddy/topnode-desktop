@@ -1,0 +1,110 @@
+// SVG corners are rasterized at their actual display size. Avoid SVG nine-slice:
+// Slint 1.17 software rendering rasterizes the entire SVG at each slice's size.
+// Only the straight sections stretch; every supported corner keeps a 1px stroke.
+component RoundedOutline inherits Rectangle {
+    in property <length> radius;
+    in property <color> stroke;
+    background: transparent;
+    accessible-role: none;
+    property <length> corner-size: round(root.radius / 1phx) * 1phx;
+    property <length> line-size: floor(1px / 1phx) * 1phx;
+    property <float> edge-coverage: 1px / 1phx - floor(1px / 1phx);
+    property <color> edge-color: root.stroke.with-alpha(root.stroke.alpha * root.edge-coverage);
+    property <bool> supported: root.radius == 10px || root.radius == 12px
+        || root.radius == 16px || root.radius == 20px || root.radius == 22px || root.radius == 24px;
+    if root.supported && root.width >= 2 * root.radius && root.height >= 2 * root.radius : Rectangle {
+        x: 0px; y: 0px;
+        width: round(parent.width / 1phx) * 1phx;
+        height: round(parent.height / 1phx) * 1phx;
+        background: transparent;
+        Image {
+            x: 0px; y: 0px; width: root.corner-size; height: root.corner-size;
+            source: root.radius == 10px ? @image-url("../assets/borders/r10-tl.svg") :
+                root.radius == 12px ? @image-url("../assets/borders/r12-tl.svg") :
+                root.radius == 16px ? @image-url("../assets/borders/r16-tl.svg") :
+                root.radius == 20px ? @image-url("../assets/borders/r20-tl.svg") :
+                root.radius == 22px ? @image-url("../assets/borders/r22-tl.svg") :
+                @image-url("../assets/borders/r24-tl.svg");
+            colorize: root.stroke;
+            accessible-role: none;
+        }
+        Image {
+            x: parent.width - self.width; y: 0px; width: root.corner-size; height: root.corner-size;
+            source: root.radius == 10px ? @image-url("../assets/borders/r10-tr.svg") :
+                root.radius == 12px ? @image-url("../assets/borders/r12-tr.svg") :
+                root.radius == 16px ? @image-url("../assets/borders/r16-tr.svg") :
+                root.radius == 20px ? @image-url("../assets/borders/r20-tr.svg") :
+                root.radius == 22px ? @image-url("../assets/borders/r22-tr.svg") :
+                @image-url("../assets/borders/r24-tr.svg");
+            colorize: root.stroke;
+            accessible-role: none;
+        }
+        Image {
+            x: 0px; y: parent.height - self.height; width: root.corner-size; height: root.corner-size;
+            source: root.radius == 10px ? @image-url("../assets/borders/r10-bl.svg") :
+                root.radius == 12px ? @image-url("../assets/borders/r12-bl.svg") :
+                root.radius == 16px ? @image-url("../assets/borders/r16-bl.svg") :
+                root.radius == 20px ? @image-url("../assets/borders/r20-bl.svg") :
+                root.radius == 22px ? @image-url("../assets/borders/r22-bl.svg") :
+                @image-url("../assets/borders/r24-bl.svg");
+            colorize: root.stroke;
+            accessible-role: none;
+        }
+        Image {
+            x: parent.width - self.width; y: parent.height - self.height; width: root.corner-size; height: root.corner-size;
+            source: root.radius == 10px ? @image-url("../assets/borders/r10-br.svg") :
+                root.radius == 12px ? @image-url("../assets/borders/r12-br.svg") :
+                root.radius == 16px ? @image-url("../assets/borders/r16-br.svg") :
+                root.radius == 20px ? @image-url("../assets/borders/r20-br.svg") :
+                root.radius == 22px ? @image-url("../assets/borders/r22-br.svg") :
+                @image-url("../assets/borders/r24-br.svg");
+            colorize: root.stroke;
+            accessible-role: none;
+        }
+        Rectangle { x: root.corner-size; y: 0px; width: parent.width - 2 * root.corner-size; height: root.line-size; background: root.stroke; }
+        Rectangle { x: root.corner-size; y: parent.height - root.line-size; width: parent.width - 2 * root.corner-size; height: root.line-size; background: root.stroke; }
+        Rectangle { x: 0px; y: root.corner-size; width: root.line-size; height: parent.height - 2 * root.corner-size; background: root.stroke; }
+        Rectangle { x: parent.width - root.line-size; y: root.corner-size; width: root.line-size; height: parent.height - 2 * root.corner-size; background: root.stroke; }
+        // Fractional DPI leaves part of the inner edge in the next physical
+        // pixel. Blend that pixel instead of making the whole outline thicker.
+        if root.edge-coverage > 0 : Rectangle {
+            x: root.corner-size; y: root.line-size;
+            width: parent.width - 2 * root.corner-size; height: 1phx;
+            background: root.edge-color;
+        }
+        if root.edge-coverage > 0 : Rectangle {
+            x: root.corner-size; y: parent.height - root.line-size - 1phx;
+            width: parent.width - 2 * root.corner-size; height: 1phx;
+            background: root.edge-color;
+        }
+        if root.edge-coverage > 0 : Rectangle {
+            x: root.line-size; y: root.corner-size;
+            width: 1phx; height: parent.height - 2 * root.corner-size;
+            background: root.edge-color;
+        }
+        if root.edge-coverage > 0 : Rectangle {
+            x: parent.width - root.line-size - 1phx; y: root.corner-size;
+            width: 1phx; height: parent.height - 2 * root.corner-size;
+            background: root.edge-color;
+        }
+    }
+    if !root.supported || root.width < 2 * root.radius || root.height < 2 * root.radius : Rectangle {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        border-radius: root.radius; border-width: 1px; border-color: root.stroke;
+        background: transparent;
+    }
+}
+
+// Retains native fills, shadows and layout, but draws hairline borders through
+// the image path, which also respects dirty-region clipping under dialogs.
+export component SmoothCard inherits Rectangle {
+    in property <color> outline-color: #dde8e2;
+    in property <bool> outlined: true;
+    border-width: 0px;
+    if root.outlined && root.outline-color.alpha > 0 : RoundedOutline {
+        x: 0px; y: 0px; width: parent.width; height: parent.height;
+        radius: root.border-radius;
+        stroke: root.outline-color;
+    }
+    @children
+}

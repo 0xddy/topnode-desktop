@@ -18,13 +18,13 @@ use topnode_domain::{
 use topnode_infrastructure::{
     AppPaths, CoreProbe, DesktopSettings, HttpPanelClient, InstanceActivation, InstanceGuard,
     InstanceLockError, PanelClientOptions, PanelEndpoint, PaymentPresentation,
-    ProcessContainmentGuard, RemoteStartupConfigurationLoader, ResolvedStartupConfiguration,
-    SessionVault, SettingsStore, SingBoxSidecar, StartupConfiguration, StartupConfigurationStore,
-    initialize_logging, ping_latency,
+    ProcessContainmentGuard, ResolvedStartupConfiguration, SessionVault, SettingsStore,
+    SingBoxSidecar, StartupConfiguration, StartupConfigurationStore, initialize_logging,
+    ping_latency,
 };
 
 use crate::{
-    AppTray, AppWindow, NavigationPage, StartupErrorWindow, build_info,
+    AppTray, AppWindow, NavigationPage, build_info,
     controller::{DesktopController, PreferenceChange, TunModeUpdate},
     payment_qr, platform, presentation,
 };
@@ -51,40 +51,43 @@ pub async fn run() -> anyhow::Result<()> {
     )
     .context("无法保留桌面客户端单实例锁")?;
     let _log_guard = initialize_logging(&paths.log_dir).context("无法初始化日志")?;
+    platform::initialize_window_backend().context("无法初始化窗口渲染")?;
     let deferred_activation = elevation_startup_mode.waits_for_previous_instance();
     let instance_activation = InstanceActivationRuntime::start(&paths, deferred_activation).await?;
     let fallback_payment_presentation = load_packaged_startup_configuration(&paths).await?;
-    let Some(remote_startup) = resolve_remote_startup_for_mode(
+    let startup_settings = prepare_startup_settings(&paths, &elevation_startup_mode).await?;
+    let _process_containment = install_process_containment();
+    let ui = AppWindow::new().context("无法创建登录窗口")?;
+    let prepare = controller_preparer(&paths, &startup_settings);
+    let Some((remote_startup, controller, probe)) = crate::startup::run(
+        &ui,
         fallback_payment_presentation,
-        &elevation_startup_mode,
+        !elevation_startup_mode.waits_for_previous_instance(),
         instance_activation.events(),
+        prepare,
     )
     .await?
     else {
-        tracing::info!("desktop startup cancelled after a remote configuration failure");
+        tracing::info!("desktop closed before login was enabled");
         instance_activation.stop().await;
         return Ok(());
     };
     let payment_presentation = remote_startup.payment_presentation();
-    let startup_settings = prepare_startup_settings(&paths, &elevation_startup_mode).await?;
-    let _process_containment = install_process_containment();
     log_startup(&remote_startup);
-
-    let (controller, probe) = build_controller(
-        &paths,
-        startup_settings.store.clone(),
-        startup_settings.settings.clone(),
-        remote_startup.endpoint(),
-    )
-    .await?;
     let settings = controller.settings().await;
     let administrator_mode = startup_settings.administrator_mode;
-    let ui = create_ui(&probe, &settings, administrator_mode, payment_presentation)?;
+    configure_ui(
+        &ui,
+        &probe,
+        &settings,
+        administrator_mode,
+        payment_presentation,
+    );
     restore_elevated_successor_ui(&ui, &elevation_startup_mode);
 
     bind_callbacks(&ui, Arc::clone(&controller), payment_presentation);
-    let tray_lifecycle = platform::TrayLifecycle::install(&ui).context("无法创建系统托盘")?;
-    bind_tray_callbacks(&ui, tray_lifecycle.tray(), Arc::clone(&controller));
+    crate::updates::install(&ui, &remote_startup, deferred_activation);
+    let tray_lifecycle = install_tray(&ui, Arc::clone(&controller))?;
     finalize_elevated_startup(
         &mut elevation_startup_mode,
         &startup_settings,
@@ -101,24 +104,9 @@ pub async fn run() -> anyhow::Result<()> {
             })
             .is_ok()
         });
-    presentation::spawn_state_forwarder(&ui, controller.subscribe());
-    presentation::spawn_telemetry_forwarder(&ui, controller.subscribe_telemetry());
-    presentation::spawn_tray_state_forwarder(
-        tray_lifecycle.tray(),
-        controller.subscribe(),
-        probe.available,
-    );
-    presentation::spawn_account_forwarder(&ui, Arc::clone(&controller));
-    presentation::spawn_shop_forwarder(&ui, controller.subscribe_shop());
-    let session_guard_task = spawn_session_guard(Arc::clone(&controller));
-    let restore_controller = Arc::clone(&controller);
-    let weak = ui.as_weak();
-    tokio::spawn(async move {
-        if let Err(error) = restore_controller.restore_account().await {
-            tracing::warn!(%error, "account session restore failed");
-        }
-        presentation::refresh_account_view(&weak, &restore_controller).await;
-    });
+    let session_guard_task =
+        spawn_presentations(&ui, &controller, tray_lifecycle.tray(), probe.available);
+    crate::login::enable(&ui);
     let event_loop_result = run_slint_event_loop(&ui);
     drop(tray_lifecycle);
     activation_forwarder_task.abort();
@@ -130,6 +118,47 @@ pub async fn run() -> anyhow::Result<()> {
     tracing::info!("desktop client stopped");
     event_loop_result.context("Slint 事件循环异常退出")?;
     Ok(())
+}
+
+fn spawn_presentations(
+    ui: &AppWindow,
+    controller: &Arc<DesktopController>,
+    tray: &AppTray,
+    core_available: bool,
+) -> tokio::task::JoinHandle<()> {
+    presentation::spawn_state_forwarder(ui, controller.subscribe());
+    presentation::spawn_telemetry_forwarder(ui, controller.subscribe_telemetry());
+    presentation::spawn_tray_state_forwarder(tray, controller.subscribe(), core_available);
+    presentation::spawn_account_forwarder(ui, Arc::clone(controller));
+    presentation::spawn_shop_forwarder(ui, controller.subscribe_shop());
+    spawn_session_guard(Arc::clone(controller))
+}
+
+type PreparedDesktop = (
+    ResolvedStartupConfiguration,
+    Arc<DesktopController>,
+    CoreProbe,
+);
+type ControllerPreparation =
+    std::pin::Pin<Box<dyn std::future::Future<Output = anyhow::Result<PreparedDesktop>> + Send>>;
+
+fn controller_preparer(
+    paths: &AppPaths,
+    prepared: &PreparedStartupSettings,
+) -> impl Fn(ResolvedStartupConfiguration) -> ControllerPreparation + Send + 'static {
+    let paths = paths.clone();
+    let store = prepared.store.clone();
+    let settings = prepared.settings.clone();
+    move |startup| {
+        let paths = paths.clone();
+        let store = store.clone();
+        let settings = settings.clone();
+        Box::pin(async move {
+            let (controller, probe) =
+                build_controller(&paths, store, settings, startup.endpoint()).await?;
+            Ok((startup, controller, probe))
+        })
+    }
 }
 
 async fn discover_app_paths() -> anyhow::Result<AppPaths> {
@@ -149,161 +178,6 @@ async fn load_packaged_startup_configuration(
         .await
         .context("无法读取启动配置 runtime/startup.json")
         .map(StartupConfiguration::payment_presentation)
-}
-
-async fn resolve_remote_startup(
-    fallback_payment_presentation: PaymentPresentation,
-) -> Result<ResolvedStartupConfiguration, topnode_infrastructure::RemoteStartupError> {
-    RemoteStartupConfigurationLoader::production(
-        fallback_payment_presentation,
-        build_info::BUILD_TARGET,
-        build_info::VERSION_NAME,
-    )?
-    .load()
-    .await
-}
-
-async fn resolve_remote_startup_for_mode(
-    fallback_payment_presentation: PaymentPresentation,
-    startup_mode: &platform::TunElevationStartupMode,
-    activation_events: tokio::sync::watch::Receiver<u64>,
-) -> anyhow::Result<Option<ResolvedStartupConfiguration>> {
-    let user_cold_start = !startup_mode.waits_for_previous_instance();
-    let startup = resolve_remote_startup_with_retry(
-        fallback_payment_presentation,
-        user_cold_start,
-        activation_events,
-    )
-    .await?;
-    if let Some(startup) = startup.as_ref() {
-        open_available_update(startup, user_cold_start).await;
-    }
-    Ok(startup)
-}
-
-async fn open_available_update(startup: &ResolvedStartupConfiguration, user_cold_start: bool) {
-    if !user_cold_start {
-        return;
-    }
-    let current_version_code = build_info::version_code();
-    let remote = startup.desktop_version();
-    if remote.version_code() <= current_version_code {
-        return;
-    }
-    let Some(download_url) = remote.available_download_url(current_version_code) else {
-        tracing::warn!(
-            current_version_code,
-            remote_version_code = remote.version_code(),
-            remote_version_name = remote.version_name(),
-            build_target = remote.build_target(),
-            "new desktop version has no Browser download for this build target"
-        );
-        return;
-    };
-    let download_url = download_url.to_owned();
-    let opened_url = download_url.clone();
-    match tokio::task::spawn_blocking(move || platform::open_url(&opened_url)).await {
-        Ok(Ok(())) => tracing::info!(
-            current_version_code,
-            remote_version_code = remote.version_code(),
-            remote_version_name = remote.version_name(),
-            build_target = remote.build_target(),
-            url = download_url,
-            "opened the desktop update in the default browser"
-        ),
-        Ok(Err(error)) => tracing::warn!(
-            %error,
-            current_version_code,
-            remote_version_code = remote.version_code(),
-            url = download_url,
-            "failed to open the desktop update in the default browser"
-        ),
-        Err(error) => tracing::warn!(
-            %error,
-            current_version_code,
-            remote_version_code = remote.version_code(),
-            url = download_url,
-            "desktop update browser task failed"
-        ),
-    }
-}
-
-async fn resolve_remote_startup_with_retry(
-    fallback_payment_presentation: PaymentPresentation,
-    allow_visible_retry: bool,
-    activation_events: tokio::sync::watch::Receiver<u64>,
-) -> anyhow::Result<Option<ResolvedStartupConfiguration>> {
-    match resolve_remote_startup(fallback_payment_presentation).await {
-        Ok(startup) => Ok(Some(startup)),
-        Err(error) if allow_visible_retry => {
-            tracing::warn!(%error, "remote desktop startup failed; showing retry window");
-            show_remote_startup_retry(&error, fallback_payment_presentation, activation_events)
-                .await
-        }
-        Err(error) => Err(error).context("无法解析远程桌面启动配置或连接 Panel API"),
-    }
-}
-
-async fn show_remote_startup_retry(
-    initial_error: &topnode_infrastructure::RemoteStartupError,
-    fallback_payment_presentation: PaymentPresentation,
-    activation_events: tokio::sync::watch::Receiver<u64>,
-) -> anyhow::Result<Option<ResolvedStartupConfiguration>> {
-    let ui = StartupErrorWindow::new().context("无法创建启动错误窗口")?;
-    ui.set_error_message(initial_error.to_string().into());
-    let resolved = Arc::new(StdMutex::new(None));
-    let result_slot = Arc::clone(&resolved);
-    let weak = ui.as_weak();
-    ui.on_retry(move || {
-        let Some(ui) = weak.upgrade() else {
-            return;
-        };
-        if ui.get_retrying() {
-            return;
-        }
-        ui.set_retrying(true);
-        let weak = ui.as_weak();
-        let result_slot = Arc::clone(&result_slot);
-        tokio::spawn(async move {
-            let attempt = resolve_remote_startup(fallback_payment_presentation).await;
-            let _ = slint::invoke_from_event_loop(move || {
-                let Some(ui) = weak.upgrade() else {
-                    return;
-                };
-                match attempt {
-                    Ok(startup) => {
-                        *result_slot.lock().expect("startup result lock poisoned") = Some(startup);
-                        if let Err(error) = ui.hide() {
-                            tracing::warn!(%error, "failed to hide the startup retry window");
-                        }
-                        if let Err(error) = slint::quit_event_loop() {
-                            tracing::warn!(%error, "failed to close the startup retry event loop");
-                        }
-                    }
-                    Err(error) => {
-                        tracing::warn!(%error, "remote desktop startup retry failed");
-                        ui.set_error_message(error.to_string().into());
-                        ui.set_retrying(false);
-                    }
-                }
-            });
-        });
-    });
-    let weak = ui.as_weak();
-    let activation_forwarder_task = spawn_activation_forwarder(activation_events, move || {
-        let weak = weak.clone();
-        weak.upgrade_in_event_loop(move |ui| {
-            platform::restore_main_window(&ui, "startup-error-activation");
-        })
-        .is_ok()
-    });
-    run_slint_event_loop(&ui).context("启动错误窗口事件循环异常退出")?;
-    activation_forwarder_task.abort();
-    let _ = activation_forwarder_task.await;
-    Ok(resolved
-        .lock()
-        .expect("startup result lock poisoned")
-        .take())
 }
 
 fn run_slint_event_loop(component: &impl ComponentHandle) -> Result<(), slint::PlatformError> {
@@ -582,13 +456,13 @@ async fn build_controller(
     Ok((controller, probe))
 }
 
-fn create_ui(
+fn configure_ui(
+    ui: &AppWindow,
     probe: &CoreProbe,
     settings: &DesktopSettings,
     administrator_mode: bool,
     payment_presentation: PaymentPresentation,
-) -> anyhow::Result<AppWindow> {
-    let ui = AppWindow::new().context("无法创建 Slint 窗口")?;
+) {
     ui.set_administrator_mode(administrator_mode);
     ui.set_checkout_payment_qr_mode(payment_presentation == PaymentPresentation::QrCode);
     ui.set_core_available(probe.available);
@@ -599,7 +473,6 @@ fn create_ui(
     ui.set_bypass_lan(settings.preferences.bypass_lan);
     ui.set_udp_forwarding(settings.preferences.udp_forwarding_enabled);
     ui.set_multiplex(settings.preferences.multiplex_enabled);
-    Ok(ui)
 }
 
 fn restore_elevated_successor_ui(ui: &AppWindow, startup_mode: &platform::TunElevationStartupMode) {
@@ -676,7 +549,7 @@ fn spawn_instance_activation_server(
     (receiver, task)
 }
 
-fn spawn_activation_forwarder(
+pub(crate) fn spawn_activation_forwarder(
     mut events: tokio::sync::watch::Receiver<u64>,
     restore: impl Fn() -> bool + Send + 'static,
 ) -> tokio::task::JoinHandle<()> {
@@ -693,9 +566,25 @@ fn spawn_activation_forwarder(
     })
 }
 
+fn install_tray(
+    ui: &AppWindow,
+    controller: Arc<DesktopController>,
+) -> anyhow::Result<platform::TrayLifecycle> {
+    let lifecycle = platform::TrayLifecycle::install(ui).context("无法创建系统托盘")?;
+    bind_tray_callbacks(ui, lifecycle.tray(), controller);
+    Ok(lifecycle)
+}
+
 fn bind_tray_callbacks(ui: &AppWindow, tray: &AppTray, controller: Arc<DesktopController>) {
     let weak = ui.as_weak();
     tray.on_toggle_connection(move || {
+        if let Some(ui) = weak.upgrade()
+            && ui.get_update_required()
+        {
+            ui.set_update_visible(true);
+            platform::restore_main_window(&ui, "required-update");
+            return;
+        }
         let controller = Arc::clone(&controller);
         let weak = weak.clone();
         tokio::spawn(async move {
@@ -714,6 +603,7 @@ fn bind_callbacks(
     controller: Arc<DesktopController>,
     payment_presentation: PaymentPresentation,
 ) {
+    crate::login::install(ui, Arc::clone(&controller));
     bind_account_callbacks(ui, &controller);
     bind_profile_account_callbacks(ui, &controller);
     bind_shop_callbacks(ui, &controller, payment_presentation);
@@ -725,29 +615,17 @@ fn bind_account_callbacks(ui: &AppWindow, controller: &Arc<DesktopController>) {
     let latency_runner = Arc::new(NodeLatencyRunner::default());
 
     let account_controller = Arc::clone(controller);
-    let weak = ui.as_weak();
-    ui.on_submit_login(move |email, password| {
-        let controller = Arc::clone(&account_controller);
-        let weak = weak.clone();
-        tokio::spawn(async move {
-            let result = controller
-                .login(email.to_string(), password.to_string())
-                .await;
-            presentation::refresh_account_view(&weak, &controller).await;
-            if let Err(error) = result {
-                tracing::warn!(%error, "account login failed");
-            }
-        });
-    });
-
-    let account_controller = Arc::clone(controller);
     let runner = Arc::clone(&latency_runner);
     let weak = ui.as_weak();
     ui.on_logout(move || {
+        if let Some(ui) = weak.upgrade() {
+            crate::login::clear_form(&ui);
+        }
         runner.deactivate(&account_controller);
         let controller = Arc::clone(&account_controller);
         let weak = weak.clone();
         tokio::spawn(async move {
+            crate::login::forget_saved(&weak).await;
             if let Err(error) = controller.logout().await {
                 presentation::post_notice(&weak, format!("退出登录未完全完成：{error}"));
             }
@@ -859,6 +737,8 @@ fn bind_profile_account_callbacks(ui: &AppWindow, controller: &Arc<DesktopContro
                 .await;
             match result {
                 Ok(()) => {
+                    crate::login::forget_saved(&weak).await;
+                    let _ = weak.upgrade_in_event_loop(|ui| crate::login::clear_form(&ui));
                     presentation::post_notice(&weak, "密码修改成功，请使用新密码重新登录。");
                 }
                 Err(error) => presentation::post_account_settings_error(&weak, error),
@@ -1872,6 +1752,12 @@ fn bind_runtime_callbacks(ui: &AppWindow, controller: &Arc<DesktopController>) {
     let weak = ui.as_weak();
     let action_controller = Arc::clone(controller);
     ui.on_toggle_connection(move || {
+        if let Some(ui) = weak.upgrade()
+            && ui.get_update_required()
+        {
+            ui.set_update_visible(true);
+            return;
+        }
         let controller = Arc::clone(&action_controller);
         let weak = weak.clone();
         tokio::spawn(async move {

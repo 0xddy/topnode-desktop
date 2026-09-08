@@ -7,6 +7,8 @@ pub struct DesktopSettings {
     pub device_id: String,
     pub selected_group_id: String,
     pub selected_entitlement_id: String,
+    /// The user must choose a node each session; ignore legacy persisted choices.
+    #[serde(skip)]
     pub selected_endpoint_id: String,
     pub preferences: ConnectionPreferences,
 }
@@ -141,10 +143,66 @@ mod tests {
 
         assert_eq!(
             store.load().await.expect("saved settings should load"),
-            second
+            DesktopSettings {
+                selected_endpoint_id: String::new(),
+                ..second
+            }
         );
         assert!(path.is_file());
         assert!(!path.with_extension("toml.tmp").exists());
+    }
+
+    #[tokio::test]
+    async fn selected_node_stays_in_memory_but_is_not_saved() {
+        let directory = tempfile::tempdir().expect("temporary directory should be created");
+        let path = directory.path().join("settings.toml");
+        let store = SettingsStore::new(&path);
+        let settings = DesktopSettings {
+            selected_group_id: "group-current".to_owned(),
+            selected_endpoint_id: "node-current".to_owned(),
+            ..DesktopSettings::default()
+        };
+
+        store.save(&settings).await.expect("settings should save");
+
+        assert_eq!(settings.selected_endpoint_id, "node-current");
+        let saved = tokio::fs::read_to_string(&path)
+            .await
+            .expect("saved settings should be readable");
+        assert!(!saved.contains("selected_endpoint_id"));
+        assert!(!saved.contains("node-current"));
+        let restored = store.load().await.expect("settings should load");
+        assert!(restored.selected_endpoint_id.is_empty());
+        assert_eq!(restored.selected_group_id, "group-current");
+    }
+
+    #[tokio::test]
+    async fn legacy_selected_node_is_ignored_on_startup() {
+        let directory = tempfile::tempdir().expect("temporary directory should be created");
+        let path = directory.path().join("settings.toml");
+        let store = SettingsStore::new(&path);
+        tokio::fs::write(
+            &path,
+            "selected_group_id = 'group-old'\n\
+             selected_entitlement_id = 'grant-old'\n\
+             selected_endpoint_id = 'node-old'\n\
+             [preferences]\n\
+             tun_enabled = true\n",
+        )
+        .await
+        .expect("legacy settings should be written");
+
+        let restored = store.load().await.expect("legacy settings should load");
+
+        assert!(restored.selected_endpoint_id.is_empty());
+        assert_eq!(restored.selected_group_id, "group-old");
+        assert_eq!(restored.selected_entitlement_id, "grant-old");
+        assert!(restored.preferences.tun_enabled);
+        store.save(&restored).await.expect("settings should save");
+        let saved = tokio::fs::read_to_string(&path)
+            .await
+            .expect("saved settings should be readable");
+        assert!(!saved.contains("selected_endpoint_id"));
     }
 
     #[cfg(unix)]

@@ -18,10 +18,14 @@ $slintFiles = Get-ChildItem -LiteralPath $uiRoot -Filter '*.slint' -File -Recurs
     Sort-Object -Property FullName
 $componentByFile = @{
     'app-window.slint' = 'AppWindow'
+    'components/window-controls.slint' = 'WindowControls'
     'components/brand.slint' = 'BrandLockup'
     'components/controls.slint' = 'AppButton'
     'components/glyph.slint' = 'Glyph'
     'components/sidebar.slint' = 'Sidebar'
+    'components/smooth-card.slint' = 'SmoothCard'
+    'components/update-dialog.slint' = 'UpdateDialog'
+    'pages/about-page.slint' = 'AboutPage'
     'pages/home-page.slint' = 'HomePage'
     'pages/login-page.slint' = 'LoginPage'
     'pages/node-selector-sheet.slint' = 'NodeSelectorSheet'
@@ -65,6 +69,7 @@ if ($CheckOnly) {
 
 New-Item -ItemType Directory -Path $OutputDirectory -Force | Out-Null
 $previews = @(
+    'TrayIconPreview',
     'LoginPreview',
     'LoginErrorPreview',
     'HomePreview',
@@ -92,6 +97,19 @@ $previews = @(
     'PurchaseCheckoutSuccessPreview',
     'PurchaseCheckoutAddonSuccessPreview',
     'ProfilePreview',
+    'AboutPreview',
+    'UpdatePreview',
+    'StartupLoadingPreview',
+    'StartupFailurePreview',
+    'StartupUpdatePreview',
+    'StartupRequiredUpdatePreview',
+    'AutoLoginPreview',
+    'ConfigBlocksAutoLoginPreview',
+    'UpdateBlocksAutoLoginPreview',
+    'RequiredUpdatePreview',
+    'UpdateErrorPreview',
+    'UnsupportedUpdatePreview',
+    'LogoutConfirmationPreview',
     'AccountSettingsPreview',
     'AccountSettingsPasswordPreview',
     'AccountSettingsPasswordErrorPreview',

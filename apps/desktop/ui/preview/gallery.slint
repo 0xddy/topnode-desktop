@@ -25,8 +25,41 @@ import { BrandLockup } from "../components/brand.slint";
 import { Glyph } from "../components/glyph.slint";
 import { PurchasePage } from "../pages/purchase-page.slint";
 import { InvitationPage } from "../pages/invitation-page.slint";
-import { SubscriptionLinkPage } from "../pages/subscription-link-page.slint";
 import { TicketsPage } from "../pages/tickets-page.slint";
+
+export component TrayIconPreview inherits Window {
+    width: 560px;
+    height: 260px;
+    background: #f4f6f5;
+    default-font-family: "Microsoft YaHei UI";
+
+    VerticalLayout {
+        padding: 20px;
+        spacing: 12px;
+        Text { text: "托盘连接状态 · 16 / 20 / 24 / 32 px"; color: AppTheme.ink; font-size: 16px; }
+        for dark in [false, true] : Rectangle {
+            background: dark ? #202422 : #ffffff;
+            border-radius: 10px;
+            HorizontalLayout {
+                padding: 16px;
+                spacing: 12px;
+                Text { text: "未连接"; color: dark ? white : AppTheme.ink; vertical-alignment: center; }
+                for size in [16, 20, 24, 32] : Image {
+                    width: size * 1px;
+                    height: size * 1px;
+                    source: @image-url("../assets/tray-disconnected.svg");
+                }
+                Rectangle { width: 8px; background: transparent; }
+                Text { text: "已连接"; color: dark ? white : AppTheme.ink; vertical-alignment: center; }
+                for size in [16, 20, 24, 32] : Image {
+                    width: size * 1px;
+                    height: size * 1px;
+                    source: @image-url("../assets/tray-connected.svg");
+                }
+            }
+        }
+    }
+}
 
 component PreviewShell inherits AppWindow {
     app-phase: AppPhase.signed-in;
@@ -405,9 +438,11 @@ component PreviewShell inherits AppWindow {
 
 export component LoginPreview inherits AppWindow {
     app-phase: AppPhase.signed-out;
+    login-config-ready: true;
+    login-config-status: "";
 }
 
-export component LoginErrorPreview inherits AppWindow {
+export component LoginErrorPreview inherits LoginPreview {
     app-phase: AppPhase.signed-out;
     login-error: "邮箱或密码不正确，请重新输入。";
 }
@@ -756,6 +791,103 @@ export component ProfilePreview inherits PreviewShell {
     current-page: NavigationPage.profile;
 }
 
+export component AboutPreview inherits PreviewShell {
+    current-page: NavigationPage.about;
+    app-version: "2026.09.08-23606851（8）";
+    website-url: "https://topnode.cc/";
+    update-check-status: "当前已是最新版本。";
+}
+
+export component UpdatePreview inherits AboutPreview {
+    update-available: true;
+    update-visible: true;
+    update-version: "2026.09.08-23606851（100）";
+    update-url: "https://example.test/topnode.zip";
+    update-check-status: "发现新版本，可查看更新详情。";
+}
+
+export component StartupLoadingPreview inherits AppWindow { }
+
+export component StartupFailurePreview inherits AppWindow {
+    login-config-failed: true;
+    login-config-status: "配置加载失败，请重试";
+    retry-startup => {
+        root.login-config-failed = false;
+        root.login-config-status = "加载配置中…";
+    }
+}
+
+export component StartupUpdatePreview inherits AppWindow {
+    update-visible: true;
+    login-auto-blocked: true;
+    update-version: "2026.09.08-23606851（100）";
+    update-url: "https://example.test/topnode.zip";
+    website-url: "https://topnode.cc/";
+    dismiss-update => {
+        root.update-visible = false;
+        root.login-config-ready = true;
+        root.login-config-status = "";
+        root.arm-auto-login();
+    }
+}
+
+export component StartupRequiredUpdatePreview inherits StartupUpdatePreview {
+    update-required: true;
+    update-error: "无法打开下载页面，请检查默认浏览器设置后重试。";
+    dismiss-update => { }
+}
+
+export component AutoLoginPreview inherits LoginPreview {
+    login-auto: true;
+    login-email: "preview@example.test";
+    login-password: "preview-only";
+    property <int> submit-count: 0;
+    AppButton {
+        x: 80px; y: 650px; width: 160px;
+        text: "启动自动登录测试";
+        clicked => {
+            root.login-auto = true;
+            root.login-edited = false;
+            root.login-config-status = "";
+            root.submit-count = 0;
+            root.arm-auto-login();
+        }
+    }
+    submit-login(email, password) => {
+        root.submit-count += 1;
+        root.login-config-status = "自动登录已触发 " + root.submit-count + " 次";
+    }
+}
+
+export component ConfigBlocksAutoLoginPreview inherits AutoLoginPreview {
+    login-config-ready: false;
+    login-config-status: "加载配置中…";
+}
+
+export component UpdateBlocksAutoLoginPreview inherits StartupUpdatePreview {
+    login-auto: true;
+    login-email: "preview@example.test";
+    login-password: "preview-only";
+    submit-login(email, password) => { root.login-config-status = "手动登录已触发"; }
+}
+
+export component RequiredUpdatePreview inherits UpdatePreview {
+    update-required: true;
+    update-notes: "优化节点连接体验。\n完善账户与订阅服务。\n修复已知问题。";
+}
+
+export component UpdateErrorPreview inherits RequiredUpdatePreview {
+    update-error: "无法打开下载页面，请检查默认浏览器设置后重试。";
+}
+
+export component UnsupportedUpdatePreview inherits UpdatePreview {
+    update-url: "";
+}
+
+export component LogoutConfirmationPreview inherits ProfilePreview {
+    logout-confirmation-visible: true;
+}
+
 export component AccountSettingsPreview inherits ProfilePreview {
     account-settings-visible: true;
 }
@@ -947,12 +1079,8 @@ export component SubscriptionLinkErrorPreview inherits SubscriptionLinkLoadingPr
     subscription-link-error: "暂时无法连接订阅链接服务，请检查网络后重试。";
 }
 
-export component SubscriptionLinkResetPreview inherits SubscriptionLinkPage {
-    width: 732px;
-    height: 664px;
-    has-link: true;
-    url: "https://panel.topnode.cc/api/v1/subscription?uuid=11111111-2222-4333-8444-555555555555";
-    reset-confirmation-visible: true;
+export component SubscriptionLinkResetPreview inherits SubscriptionLinkPreview {
+    subscription-link-reset-confirmation-visible: true;
 }
 
 export component TicketsPreview inherits TicketsPage {

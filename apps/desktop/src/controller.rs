@@ -158,12 +158,6 @@ impl DesktopController {
         self.panel.subscribe_shop()
     }
 
-    pub async fn restore_account(&self) -> Result<(), String> {
-        let _guard = self.catalog_action_gate.lock().await;
-        self.panel.restore().await.map_err(panel_message)?;
-        self.reconcile_selection(false).await
-    }
-
     pub async fn login(&self, email: String, password: String) -> Result<(), String> {
         let _guard = self.catalog_action_gate.lock().await;
         self.panel

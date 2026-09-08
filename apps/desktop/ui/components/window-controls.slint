@@ -1,0 +1,76 @@
+import { AppTheme } from "../theme.slint";
+import { BrandLockup } from "brand.slint";
+
+export component WindowControls inherits Rectangle {
+    in property <bool> overlay;
+    in property <bool> compact;
+    callback minimize();
+    callback close();
+    callback drag();
+    height: root.compact ? 40px : 60px;
+    background: transparent;
+    // Keep window controls accessible while the update covers the startup page.
+    Rectangle {
+        x: 0px;
+        y: 0px;
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        if !root.compact : BrandLockup {
+            x: 26px;
+            y: 18px;
+            width: 150px;
+            mark-size: 26px;
+            name-color: root.overlay ? #ffffff : AppTheme.accent;
+        }
+        TouchArea {
+            width: parent.width - 110px;
+            height: 100%;
+            pointer-event(event) => {
+                if event.kind == PointerEventKind.down && event.button == PointerEventButton.left {
+                    root.drag();
+                }
+            }
+        }
+        Rectangle {
+            x: parent.width - 96px;
+            y: (parent.height - self.height) / 2;
+            width: root.compact ? 32px : 36px;
+            height: self.width;
+            border-radius: root.compact ? 8px : 10px;
+            background: minimize-touch.has-hover ? #10231c14 : transparent;
+            Rectangle {
+                x: (parent.width - self.width) / 2;
+                y: parent.height / 2;
+                width: 12px;
+                height: 1px;
+                background: root.overlay ? #ffffff : AppTheme.ink-muted;
+            }
+            minimize-touch := TouchArea {
+                accessible-role: button;
+                accessible-label: "最小化";
+                clicked => { root.minimize(); }
+            }
+        }
+        Rectangle {
+            x: parent.width - 52px;
+            y: (parent.height - self.height) / 2;
+            width: root.compact ? 32px : 36px;
+            height: self.width;
+            border-radius: root.compact ? 8px : 10px;
+            background: close-touch.has-hover ? AppTheme.danger : transparent;
+            Text {
+                text: "×";
+                font-size: 23px;
+                color: close-touch.has-hover || root.overlay ? #ffffff : AppTheme.ink-muted;
+                horizontal-alignment: center;
+                vertical-alignment: center;
+            }
+            close-touch := TouchArea {
+                accessible-role: button;
+                accessible-label: "关闭";
+                clicked => { root.close(); }
+            }
+        }
+    }
+}

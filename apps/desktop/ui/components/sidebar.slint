@@ -9,10 +9,15 @@ component NavItem inherits Rectangle {
     in property <bool> selected;
     callback activated();
 
+    forward-focus: nav-focus;
+    accessible-role: button;
+    accessible-label: root.label;
+    accessible-action-default => { root.activated(); }
+
     height: 38px;
     border-radius: AppTheme.radius-small;
     background: root.selected ? AppTheme.accent-soft
-        : touch.has-hover ? AppTheme.surface-muted : transparent;
+        : touch.has-hover || nav-focus.has-focus ? AppTheme.surface-muted : transparent;
     animate background { duration: 100ms; easing: ease-out; }
 
     property <color> icon-color: root.selected ? AppTheme.accent-dark : AppTheme.ink-muted;
@@ -43,6 +48,7 @@ component NavItem inherits Rectangle {
         }
         Text {
             text: root.label;
+            accessible-role: none;
             color: root.text-color;
             font-size: 13px;
             font-weight: AppTheme.font-weight-regular;
@@ -52,7 +58,21 @@ component NavItem inherits Rectangle {
 
     touch := TouchArea {
         mouse-cursor: MouseCursor.pointer;
-        clicked => { root.activated(); }
+        clicked => {
+            nav-focus.focus();
+            root.activated();
+        }
+    }
+    nav-focus := FocusScope {
+        x: 0px;
+        width: 0px;
+        key-pressed(event) => {
+            if event.text == " " || event.text == Key.Return {
+                root.activated();
+                return accept;
+            }
+            return reject;
+        }
     }
 }
 
@@ -88,7 +108,7 @@ export component Sidebar inherits Rectangle {
         Rectangle { height: 24px; background: transparent; }
 
         Rectangle {
-            height: 164px;
+            height: 206px;
             background: transparent;
 
             VerticalLayout {
@@ -116,6 +136,12 @@ export component Sidebar inherits Rectangle {
                     icon: "user";
                     selected: root.current-page == NavigationPage.profile;
                     activated => { root.navigate(NavigationPage.profile); }
+                }
+                NavItem {
+                    label: "关于我们";
+                    icon: "info";
+                    selected: root.current-page == NavigationPage.about;
+                    activated => { root.navigate(NavigationPage.about); }
                 }
             }
         }
