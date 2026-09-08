@@ -64,8 +64,6 @@ def render_configuration(configuration: dict, arguments: argparse.Namespace) -> 
     previous_code = metadata["versionCode"]
     if type(previous_code) is not int or previous_code < 1:
         raise RuntimeError("Existing versionCode is invalid")
-    if previous_code > arguments.version_code:
-        raise RuntimeError("Refusing to replace a newer desktop version")
     if previous_code == arguments.version_code and metadata["versionName"] != arguments.version_name:
         raise RuntimeError("The same versionCode belongs to a different versionName")
     metadata.update(versionCode=arguments.version_code, versionName=arguments.version_name)

@@ -320,11 +320,14 @@ input. It updates `version.metadata.versionCode`, `version.metadata.versionName`
 the legacy `version.download` directory link, and all six `version.downloads`
 URLs. It preserves `updateInfo`, `forceUpdate`, other metadata, and all unrelated
 API/probe/fake/payment settings. Push conflicts cause a fresh fetch and render;
-older versions and conflicting reuse of a version code are refused.
+lower version codes are allowed, while conflicting reuse of a version code is
+refused.
 
-After the configuration commit succeeds, cleanup keeps the two latest complete
-desktop version directories by numeric `versionCode`. It verifies the current
-release again before deleting older managed directories and incomplete uploads.
+After the configuration commit succeeds, cleanup keeps the current release and
+the other complete desktop version with the highest numeric `versionCode`.
+This also preserves the active download when publishing a lower version code.
+It verifies the current release again before deleting unretained managed
+directories and incomplete uploads.
 An interrupted upload does not displace the previous complete version. Files and directories outside
 the strict desktop release naming scheme are left alone, including everything
 under `/soft/android/`. Upload, verification, or configuration failures stop
@@ -346,7 +349,8 @@ the completed matrix builds are reused. Artifacts are retained for 14 days, so
 retry within that period. Re-running a successful publish is safe: the same
 version reuses matching completed assets and an unchanged configuration creates
 no commit. Different bytes cannot replace an already completed version.
-Re-running an older release after a newer version exists is refused.
+Re-running an older release after a newer version exists updates the configuration
+to that older release and keeps its packages during cleanup.
 If a GitHub Release was already published, the release job checks its source
 commit and exact asset bytes before allowing the retry to continue.
 

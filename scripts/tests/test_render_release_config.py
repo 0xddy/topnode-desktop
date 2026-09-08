@@ -131,12 +131,20 @@ class RenderReleaseConfigurationTests(unittest.TestCase):
         retried = renderer.render_configuration(copy.deepcopy(initial), arguments())
         self.assertEqual(initial, retried)
 
-    def test_older_release_cannot_replace_current_configuration(self) -> None:
+    def test_lower_version_replaces_test_metadata_and_downloads(self) -> None:
         configuration = deployed_configuration()
+        configuration["version"]["metadata"]["versionCode"] = 100
         original = copy.deepcopy(configuration)
-        with self.assertRaisesRegex(RuntimeError, "newer desktop version"):
-            renderer.render_configuration(configuration, arguments(version_code=98))
-        self.assertEqual(original, configuration)
+        result = renderer.render_configuration(configuration, arguments(version_code=9))
+        expected_metadata = copy.deepcopy(original["version"]["metadata"])
+        expected_metadata.update(versionCode=9, versionName=VERSION_NAME)
+        self.assertEqual(expected_metadata, result["version"]["metadata"])
+        self.assert_packages(result, DUFS_ROOT)
+        self.assertEqual(DUFS_ROOT + "/", result["version"]["download"]["url"])
+        self.assertEqual(
+            {key: value for key, value in original.items() if key != "version"},
+            {key: value for key, value in result.items() if key != "version"},
+        )
 
     def test_version_code_cannot_be_reused_for_a_different_release(self) -> None:
         configuration = deployed_configuration()

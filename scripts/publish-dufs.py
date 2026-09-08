@@ -252,17 +252,17 @@ def prepare_assets(assets: Path, version_code: int, version_name: str, git_commi
     return checksums
 
 
-def reject_stale(directories: dict[str, int], directory: str, version_code: int):
-    if any(code > version_code or (code == version_code and name != directory)
+def reject_version_conflicts(directories: dict[str, int], directory: str, version_code: int):
+    if any(code == version_code and name != directory
            for name, code in directories.items()):
-        raise PublishError("A newer or conflicting version already exists on dufs; refusing this release")
+        raise PublishError("A conflicting version already exists on dufs; refusing this release")
 
 
 def publish(client, command, assets, version_code, version_name, git_commit):
     directory = validate_release(version_code, version_name, git_commit)
     checksums = prepare_assets(assets, version_code, version_name, git_commit)
     directories = client.directories(missing_ok=command == "upload")
-    reject_stale(directories, directory, version_code)
+    reject_version_conflicts(directories, directory, version_code)
     release_path = ROOT + directory + "/"
     completed = client.completion_checksums(directory) if directory in directories else None
     archive_checksums = {name: digest for name, (digest, _) in checksums.items() if name != "SHA256SUMS.txt"}
@@ -275,7 +275,7 @@ def publish(client, command, assets, version_code, version_name, git_commit):
             for filename in archive_checksums:
                 client.upload(release_path + filename, assets / filename)
                 client.verify(release_path + filename, checksums[filename])
-            reject_stale(client.directories(), directory, version_code)
+            reject_version_conflicts(client.directories(), directory, version_code)
             client.upload(release_path + "SHA256SUMS.txt", assets / "SHA256SUMS.txt")
             client.verify(release_path + "SHA256SUMS.txt", checksums["SHA256SUMS.txt"])
     elif command != "cleanup":
@@ -289,19 +289,24 @@ def publish(client, command, assets, version_code, version_name, git_commit):
         for filename, expected in checksums.items():
             client.verify(release_path + filename, expected)
     directories = client.directories()
-    reject_stale(directories, directory, version_code)
+    reject_version_conflicts(directories, directory, version_code)
     if directory not in directories:
         raise PublishError("Current release directory disappeared")
     if command == "cleanup":
         completed_directories = [
             name for name in directories if client.completion_checksums(name) is not None
         ]
-        retained = set(sorted(completed_directories, key=directories.get, reverse=True)[:2])
-        if directory not in retained:
+        if directory not in completed_directories:
             raise PublishError("Current release completion marker disappeared; refusing cleanup")
+        # The bootstrap now points to this release, even when its code is lower.
+        retained = {directory}
+        retained.update(sorted(
+            (name for name in completed_directories if name != directory),
+            key=directories.get, reverse=True,
+        )[:1])
         for name, code in sorted(directories.items(), key=lambda item: item[1]):
             if name not in retained:
-                reject_stale(client.directories(), directory, version_code)
+                reject_version_conflicts(client.directories(), directory, version_code)
                 client.delete(name)
                 print(f"Deleted old desktop version: {name}")
     print(f"{command}: verified {len(checksums)} files in {directory}")

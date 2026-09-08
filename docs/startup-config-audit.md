@@ -33,7 +33,8 @@ Git-derived version code is 8. The remote code 100 intentionally triggers the
 upgrade prompt for testing even though the display name is the same. No live
 configuration was modified. Before a real rollout, publish metadata and an
 artifact carrying the same version code to avoid repeatedly offering the same
-package; keep codes strictly increasing according to the release policy.
+package. Publishing permits lower version codes; clients still offer updates only
+when the remote code is greater than the installed code.
 
 These are configuration and HTTP availability checks, not checksum verification
 or execution of the six downloaded artifacts. No installer was downloaded or run.

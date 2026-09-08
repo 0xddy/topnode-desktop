@@ -201,10 +201,23 @@ class PublisherTests(unittest.TestCase):
         self.assertFalse(self.deleted())
         self.assertNotIn(RELEASE_PATH + "SHA256SUMS.txt", self.server.files)
 
-    def test_newer_partial_release_blocks_stale_upload_before_any_mutation(self):
-        self.server.directories.add(f"desktop-v12-{VERSION}")
-        with self.assertRaisesRegex(publisher.PublishError, "newer or conflicting"):
-            self.run_publish()
+    def test_newer_partial_release_allows_lower_version_upload(self):
+        newer = f"desktop-v12-{VERSION}"
+        self.server.directories.add(newer)
+        self.run_publish()
+        self.assertEqual(self.server.directories, {DIRECTORY, newer})
+        self.assertIsNotNone(self.client.completion_checksums(DIRECTORY))
+        self.assertEqual(len(self.server.files), 7)
+        self.assertFalse(self.deleted())
+
+    def test_newer_complete_release_allows_lower_version_upload_and_retry(self):
+        publisher.prepare_assets(self.assets, CODE, VERSION, COMMIT)
+        newer = self.completed_version(12)
+        self.run_publish()
+        self.server.requests.clear()
+        self.run_publish()
+        self.assertEqual(self.server.directories, {DIRECTORY, newer})
+        self.assertIsNotNone(self.client.completion_checksums(DIRECTORY))
         self.assertTrue(all(method == "GET" for method, _, _, _ in self.server.requests))
 
     def test_same_version_code_different_name_is_rejected(self):
@@ -213,17 +226,23 @@ class PublisherTests(unittest.TestCase):
             self.run_publish()
         self.assertFalse(self.server.files)
 
-    def test_newer_release_blocks_stale_cleanup(self):
+    def test_cleanup_keeps_lower_current_release_and_highest_other_complete_release(self):
         self.run_publish()
-        self.server.directories.update({f"desktop-v9-{VERSION}", f"desktop-v12-{VERSION}"})
-        with self.assertRaises(publisher.PublishError):
-            self.run_publish("cleanup")
-        self.assertFalse(self.deleted())
+        older = self.completed_version(9)
+        newer = self.completed_version(12)
+        highest = self.completed_version(13)
+        self.run_publish("cleanup")
+        self.assertEqual(self.deleted(), [publisher.ROOT + name + "/" for name in (older, newer)])
+        self.assertEqual(self.server.directories, {DIRECTORY, highest})
+        self.assertIsNotNone(self.client.completion_checksums(DIRECTORY))
+        self.run_publish("cleanup")
+        self.assertEqual(len(self.deleted()), 2)
 
-    def test_newer_release_appearing_before_delete_blocks_cleanup(self):
+    def test_newer_release_appearing_before_delete_allows_cleanup(self):
         self.run_publish()
-        self.completed_version(9)
-        self.completed_version(10)
+        older = self.completed_version(9)
+        previous = self.completed_version(10)
+        newer = f"desktop-v12-{VERSION}"
         directories = self.client.directories
         calls = 0
 
@@ -231,11 +250,31 @@ class PublisherTests(unittest.TestCase):
             nonlocal calls
             calls += 1
             if calls == 3:
-                self.server.directories.add(f"desktop-v12-{VERSION}")
+                self.server.directories.add(newer)
             return directories(**kwargs)
 
         with patch.object(self.client, "directories", side_effect=concurrent_listing):
-            with self.assertRaisesRegex(publisher.PublishError, "newer or conflicting"):
+            self.run_publish("cleanup")
+        self.assertEqual(self.deleted(), [publisher.ROOT + older + "/"])
+        self.assertEqual(self.server.directories, {DIRECTORY, previous, newer})
+
+    def test_current_completion_marker_disappearing_prevents_cleanup(self):
+        self.run_publish()
+        self.completed_version(9)
+        self.completed_version(10)
+        completion_checksums = self.client.completion_checksums
+        current_calls = 0
+
+        def disappearing_marker(directory):
+            nonlocal current_calls
+            if directory == DIRECTORY:
+                current_calls += 1
+                if current_calls == 2:
+                    return None
+            return completion_checksums(directory)
+
+        with patch.object(self.client, "completion_checksums", side_effect=disappearing_marker):
+            with self.assertRaisesRegex(publisher.PublishError, "completion marker disappeared"):
                 self.run_publish("cleanup")
         self.assertFalse(self.deleted())
 
