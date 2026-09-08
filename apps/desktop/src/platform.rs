@@ -34,9 +34,29 @@ pub fn restore_main_window(window: &(impl ComponentHandle + 'static), source: &'
     window.window().set_minimized(false);
     if let Err(error) = window.show() {
         tracing::warn!(%error, source, "failed to restore main window");
+        return;
     }
     finish_window_frame(window);
-    window.window().request_redraw();
+    request_full_redraw(window.window());
+}
+
+/// Invalidate the native surface after restoring it from the tray.
+fn request_full_redraw(window: &slint::Window) {
+    // Slint 1.17.1 only invalidates the software renderer on Occluded, which
+    // Windows doesn't reliably emit for hide/show. Its retained bitmap can be
+    // intact while the native surface is cleared, so request_redraw() alone
+    // presents only changed regions and leaves the rest of the window blank.
+    // Keep this internal API workaround local to the platform boundary and
+    // recheck it when upgrading the exact Slint version pinned in Cargo.toml.
+    use slint::private_unstable_api::re_exports::{LogicalRect, WindowInner};
+
+    let size = window.size().to_logical(window.scale_factor());
+    let region = LogicalRect::from_size([size.width, size.height].into());
+    WindowInner::from_pub(window)
+        .window_adapter()
+        .renderer()
+        .mark_dirty_region(region.into());
+    window.request_redraw();
 }
 
 /// Restore the native outer edge after removing the title bar, including after

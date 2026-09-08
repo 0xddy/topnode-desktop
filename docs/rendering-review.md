@@ -26,3 +26,17 @@
 已将验证构建同步到 `target/debug/topnode-desktop.exe` 并重启程序；原程序备份在 `rendering-qa/topnode-desktop.before.exe`。最终 SHA-256：`9ff54b81573fa8bfd7a9d92e3f640002262f9a1397f78fd16bb72d0cfaa5c99d`。
 
 前序流程和窗口外边框检查见 [`login-flow-review.md`](login-flow-review.md)。
+
+## 2026-09-09：托盘恢复后出现大片空白
+
+- 已在运行中的 Windows 客户端复现。隐藏窗口后，原生窗口的显示内容可能丢失，但软件渲染器保留的位图及其 buffer age 仍有效。Slint 1.17.1 的 winit 软件后端按 dirty region 调用 `present_with_damage`；仅调用 `request_redraw()` 不会恢复未发生变化的区域。
+- 统一的 `restore_main_window` 在成功显示窗口后，将当前窗口的完整逻辑坐标区域标记为 dirty，再请求绘制。托盘点击、菜单显示和单实例唤醒都经过这一入口；后续绘制继续使用局部刷新。
+- Slint 的公开窗口接口没有全区域失效方法，因此将 `WindowInner` / `mark_dirty_region` 的内部接口使用限制在平台层的一个辅助函数中。项目仍固定使用 Slint 1.17.1，升级时需要重新检查此兼容处理。
+- 新增测试保留软件位图、清空模拟窗口画面，仅按实际返回的 damage 区域呈现，并与独立完整帧逐像素比较。覆盖 100%、125%、150% 缩放、首页与节点弹层、每种场景三轮隐藏恢复，以及绘制前连续两次恢复。另检查恢复后的空闲帧 damage 为空。修复前第一次恢复有 544,793 个像素不一致，修复后通过。
+- 使用真实 winit 软件后端和相同平台代码的本地样例窗口，验证首页及节点弹层隐藏后连续恢复两次，画面完整；恢复后关闭弹层也正常。原生验证使用内存样例数据。
+
+本次日志与原生截图位于 `D:/Temp/topnode-ui-validation-20260908/`，文件名前缀为 `tray-restore-`。临时原生验证程序源码保留在该目录，不进入产品构建。
+
+工作区测试 215 项通过、1 项默认忽略；格式检查、Clippy（所有目标、警告视为错误）通过。本机可编译平台为 Windows x86_64；已安装的 ARM64 Windows 和 Linux Rust 标准库缺少对应 C/C++ 交叉工具链，未验证这两个平台。
+
+`cargo build -p topnode-desktop` 通过，已将构建同步至 `target/debug/topnode-desktop.exe` 并重启。新版实际客户端隐藏到托盘后，通过单实例唤醒同一恢复入口，窗口标识保持不变且画面完整。旧程序备份为 `tray-restore-before.exe`，新程序 SHA-256 为 `2818d419ca3847c5f98cc7c1af733ef44412ac68ddc8c0d6f3eb2b0c5c5f2872`。
