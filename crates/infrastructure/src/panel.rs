@@ -1832,7 +1832,7 @@ struct SupportTicketDetailDto {
 struct SupportTicketMessageDto {
     id: u64,
     sender_role: String,
-    sender: SupportTicketSenderDto,
+    sender: Option<SupportTicketSenderDto>,
     content: String,
     created_at: String,
 }
@@ -1943,11 +1943,20 @@ impl SupportTicketMessageDto {
         if self.id == 0 || self.content.trim().is_empty() || self.content.len() > 64 * 1_024 {
             return Err(PanelError::InvalidResponse("工单消息字段无效".to_owned()));
         }
+        let sender_role = parse_support_ticket_sender_role(&self.sender_role);
+        let sender = if sender_role == SupportTicketSenderRole::Admin {
+            SupportTicketSenderDto {
+                username: "客服01".to_owned(),
+                email: String::new(),
+            }
+        } else {
+            self.sender.unwrap_or_default()
+        };
         Ok(SupportTicketMessage {
             id: self.id,
-            sender_role: parse_support_ticket_sender_role(&self.sender_role),
-            sender_name: self.sender.username,
-            sender_email: self.sender.email,
+            sender_role,
+            sender_name: sender.username,
+            sender_email: sender.email,
             content: self.content,
             created_at_epoch_seconds: parse_support_ticket_time(&self.created_at)?,
         })
@@ -2873,8 +2882,8 @@ mod tests {
     }
 
     #[test]
-    fn support_ticket_detail_decodes_and_orders_the_android_contract() {
-        let detail: SupportTicketDetailDto = serde_json::from_value(json!({
+    fn support_ticket_detail_decodes_private_senders_and_orders_each_message_page() {
+        let response = json!({
             "id": 42,
             "ticket_number": "TKT-20260830-0042",
             "title": "无法连接东京节点",
@@ -2901,27 +2910,56 @@ mod tests {
                     "created_at": "2026-08-30T10:00:00+08:00"
                 }
             ],
-            "message_pagination": { "page": 1, "page_size": 20, "total": 2 }
-        }))
-        .expect("valid support-ticket detail");
+            "message_pagination": { "page": 1, "page_size": 2, "total": 4 }
+        });
+        for (page, sender) in [
+            (1, None),
+            (2, None),
+            (1, Some(serde_json::Value::Null)),
+            (2, Some(json!({"id": 0, "username": "客服01", "email": ""}))),
+            (
+                1,
+                Some(json!({"id": 1, "username": "root", "email": "root@example.test"})),
+            ),
+        ] {
+            let mut data = response.clone();
+            let admin_message = data["messages"][0].as_object_mut().expect("message object");
+            if let Some(sender) = sender {
+                admin_message.insert("sender".to_owned(), sender);
+            } else {
+                admin_message.remove("sender");
+            }
+            data["message_pagination"]["page"] = json!(page);
+            let body = serde_json::to_vec(&json!({"code": 200, "message": "ok", "data": data}))
+                .expect("serialized support-ticket response");
+            let detail: SupportTicketDetailDto = decode_bytes(StatusCode::OK, None, &body)
+                .expect("valid support-ticket HTTP response");
+            let detail = detail.into_domain(page, 2).expect("valid domain detail");
 
-        let detail = detail.into_domain(1, 20).expect("valid domain detail");
-
-        assert_eq!(detail.ticket.priority, SupportTicketPriority::High);
-        assert_eq!(detail.ticket.status, SupportTicketStatus::Replied);
-        assert!(detail.ticket.has_unread_reply);
-        assert_eq!(detail.messages[0].id, 101);
-        assert_eq!(
-            detail.messages[0].sender_role,
-            SupportTicketSenderRole::User
-        );
-        assert_eq!(detail.messages[1].id, 102);
-        assert_eq!(
-            detail.messages[1].sender_role,
-            SupportTicketSenderRole::Admin
-        );
-        assert_eq!(detail.messages[1].sender_name, "TOPNODE 客服");
-        assert_eq!(detail.message_total, 2);
+            assert_eq!(detail.ticket.priority, SupportTicketPriority::High);
+            assert_eq!(detail.ticket.status, SupportTicketStatus::Replied);
+            assert!(detail.ticket.has_unread_reply);
+            assert_eq!(detail.messages.len(), 2);
+            assert_eq!(detail.messages[0].id, 101);
+            assert_eq!(
+                detail.messages[0].sender_role,
+                SupportTicketSenderRole::User
+            );
+            assert_eq!(detail.messages[0].sender_name, "desktop-user");
+            assert_eq!(detail.messages[0].sender_email, "user@example.test");
+            assert_eq!(detail.messages[1].id, 102);
+            assert_eq!(
+                detail.messages[1].sender_role,
+                SupportTicketSenderRole::Admin
+            );
+            assert_eq!(detail.messages[1].sender_name, "客服01");
+            assert!(detail.messages[1].sender_email.is_empty());
+            assert_eq!(detail.messages[1].content, "请刷新节点后再试。");
+            assert_eq!(detail.message_page, page);
+            assert_eq!(detail.message_page_size, 2);
+            assert_eq!(detail.message_total, 4);
+            assert_eq!(detail.has_earlier_messages(), page == 1);
+        }
     }
 
     #[test]
