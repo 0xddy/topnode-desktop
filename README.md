@@ -97,10 +97,15 @@ validation. The configuration request contains:
     route_mode
     bypass_mainland
     bypass_lan
-    ipv6=false
+    ipv6=true
     multiplex_enabled
     runtime_id=rt1
     supported_schema_versions=[1]
+
+IPv6 is enabled in configuration requests so the Panel preserves the template's
+DNS strategy and IPv6 TUN addresses. The default `prefer_ipv4` strategy supports
+both IPv4 and AAAA-only node domains; IPv6 connections require working IPv6 on
+the host network.
 
 UDP is intentionally not a Panel request field. Its local policy is applied
 only inside the sing-box adapter. Above that boundary, configuration JSON is

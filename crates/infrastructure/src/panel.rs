@@ -966,7 +966,9 @@ impl ConfigurationSource for HttpPanelClient {
             },
             bypass_mainland: request.preferences.bypass_mainland,
             bypass_lan: request.preferences.bypass_lan,
-            ipv6: false,
+            // Keep AAAA-only node domains reachable; false makes the Panel
+            // force both DNS and the default node resolver to IPv4-only.
+            ipv6: true,
             multiplex_enabled: request.preferences.multiplex_enabled,
             runtime_id: request.runtime_id.as_str(),
             supported_schema_versions: &request.supported_schema_versions,

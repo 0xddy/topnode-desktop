@@ -274,9 +274,12 @@ stored in the TOML settings file.
       -> publish Connected and aggregate /connections telemetry
 
 The configuration request sends `group_id`, `selected_endpoint_id`,
-`route_mode`, `bypass_mainland`, `bypass_lan`, `ipv6=false`,
+`route_mode`, `bypass_mainland`, `bypass_lan`, `ipv6=true`,
 `multiplex_enabled`, `runtime_id=rt1`, and
-`supported_schema_versions=[1]`. UDP is not sent to the Panel.
+`supported_schema_versions=[1]`. IPv6 is enabled so the Panel does not force
+IPv4-only DNS resolution or remove IPv6 TUN addresses. Node domain resolution
+follows the server template (normally `prefer_ipv4`, which also permits
+AAAA-only nodes). UDP is not sent to the Panel.
 
 The normalizer always starts from the original server payload so toggling a
 preference cannot retain an earlier locally injected rule. Its scoped policy
