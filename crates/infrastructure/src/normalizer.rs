@@ -1371,6 +1371,30 @@ mod tests {
     }
 
     #[test]
+    fn preserves_acp_outbound_options_in_both_desktop_modes() {
+        let fixture = include_str!("../../../scripts/tests/fixtures/sing-box-acp-protocols.json");
+        let original: Value = serde_json::from_str(fixture).expect("ACP test configuration");
+        let controller = "127.0.0.1:9090".parse().expect("controller address");
+        let mixed = "127.0.0.1:2080".parse().expect("mixed address");
+        for (tun_enabled, system_proxy) in [(false, Some(mixed)), (true, None)] {
+            let preferences = ConnectionPreferences {
+                tun_enabled,
+                ..preferences()
+            };
+            let normalized = normalize_with_local_clash_api(
+                fixture,
+                &preferences,
+                controller,
+                "0123456789abcdefghijklmnopqrstuv",
+                system_proxy,
+            )
+            .expect("ACP fixture should normalize");
+            let normalized: Value = serde_json::from_str(&normalized).expect("normalized JSON");
+            assert_eq!(normalized["outbounds"], original["outbounds"]);
+        }
+    }
+
+    #[test]
     fn normalization_is_idempotent_for_fixed_preferences() {
         let payload = r#"{
             "outbounds":[{"type":"vless","tag":"tn-endpoint-node-1"}],

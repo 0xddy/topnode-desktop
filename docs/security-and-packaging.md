@@ -194,22 +194,20 @@ empty values disable the button; unsupported-target update dialogs can offer the
 same official website. Browser launches run outside Slint callbacks and report
 failures in the UI. Release-config generation preserves the deployment's website.
 
-The manual release workflow queries the official SagerNet GitHub Release by an
-exact stable version and asset name, requires GitHub's SHA-256 asset digest,
-verifies the download, extracts only the expected binary/license/`libcronet.*`
-members, executes an exact version probe, requires advertised PureGo/Naive
-builds to carry their Cronet companion, and runs the runtime's stdin-based
-`sing-box check` command against a representative configuration. The selected
-version is compiled into the client and checked again during staging. Every archive includes a
-manifest with the source commit, target, Rust toolchain, Cargo.lock digest,
-upstream asset metadata, payload hashes, and the bundled core's version output;
-the Release also publishes aggregate SHA-256 checksums. A future formal release
-process should additionally produce an SBOM and signed provenance.
+The manual release workflow compiles the locked `sing-box-acp` source on each
+target runner. It verifies the reported version and Git revision, then uses
+`check -c stdin` to load the advertised protocol combinations, TUN, and the
+Clash control API. Packaging requires a native check and a matching binary
+SHA-256. The desktop runtime independently checks the locked version before
+launch and when the Clash API becomes ready. Each archive records the desktop
+and ACP commits, Go and Rust toolchains, dependency lock hashes, core build
+tags, and payload hashes. The Release also publishes aggregate SHA-256
+checksums.
 
 Git commit count is monotonic only on a non-rewritten release branch. The
 workflow therefore accepts the repository default branch only, fetches complete
 history, and rejects a code not greater than earlier desktop release tags. A
-different sing-box selection requires a new source commit; repackaging the same
+different ACP revision requires a lock update in a new commit; repackaging the same
 desktop version with different runtime contents would be invisible to the
 client's update comparison.
 
@@ -237,7 +235,7 @@ build matrix runs.
 
 ## License obligations
 
-sing-box is GPL-3.0-or-later. Bundling it as a sidecar does not remove binary
+sing-box-acp is GPL-3.0-or-later. Bundling it as a sidecar does not remove binary
 redistribution obligations. Ship the GPL license, notices, corresponding source
 or a compliant source offer, build metadata, and consult legal counsel for the
 combined distribution.

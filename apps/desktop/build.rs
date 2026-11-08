@@ -5,7 +5,6 @@ use std::{
 };
 
 const FALLBACK_VERSION_CODE: &str = "1";
-const FALLBACK_SING_BOX_VERSION: &str = "1.13.19";
 const MAX_VERSION_CODE: u64 = 2_100_000_000;
 const MAX_VERSION_NAME_LENGTH: usize = 64;
 
@@ -26,7 +25,6 @@ fn emit_build_version(project_root: &Path) -> io::Result<()> {
         "TOPNODE_VERSION_CODE",
         "TOPNODE_VERSION_NAME",
         "TOPNODE_GIT_COMMIT",
-        "TOPNODE_SING_BOX_VERSION",
     ] {
         println!("cargo:rerun-if-env-changed={name}");
     }
@@ -97,19 +95,10 @@ fn emit_build_version(project_root: &Path) -> io::Result<()> {
 
     let build_target = env::var("TARGET")
         .map_err(|_| io::Error::other("Cargo did not provide the desktop build target"))?;
-    let sing_box_version = non_empty_environment("TOPNODE_SING_BOX_VERSION")
-        .unwrap_or_else(|| FALLBACK_SING_BOX_VERSION.to_owned());
-    if !valid_stable_semver(&sing_box_version) {
-        return Err(io::Error::other(
-            "TOPNODE_SING_BOX_VERSION must use the numeric major.minor.patch form",
-        ));
-    }
-
     println!("cargo:rustc-env=TOPNODE_VERSION_CODE={version_code}");
     println!("cargo:rustc-env=TOPNODE_VERSION_NAME={version_name}");
     println!("cargo:rustc-env=TOPNODE_GIT_COMMIT={git_commit}");
     println!("cargo:rustc-env=TOPNODE_BUILD_TARGET={build_target}");
-    println!("cargo:rustc-env=TOPNODE_SING_BOX_VERSION={sing_box_version}");
     Ok(())
 }
 
@@ -182,18 +171,6 @@ fn valid_version_name(value: &str) -> bool {
         && bytes.all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'.' | b'_' | b'-'))
 }
 
-fn valid_stable_semver(value: &str) -> bool {
-    let mut components = value.split('.');
-    let valid_component = |component: &str| {
-        !component.is_empty()
-            && component.bytes().all(|byte| byte.is_ascii_digit())
-            && (component == "0" || !component.starts_with('0'))
-    };
-    components.by_ref().take(3).all(valid_component)
-        && value.matches('.').count() == 2
-        && components.next().is_none()
-}
-
 fn stage_development_runtime() -> io::Result<()> {
     let project_root = PathBuf::from(env!("CARGO_MANIFEST_DIR")).join("../..");
     let startup_source = project_root.join("config/startup.json");
@@ -210,19 +187,18 @@ fn stage_development_runtime() -> io::Result<()> {
     fs::create_dir_all(&runtime_destination)?;
     fs::copy(&startup_source, runtime_destination.join("startup.json"))?;
 
-    let core_source = project_root.join("runtime/core");
-    println!("cargo:rerun-if-changed={}", core_source.display());
-
     let target_os = env::var("CARGO_CFG_TARGET_OS").unwrap_or_default();
     let core_name = if target_os == "windows" {
-        "sing-box.exe"
+        "sing-box-acp.exe"
     } else {
-        "sing-box"
+        "sing-box-acp"
     };
-    if !core_source.join(core_name).is_file() {
+    let core_source = project_root.join("runtime/core").join(core_name);
+    println!("cargo:rerun-if-changed={}", core_source.display());
+    if !core_source.is_file() {
         println!(
             "cargo:warning=development core not staged: expected {}",
-            core_source.join(core_name).display()
+            core_source.display()
         );
         return Ok(());
     }
@@ -230,14 +206,7 @@ fn stage_development_runtime() -> io::Result<()> {
     let core_destination = runtime_destination.join("core");
     fs::create_dir_all(&core_destination)?;
 
-    for entry in fs::read_dir(&core_source)? {
-        let entry = entry?;
-        if entry.file_type()?.is_file() {
-            let source_file = entry.path();
-            println!("cargo:rerun-if-changed={}", source_file.display());
-            fs::copy(&source_file, core_destination.join(entry.file_name()))?;
-        }
-    }
+    fs::copy(core_source, core_destination.join(core_name))?;
 
     Ok(())
 }

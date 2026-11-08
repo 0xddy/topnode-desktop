@@ -5,6 +5,8 @@
 __pycache__/
 *.py[cod]
 
-# sing-box and all extracted upstream companions/notices are local staging output.
+# Locally compiled ACP sidecar and its build metadata.
 /runtime/core/
+/runtime/LICENSE.sing-box-acp
+/runtime/source.json
 /.release/

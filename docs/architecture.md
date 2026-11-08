@@ -77,7 +77,7 @@ for selection, with a muted fill for keyboard focus and no focus outline.
 ### `crates/infrastructure`
 
 - `AppPaths` resolves the immutable
-  `current_exe().parent()/runtime/core/sing-box[.exe]` path and writable OS
+  `current_exe().parent()/runtime/core/sing-box-acp[.exe]` path and writable OS
   application-data paths.
 - `SettingsStore` persists non-secret preferences, selections, and the stable
   installation device ID.
@@ -265,7 +265,7 @@ stored in the TOML settings file.
       -> if TUN is enabled:
            require the second, engine-boundary privilege check before spawn
       -> pipe the same checked bytes to sing-box run -c stdin
-      -> authenticated GET /version reports the exact release-selected sing-box version
+      -> authenticated GET /version reports the exact locked ACP version
       -> if TUN is disabled:
            wait for the random 127.0.0.1 Mixed listener
            write Prepared proxy journal

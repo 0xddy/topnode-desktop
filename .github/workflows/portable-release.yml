@@ -2,12 +2,6 @@ name: desktop-portable-release
 
 on:
   workflow_dispatch:
-    inputs:
-      sing_box_version:
-        description: Official sing-box version without the leading v (for example 1.13.19)
-        required: true
-        default: "1.13.19"
-        type: string
 
 permissions:
   contents: read
@@ -27,7 +21,8 @@ jobs:
       git_commit: ${{ steps.version.outputs.git_commit }}
       source_date_epoch: ${{ steps.version.outputs.source_date_epoch }}
       release_tag: ${{ steps.version.outputs.release_tag }}
-      sing_box_version: ${{ steps.version.outputs.sing_box_version }}
+      core_version: ${{ steps.version.outputs.core_version }}
+      go_version: ${{ steps.version.outputs.go_version }}
     steps:
       - name: Check out complete history
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -39,7 +34,6 @@ jobs:
         shell: bash
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
-          INPUT_SING_BOX_VERSION: ${{ inputs.sing_box_version }}
         run: |
           set -euo pipefail
           expected_ref="refs/heads/${DEFAULT_BRANCH}"
@@ -49,10 +43,6 @@ jobs:
           fi
           if [[ "$(git rev-parse --is-shallow-repository)" != "false" ]]; then
             echo "A complete Git history is required for versionCode" >&2
-            exit 1
-          fi
-          if [[ ! "${INPUT_SING_BOX_VERSION}" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
-            echo "sing_box_version must use major.minor.patch without a leading v" >&2
             exit 1
           fi
           version_code="$(git rev-list --count HEAD)"
@@ -75,7 +65,8 @@ jobs:
             echo "git_commit=${git_commit}"
             echo "source_date_epoch=${source_date_epoch}"
             echo "release_tag=${release_tag}"
-            echo "sing_box_version=${INPUT_SING_BOX_VERSION}"
+            echo "core_version=$(sed -n 's/^version=//p' config/sing-box-acp.lock)"
+            echo "go_version=$(sed -n 's/^go=//p' config/sing-box-acp.lock)"
           } >> "${GITHUB_OUTPUT}"
 
   verify:
@@ -87,7 +78,6 @@ jobs:
       TOPNODE_VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
       TOPNODE_VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
       TOPNODE_GIT_COMMIT: ${{ needs.metadata.outputs.git_commit }}
-      TOPNODE_SING_BOX_VERSION: ${{ needs.metadata.outputs.sing_box_version }}
       CARGO_INCREMENTAL: "0"
     steps:
       - name: Check out source
@@ -101,7 +91,7 @@ jobs:
 
       - name: Validate release helpers
         run: |
-          python3 -m py_compile scripts/fetch-sing-box.py scripts/package-portable.py scripts/render-release-config.py scripts/publish-dufs.py
+          python3 -m py_compile scripts/build-sing-box-acp.py scripts/package-portable.py scripts/render-release-config.py scripts/publish-dufs.py
           python3 -m unittest discover -s scripts/tests -v
 
       - name: Format
@@ -135,32 +125,26 @@ jobs:
           - runner: windows-2025
             target: x86_64-pc-windows-msvc
             platform_label: windows-x86_64
-            sing_box_asset: windows-amd64.zip
             rustflags: -C target-feature=+crt-static
           - runner: windows-11-arm
             target: aarch64-pc-windows-msvc
             platform_label: windows-aarch64
-            sing_box_asset: windows-arm64.zip
             rustflags: -C target-feature=+crt-static
           - runner: ubuntu-24.04
             target: x86_64-unknown-linux-gnu
             platform_label: linux-x86_64
-            sing_box_asset: linux-amd64.tar.gz
             rustflags: ""
           - runner: ubuntu-24.04-arm
             target: aarch64-unknown-linux-gnu
             platform_label: linux-aarch64
-            sing_box_asset: linux-arm64.tar.gz
             rustflags: ""
           - runner: macos-15-intel
             target: x86_64-apple-darwin
             platform_label: macos-x86_64
-            sing_box_asset: darwin-amd64.tar.gz
             rustflags: ""
           - runner: macos-15
             target: aarch64-apple-darwin
             platform_label: macos-aarch64
-            sing_box_asset: darwin-arm64.tar.gz
             rustflags: ""
     runs-on: ${{ matrix.runner }}
     timeout-minutes: 60
@@ -168,12 +152,9 @@ jobs:
       TOPNODE_VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
       TOPNODE_VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
       TOPNODE_GIT_COMMIT: ${{ needs.metadata.outputs.git_commit }}
-      TOPNODE_SING_BOX_VERSION: ${{ needs.metadata.outputs.sing_box_version }}
       SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.source_date_epoch }}
-      RUST_TARGET: ${{ matrix.target }}
       RUSTFLAGS: ${{ matrix.rustflags }}
       CARGO_INCREMENTAL: "0"
-      GITHUB_TOKEN: ${{ github.token }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -181,25 +162,30 @@ jobs:
       - name: Install Rust toolchain and target
         run: rustup toolchain install 1.92.0 --profile minimal && rustup target add ${{ matrix.target }} --toolchain 1.92.0
 
+      - name: Install pinned Go toolchain
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ needs.metadata.outputs.go_version }}
+          cache: false
+
       - name: Install Linux UI dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
 
-      - name: Fetch and verify official sing-box core
-        run: python scripts/fetch-sing-box.py --version "${{ needs.metadata.outputs.sing_box_version }}" --asset "sing-box-${{ needs.metadata.outputs.sing_box_version }}-${{ matrix.sing_box_asset }}" --check-config "config/sing-box.example.json" --output ".release/sing-box"
+      - name: Build and check the ACP core on the target platform
+        run: python scripts/build-sing-box-acp.py --target "${{ matrix.target }}" --output ".release/sing-box-acp" --require-native
 
-      - name: Stage Windows portable layout
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: ./scripts/stage.ps1 -SingBoxPath ".release/sing-box/core/sing-box.exe" -SingBoxLicensePath ".release/sing-box/LICENSE" -Target "${{ matrix.target }}" -ExpectedSingBoxVersion "${{ needs.metadata.outputs.sing_box_version }}"
-
-      - name: Stage Unix portable layout
-        if: runner.os != 'Windows'
-        shell: bash
-        run: sh scripts/stage.sh ".release/sing-box/core/sing-box" ".release/sing-box/LICENSE" "${{ matrix.target }}"
+      - name: Build desktop application
+        run: cargo build --release --locked -p topnode-desktop --target "${{ matrix.target }}"
 
       - name: Package portable archive and manifest
-        run: python scripts/package-portable.py --stage "dist/${{ matrix.target }}" --output "dist/artifacts" --cargo-lock "Cargo.lock" --sing-box-metadata ".release/sing-box/source.json" --target "${{ matrix.target }}" --platform-label "${{ matrix.platform_label }}" --version-code "${{ needs.metadata.outputs.version_code }}" --version-name "${{ needs.metadata.outputs.version_name }}" --git-commit "${{ needs.metadata.outputs.git_commit }}" --source-date-epoch "${{ needs.metadata.outputs.source_date_epoch }}"
+        run: >-
+          python scripts/package-portable.py
+          --application "target/${{ matrix.target }}/release/topnode-desktop${{ runner.os == 'Windows' && '.exe' || '' }}"
+          --core-build ".release/sing-box-acp" --output "dist/artifacts" --cargo-lock "Cargo.lock"
+          --target "${{ matrix.target }}" --platform-label "${{ matrix.platform_label }}"
+          --version-code "${{ needs.metadata.outputs.version_code }}" --version-name "${{ needs.metadata.outputs.version_name }}"
+          --git-commit "${{ needs.metadata.outputs.git_commit }}" --source-date-epoch "${{ needs.metadata.outputs.source_date_epoch }}"
 
       - name: Upload portable archive
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
@@ -271,13 +257,13 @@ jobs:
           VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
           VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
           GIT_COMMIT: ${{ needs.metadata.outputs.git_commit }}
-          SING_BOX_VERSION: ${{ needs.metadata.outputs.sing_box_version }}
+          CORE_VERSION: ${{ needs.metadata.outputs.core_version }}
         run: |
           set -euo pipefail
           notes="$(printf '%s\n\n%s\n%s\n%s\n%s\n' \
             "TOPNODE Desktop ${VERSION_NAME} (${VERSION_CODE})" \
             "Source commit: ${GIT_COMMIT}" \
-            "Bundled sing-box: ${SING_BOX_VERSION}" \
+            "Bundled sing-box-acp: ${CORE_VERSION}" \
             "Windows packages are supported. Linux and macOS packages are previews until system-proxy/TUN adapters are implemented." \
             "The publish job uploads these packages to dufs, updates desktop.config.json in 0xddy/topnode-bootstrap-config, then retains this release and one other complete desktop version.")"
           if release_json="$(gh release view "${RELEASE_TAG}" --json isDraft,targetCommitish 2>/dev/null)"; then

@@ -1,0 +1,22 @@
+{
+  "log": {"level":"warn"},
+  "inbounds": [
+    {"type":"tun","tag":"tun-in","address":["172.19.0.1/30"],"stack":"mixed","auto_route":true},
+    {"type":"mixed","tag":"mixed-in","listen":"127.0.0.1","listen_port":2080}
+  ],
+  "outbounds": [
+    {"type":"direct","tag":"direct"},
+    {"type":"vless","tag":"tn-endpoint-raw","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","flow":"xtls-rprx-vision","tls":{"enabled":true,"server_name":"example.org","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","short_id":"01"}}},
+    {"type":"vless","tag":"tn-endpoint-auto","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","transport":{"type":"xhttp","mode":"auto","path":"/"},"tls":{"enabled":true,"server_name":"example.org","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","short_id":"01"}}},
+    {"type":"vless","tag":"tn-endpoint-packet-up","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","transport":{"type":"xhttp","mode":"packet-up","path":"/"},"tls":{"enabled":true,"server_name":"example.org","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","short_id":"01"}}},
+    {"type":"vless","tag":"tn-endpoint-stream-up","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","transport":{"type":"xhttp","mode":"stream-up","path":"/"},"tls":{"enabled":true,"server_name":"example.org","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","short_id":"01"}}},
+    {"type":"vless","tag":"tn-endpoint-stream-one","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","transport":{"type":"xhttp","mode":"stream-one","path":"/"},"tls":{"enabled":true,"server_name":"example.org","utls":{"enabled":true,"fingerprint":"chrome"},"reality":{"enabled":true,"public_key":"CQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA","short_id":"01"}}},
+    {"type":"anytls","tag":"tn-endpoint-anytls","server":"192.0.2.1","server_port":443,"password":"probe","tls":{"enabled":true,"server_name":"example.org","certificate_public_key_sha256":["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="]}},
+    {"type":"hysteria2","tag":"tn-endpoint-hy2","server":"192.0.2.1","password":"probe","tls":{"enabled":true,"server_name":"example.org","certificate_public_key_sha256":["AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="]},"server_ports":["4200:4205"],"hop_interval":"5m","obfs":{"type":"salamander","password":"probe"}},
+    {"type":"juicity","tag":"tn-endpoint-juicity","server":"192.0.2.1","server_port":443,"uuid":"00000000-0000-4000-8000-000000000001","password":"probe","pinned_certchain_sha256":"AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=","tls":{"enabled":true,"server_name":"example.org"}},
+    {"type":"mieru","tag":"tn-endpoint-mieru-tcp","server":"192.0.2.1","server_port":443,"username":"probe","password":"probe","transport":"tcp","traffic_pattern":"CAc="},
+    {"type":"mieru","tag":"tn-endpoint-mieru-udp","server":"192.0.2.1","server_port":443,"username":"probe","password":"probe","transport":"udp","traffic_pattern":"CAc="}
+  ],
+  "route": {"final":"direct"},
+  "experimental": {"clash_api":{"external_controller":"127.0.0.1:9090","secret":"not-a-production-secret","default_mode":"Rule"}}
+}

@@ -2,7 +2,7 @@ TOPNODE Desktop portable package
 ================================
 
 Keep this directory layout intact. The application resolves runtime/startup.json
-and runtime/core/sing-box only beside its own executable; it intentionally does
+and runtime/core/sing-box-acp only beside its own executable; it intentionally does
 not search PATH or the current working directory.
 
 Windows
@@ -21,12 +21,12 @@ traffic-routing client.
 
 macOS preview
 -------------
-Open TOPNODE Desktop.app. The package is ad-hoc signed, but is not Developer ID
+Open TOPNODE Desktop.app on macOS 12 or later. The package is ad-hoc signed, but is not Developer ID
 signed or notarized; Gatekeeper may require right-clicking Open on first launch.
 System-proxy takeover and TUN integration are not yet implemented, so this
 package is a UI/integration preview rather than a complete traffic-routing
 client.
 
-BUILD-INFO.json records the exact application commit, Rust target, sing-box
-release asset and SHA-256 hashes. SHA256SUMS.txt beside the GitHub Release assets
+BUILD-INFO.json records the exact application and sing-box-acp commits, Rust
+target and SHA-256 hashes. SHA256SUMS.txt beside the GitHub Release assets
 can be used to verify the downloaded archive.

@@ -112,8 +112,8 @@ only inside the sing-box adapter. Above that boundary, configuration JSON is
 opaque and its debug representation is redacted.
 
 On Windows, `Connected` is published only after the validated sidecar answers
-the authenticated loopback `/version` probe with the exact core version
-compiled into that release (`1.13.19` by default) and the chosen
+the authenticated loopback `/version` probe with the exact ACP version in
+`config/sing-box-acp.lock` and the chosen
 traffic path is ready. In the default mode that additionally means the random
 Mixed listener accepted a loopback connection and the WinINet lease was applied
 and read back. In TUN mode it means both privilege gates passed and the checked
@@ -198,9 +198,8 @@ published independently to the configured HTTPS sources.
 
 - Rust 1.92.0, pinned by the checked-in toolchain file.
 - A platform build toolchain supported by Slint/winit.
-- sing-box 1.13.19 by default, matching client-android. A controlled release
-  may set `TOPNODE_SING_BOX_VERSION`; that same exact value is compiled into the
-  runtime probe and enforced again by release staging.
+- Python 3.11+ and the Go version in `config/sing-box-acp.lock` to build and
+  package the ACP sidecar. The lock pins the same core revision as Android.
 
 Slint and `slint-build` are pinned to 1.17.1. This version supplies the native
 cross-platform `SystemTrayIcon` used by the desktop lifecycle.
@@ -243,16 +242,23 @@ Other exported preview components include `LoginPreview`,
 `SubscriptionsPreview`, `PurchasePreview`, `ProfilePreview`, `BalanceDetailsPreview`, `SettingsPreview`,
 and `DesignSystemPreview`.
 
-For a development launch, place the platform core files in the workspace
-`runtime/core/` staging directory before building. The desktop build script
-copies them into the actual executable directory:
+For a development launch, build the locked core before building the desktop
+application. For example, on Windows x86_64:
 
-- Windows: `target/debug/runtime/core/sing-box.exe`
-- Linux/macOS: `target/debug/runtime/core/sing-box`
+    python scripts/build-sing-box-acp.py --target x86_64-pc-windows-msvc --output runtime --require-native
+    cargo build -p topnode-desktop
+
+The builder uses the sibling `../third_party/sing-box-acp` Git repository if
+present, or fetches the pinned commit from the locked repository. Use
+`--source` to select another local checkout and `--help` to list targets.
+Cargo copies the binary from `runtime/core/` beside the development executable:
+
+- Windows: `target/debug/runtime/core/sing-box-acp.exe`
+- Linux/macOS: `target/debug/runtime/core/sing-box-acp`
 
 The application never searches `PATH` or the shell working directory. It
 resolves the sidecar as
-`current_exe().parent()/runtime/core/sing-box[.exe]`, so shortcuts and app
+`current_exe().parent()/runtime/core/sing-box-acp[.exe]`, so shortcuts and app
 bundles cannot accidentally select a different executable.
 
 The read-only deployment configuration is loaded from
@@ -264,13 +270,15 @@ remote bootstrap document may override only this presentation policy. The
 local file is not a Panel API fallback and never stores a remote bootstrap
 document or payment-provider credentials.
 
-Packaged release layouts continue to use the explicit staging scripts below.
-
 On first launch, the client creates and persists a stable installation device
 ID in non-secret settings, restores an encrypted session when present, and
 otherwise shows the login page. After login it fetches resource groups and
 nodes; selecting a connectable group and selectable node enables the runtime
 configuration request.
+
+Both Panel requests send `Topnode-Accept-Protocols` for VLESS Reality
+(Raw/Vision and XHTTP), AnyTLS, Hysteria2, Juicity, and Mieru (TCP/UDP). Naive
+is not advertised; it needs separate native transport and trust validation.
 
 `DevelopmentConfigurationSource` and `config/sing-box.example.json` remain in
 the repository for isolated adapter tests and manual sidecar development. They
@@ -281,36 +289,25 @@ the authenticated Panel configuration endpoint.
 
 The release directory must contain at least:
 
-    topnode-desktop[.exe]
+    topnode.exe  # topnode-desktop on Unix
     runtime/
       startup.json
       core/
-        sing-box[.exe]
-        libcronet.[dll|so]  # when supplied by the official core archive
+        sing-box-acp[.exe]
     BUILD-INFO.json
-    PORTABLE-README.txt
     THIRD_PARTY_NOTICES.md
-    LICENSE.Sora-OFL-1.1.txt
-    LICENSE.country-flags-MIT.txt
-    LICENSE.sing-box.txt
+    LICENSE.sing-box-acp
 
-Use `scripts/stage.ps1` on Windows or `scripts/stage.sh` on Unix. Both require
-an explicit core binary and GPL license path, copy official `libcronet.*`
-companions, and require the staged core to report the exact
-`TOPNODE_SING_BOX_VERSION` (default `1.13.19`).
-
-The manual `desktop-portable-release` workflow accepts that sing-box version,
-requires the repository default branch and complete Git history, verifies the
-exact official SagerNet asset against the SHA-256 digest returned by GitHub,
-requires any core build that advertises the relevant pure-Go/Naive features to
-include `libcronet.*`, runs the same stdin-based `sing-box check` CLI against a
-representative configuration, and builds six native targets: Windows/Linux
-x86_64 and ARM64, plus macOS Intel
-and Apple Silicon. Windows archives use a static Rust CRT; Unix archives are
-tarballs so executable modes survive extraction. Each package contains a build
-manifest, and the release contains `SHA256SUMS.txt`. The workflow publishes a
-draft only after every matrix build succeeds, uploads all assets, then makes the
-Release visible.
+The manual `desktop-portable-release` workflow requires the default branch and
+complete Git history. Each runner builds the ACP CLI from the locked commit
+and validates the version and advertised protocol configurations on the target
+platform. The matrix covers Windows, Linux, and macOS on x86_64 and ARM64.
+The macOS preview requires macOS 12 or later for the bundled Go runtime.
+`scripts/package-portable.py` verifies the core build metadata and binary hash
+before assembling each archive. On macOS it places `runtime/` next to the
+executable inside the app bundle. Windows archives use a static Rust CRT; Unix
+archives preserve executable modes. Every package includes a build manifest,
+and the Release publishes `SHA256SUMS.txt` after all six builds succeed.
 
 The separate `publish` job downloads the saved build artifacts and publishes all
 six packages plus checksums to:

@@ -23,18 +23,15 @@ import zipfile
 VERSION_NAME_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
 TARGET_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
 COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40,64}$")
-REQUIRED_STAGE_FILES = (
-    "THIRD_PARTY_NOTICES.md",
-    "runtime/startup.json",
-)
+ROOT = Path(__file__).resolve().parents[1]
 
 
 def parse_arguments() -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--stage", required=True, type=Path)
+    parser.add_argument("--application", required=True, type=Path)
+    parser.add_argument("--core-build", required=True, type=Path)
     parser.add_argument("--output", required=True, type=Path)
     parser.add_argument("--cargo-lock", required=True, type=Path)
-    parser.add_argument("--sing-box-metadata", required=True, type=Path)
     parser.add_argument("--target", required=True)
     parser.add_argument("--platform-label", required=True)
     parser.add_argument("--version-code", required=True, type=int)
@@ -53,10 +50,8 @@ def sha256_file(path: Path) -> str:
 
 
 def validate_arguments(arguments: argparse.Namespace) -> None:
-    if not arguments.stage.is_dir():
-        raise RuntimeError("--stage must be an existing directory")
-    if not arguments.cargo_lock.is_file() or not arguments.sing_box_metadata.is_file():
-        raise RuntimeError("Cargo.lock and sing-box metadata must exist")
+    if not arguments.application.is_file() or not arguments.cargo_lock.is_file():
+        raise RuntimeError("the built desktop executable and Cargo.lock must exist")
     if not 1 <= arguments.version_code <= 2_100_000_000:
         raise RuntimeError("--version-code must be between 1 and 2100000000")
     if VERSION_NAME_PATTERN.fullmatch(arguments.version_name) is None:
@@ -71,39 +66,42 @@ def validate_arguments(arguments: argparse.Namespace) -> None:
         raise RuntimeError("--source-date-epoch must be on or after 1980-01-01")
 
 
-def validate_stage_contents(stage: Path, target: str) -> None:
-    application_name = "topnode.exe" if "windows-msvc" in target else "topnode-desktop"
-    core_name = "sing-box.exe" if "windows-msvc" in target else "sing-box"
-    required_files = (application_name, f"runtime/core/{core_name}", *REQUIRED_STAGE_FILES)
-    missing_files = [name for name in required_files if not (stage / name).is_file()]
-    if missing_files:
-        raise RuntimeError(f"stage is missing required package files: {', '.join(missing_files)}")
-    text_files = sorted(
-        path.relative_to(stage).as_posix()
-        for path in stage.rglob("*.txt")
-        if path.is_file()
-    )
-    if text_files:
-        raise RuntimeError(f"stage contains forbidden text files: {', '.join(text_files)}")
+def validate_core_build(build: Path, target: str) -> tuple[Path, dict]:
+    lock = dict(line.split("=", 1) for line in (ROOT / "config/sing-box-acp.lock").read_text().splitlines())
+    metadata = json.loads((build / "source.json").read_text(encoding="utf-8"))
+    expected = {
+        "repository": lock["repository"],
+        "commit": lock["commit"],
+        "version": lock["version"],
+        "goVersion": lock["go"],
+        "target": target,
+        "nativeCheck": True,
+    }
+    if any(metadata.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("ACP core metadata does not match the lock and native release target")
+    binary = build / "core" / ("sing-box-acp.exe" if "windows-msvc" in target else "sing-box-acp")
+    if sha256_file(binary) != metadata.get("binarySha256"):
+        raise RuntimeError("ACP core binary does not match its build metadata")
+    return binary, metadata
 
 
-def copy_stage(stage: Path, root: Path, target: str, version_name: str, version_code: int) -> Path | None:
-    if "apple-darwin" not in target:
-        shutil.copytree(stage, root)
-        return None
-
-    root.mkdir(parents=True)
+def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) -> None:
+    target = arguments.target
     app = root / "TOPNODE Desktop.app"
-    macos = app / "Contents" / "MacOS"
-    macos.mkdir(parents=True)
-    shutil.copy2(stage / "topnode-desktop", macos / "topnode-desktop")
-    shutil.copytree(stage / "runtime", macos / "runtime")
-    for source in sorted(stage.iterdir()):
-        if source.name in {"topnode-desktop", "runtime"}:
-            continue
-        if source.is_file():
-            shutil.copy2(source, root / source.name)
-    short_version = version_name.split("-", maxsplit=1)[0]
+    is_macos = "apple-darwin" in target
+    executable_dir = app / "Contents" / "MacOS" if is_macos else root
+    core_dir = executable_dir / "runtime" / "core"
+    core_dir.mkdir(parents=True)
+    application_name = "topnode.exe" if "windows-msvc" in target else "topnode-desktop"
+    shutil.copy2(arguments.application, executable_dir / application_name)
+    shutil.copy2(binary, core_dir / binary.name)
+    shutil.copy2(ROOT / "config/startup.json", executable_dir / "runtime/startup.json")
+    shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", root)
+    shutil.copy2(arguments.core_build / "LICENSE.sing-box-acp", root)
+    if not is_macos:
+        return
+
+    short_version = arguments.version_name.split("-", maxsplit=1)[0]
     info = {
         "CFBundleDevelopmentRegion": "zh_CN",
         "CFBundleDisplayName": "TOPNODE Desktop",
@@ -113,8 +111,8 @@ def copy_stage(stage: Path, root: Path, target: str, version_name: str, version_
         "CFBundleName": "TOPNODE Desktop",
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": short_version,
-        "CFBundleVersion": str(version_code),
-        "LSMinimumSystemVersion": "11.0",
+        "CFBundleVersion": str(arguments.version_code),
+        "LSMinimumSystemVersion": "12.0",
         "NSHighResolutionCapable": True,
     }
     with (app / "Contents" / "Info.plist").open("wb") as output:
@@ -124,7 +122,6 @@ def copy_stage(stage: Path, root: Path, target: str, version_name: str, version_
         check=True,
         timeout=60,
     )
-    return app
 
 
 def payload_hashes(root: Path) -> list[dict[str, object]]:
@@ -183,9 +180,8 @@ def create_tar_gz(root: Path, archive: Path, epoch: int) -> None:
 def main() -> None:
     arguments = parse_arguments()
     validate_arguments(arguments)
-    stage = arguments.stage.resolve()
     output = arguments.output.resolve()
-    validate_stage_contents(stage, arguments.target)
+    binary, sing_box = validate_core_build(arguments.core_build, arguments.target)
     output.mkdir(parents=True, exist_ok=True)
     extension = ".zip" if "windows-msvc" in arguments.target else ".tar.gz"
     archive_stem = f"topnode-desktop-{arguments.version_name}-{arguments.platform_label}"
@@ -193,10 +189,9 @@ def main() -> None:
     if archive.exists():
         raise RuntimeError(f"refusing to overwrite existing archive: {archive}")
 
-    sing_box = json.loads(arguments.sing_box_metadata.read_text(encoding="utf-8"))
     with tempfile.TemporaryDirectory(prefix="topnode-portable-") as temporary:
         root = Path(temporary) / archive_stem
-        copy_stage(stage, root, arguments.target, arguments.version_name, arguments.version_code)
+        assemble_payload(root, arguments, binary)
         build_time = datetime.fromtimestamp(arguments.source_date_epoch, timezone.utc).isoformat()
         manifest = {
             "schemaVersion": 1,

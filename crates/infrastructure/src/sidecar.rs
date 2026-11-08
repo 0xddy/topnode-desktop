@@ -34,10 +34,7 @@ use crate::{
 
 const RUNTIME_ID: &str = "rt1";
 const SUPPORTED_SCHEMA: u32 = 1;
-const SUPPORTED_CORE_VERSION: &str = match option_env!("TOPNODE_SING_BOX_VERSION") {
-    Some(version) => version,
-    None => "1.13.19",
-};
+pub const SING_BOX_ACP_VERSION: &str = env!("TOPNODE_SING_BOX_ACP_VERSION");
 const COMMAND_TIMEOUT: Duration = Duration::from_secs(10);
 const READINESS_TIMEOUT: Duration = Duration::from_secs(30);
 const READINESS_RETRY_INTERVAL: Duration = Duration::from_millis(100);
@@ -154,7 +151,7 @@ impl SingBoxSidecar {
                 paths,
                 descriptor: RuntimeDescriptor {
                     runtime_id,
-                    version: format!("{SUPPORTED_CORE_VERSION}-sidecar"),
+                    version: format!("{SING_BOX_ACP_VERSION}-sidecar"),
                     supported_schemas: vec![SUPPORTED_SCHEMA],
                     capabilities: EngineCapabilities {
                         latency_test: false,
@@ -225,7 +222,7 @@ impl SingBoxSidecar {
             return CoreProbe {
                 available: false,
                 version: "未安装".to_owned(),
-                message: "请将 sing-box 内核放到应用程序 runtime/core 目录".to_owned(),
+                message: "请将 sing-box-acp 内核放到应用程序 runtime/core 目录".to_owned(),
                 binary_path,
             };
         }
@@ -237,7 +234,7 @@ impl SingBoxSidecar {
             Ok(Ok(output)) if output.status.success() => {
                 let text = String::from_utf8_lossy(&output.stdout);
                 let version = text.lines().next().unwrap_or("sing-box").trim().to_owned();
-                let supported = parsed_core_version(&version) == Some(SUPPORTED_CORE_VERSION);
+                let supported = reports_expected_core(&version);
                 self.inner
                     .core_compatible
                     .store(supported, Ordering::Release);
@@ -245,9 +242,9 @@ impl SingBoxSidecar {
                     available: supported,
                     version,
                     message: if supported {
-                        format!("sing-box {SUPPORTED_CORE_VERSION} 内核可用")
+                        format!("sing-box-acp {SING_BOX_ACP_VERSION} 内核可用")
                     } else {
-                        format!("内核版本必须为 {SUPPORTED_CORE_VERSION}，已阻止启动")
+                        format!("内核版本必须为 {SING_BOX_ACP_VERSION}，已阻止启动")
                     },
                     binary_path,
                 }
@@ -326,7 +323,7 @@ impl SingBoxSidecar {
         }
         if !self.inner.core_compatible.load(Ordering::Acquire) {
             return Err(EngineError::Process(format!(
-                "sing-box 内核尚未通过 {SUPPORTED_CORE_VERSION} 版本探测"
+                "sing-box-acp 内核尚未通过 {SING_BOX_ACP_VERSION} 版本探测"
             )));
         }
         Ok(())
@@ -1125,7 +1122,7 @@ async fn probe_control_api_once(
     };
 
     serde_json::from_slice::<ClashVersionResponse>(&body)
-        .is_ok_and(|version| version.version == format!("sing-box {SUPPORTED_CORE_VERSION}"))
+        .is_ok_and(|version| version.version == format!("sing-box {SING_BOX_ACP_VERSION}"))
 }
 
 async fn fetch_telemetry_once(
@@ -1282,12 +1279,8 @@ fn sanitize_log_line(line: &str) -> String {
     line.chars().take(4_096).collect()
 }
 
-fn parsed_core_version(first_line: &str) -> Option<&str> {
-    first_line.split_ascii_whitespace().find(|part| {
-        part.bytes()
-            .next()
-            .is_some_and(|byte| byte.is_ascii_digit())
-    })
+fn reports_expected_core(first_line: &str) -> bool {
+    first_line.strip_prefix("sing-box version ") == Some(SING_BOX_ACP_VERSION)
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -1417,10 +1410,10 @@ mod tests {
     };
 
     use super::{
-        CONTROL_REQUEST_TIMEOUT, ClashConnectionsResponse, PreviousTelemetry,
-        SUPPORTED_CORE_VERSION, SingBoxSidecar, apply_platform_flags, command_status_with_input,
-        configuration_fingerprint, parsed_core_version, prepare_runtime, probe_control_api_once,
-        sanitize_log_line, telemetry_snapshot,
+        CONTROL_REQUEST_TIMEOUT, ClashConnectionsResponse, PreviousTelemetry, SING_BOX_ACP_VERSION,
+        SingBoxSidecar, apply_platform_flags, command_status_with_input, configuration_fingerprint,
+        prepare_runtime, probe_control_api_once, reports_expected_core, sanitize_log_line,
+        telemetry_snapshot,
     };
     use crate::AppPaths;
 
@@ -1436,12 +1429,19 @@ mod tests {
     }
 
     #[test]
-    fn core_version_parser_requires_a_version_token() {
-        assert_eq!(
-            parsed_core_version("sing-box version 1.13.19"),
-            Some("1.13.19")
-        );
-        assert_eq!(parsed_core_version("sing-box version unavailable"), None);
+    fn cli_probe_requires_the_exact_acp_version() {
+        assert!(reports_expected_core(&format!(
+            "sing-box version {SING_BOX_ACP_VERSION}"
+        )));
+        let (upstream, _) = SING_BOX_ACP_VERSION
+            .split_once('-')
+            .expect("ACP revision suffix");
+        assert!(!reports_expected_core(&format!(
+            "sing-box version {upstream}"
+        )));
+        assert!(!reports_expected_core(&format!(
+            "other version {SING_BOX_ACP_VERSION}"
+        )));
     }
 
     #[test]
@@ -1648,7 +1648,7 @@ mod tests {
                         .eq_ignore_ascii_case(&format!("Authorization: Bearer {secret}")))
             );
             let body = format!(
-                r#"{{"version":"sing-box {SUPPORTED_CORE_VERSION}","premium":true,"meta":true}}"#
+                r#"{{"version":"sing-box {SING_BOX_ACP_VERSION}","premium":true,"meta":true}}"#
             );
             write!(
                 stream,

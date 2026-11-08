@@ -36,6 +36,20 @@ const MAX_DEVICE_ID_BYTES: usize = 191;
 const MAX_DEVICE_NAME_BYTES: usize = 128;
 const MAX_PLATFORM_BYTES: usize = 32;
 const MAX_VERSION_NAME_BYTES: usize = 64;
+const ACCEPT_PROTOCOLS_HEADER: &str = "Topnode-Accept-Protocols";
+// Keep the offers aligned with the ACP sidecar's native protocol checks.
+const ACCEPT_PROTOCOLS: &str = concat!(
+    "vless;transport=raw;security=reality;flow=vision, ",
+    "vless;transport=xhttp;security=reality;mode=auto, ",
+    "vless;transport=xhttp;security=reality;mode=packet-up, ",
+    "vless;transport=xhttp;security=reality;mode=stream-up, ",
+    "vless;transport=xhttp;security=reality;mode=stream-one, ",
+    "anytls;transport=tcp;security=tls;spki-pin, ",
+    "hysteria2;transport=quic;security=tls;salamander;spki-pin;port-hopping, ",
+    "juicity;transport=quic;security=tls;chain-pin, ",
+    "mieru;transport=tcp;traffic-pattern;user-hint, ",
+    "mieru;transport=udp;traffic-pattern;user-hint",
+);
 
 #[derive(Clone, Debug)]
 pub struct PanelClientOptions {
@@ -820,6 +834,7 @@ impl PanelRepository for HttpPanelClient {
                     .client
                     .get(endpoint.clone())
                     .header("X-Request-ID", request_id())
+                    .header(ACCEPT_PROTOCOLS_HEADER, ACCEPT_PROTOCOLS)
                     .bearer_auth(token)
             })
             .await?;
@@ -979,6 +994,7 @@ impl ConfigurationSource for HttpPanelClient {
                     .client
                     .post(endpoint.clone())
                     .header("X-Request-ID", request_id())
+                    .header(ACCEPT_PROTOCOLS_HEADER, ACCEPT_PROTOCOLS)
                     .bearer_auth(token)
                     .header("Cache-Control", "no-store")
                     .json(&body)

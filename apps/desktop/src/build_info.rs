@@ -1,7 +1,6 @@
 pub const VERSION_NAME: &str = env!("TOPNODE_VERSION_NAME");
 pub const GIT_COMMIT: &str = env!("TOPNODE_GIT_COMMIT");
 pub const BUILD_TARGET: &str = env!("TOPNODE_BUILD_TARGET");
-pub const SING_BOX_VERSION: &str = env!("TOPNODE_SING_BOX_VERSION");
 
 pub fn version_code() -> u64 {
     env!("TOPNODE_VERSION_CODE")
@@ -11,14 +10,13 @@ pub fn version_code() -> u64 {
 
 #[cfg(test)]
 mod tests {
-    use super::{BUILD_TARGET, GIT_COMMIT, SING_BOX_VERSION, VERSION_NAME, version_code};
+    use super::{BUILD_TARGET, GIT_COMMIT, VERSION_NAME, version_code};
 
     #[test]
     fn embedded_build_identity_is_valid() {
         assert!(version_code() > 0);
         assert!(!VERSION_NAME.is_empty());
         assert!(!BUILD_TARGET.is_empty());
-        assert_eq!(SING_BOX_VERSION.matches('.').count(), 2);
         assert!(
             GIT_COMMIT == "unknown"
                 || ((40..=64).contains(&GIT_COMMIT.len())

@@ -25,11 +25,12 @@ The built-in country flag WebP assets are from `circle-flags` by
 text is included with the source assets as
 `apps/desktop/ui/assets/flags/LICENSE.country-flags-MIT.txt`.
 
-## sing-box
+## sing-box-acp
 
-The separately executed sing-box runtime is licensed under GPL-3.0-or-later.
-Redistributors must provide its complete license text and the corresponding
-source and build information for the exact shipped binary:
-https://github.com/SagerNet/sing-box
+The separately executed ACP fork of sing-box is licensed under
+GPL-3.0-or-later: https://github.com/0xddy/sing-box-acp.
+The portable archive includes `LICENSE.sing-box-acp` with the fork license and
+notices for the bundled Mieru, sing-quic, sing-vmess, and uTLS replacements.
+`BUILD-INFO.json` identifies the corresponding source revision and build options.
 
 This notice is not a replacement for either project's license text.

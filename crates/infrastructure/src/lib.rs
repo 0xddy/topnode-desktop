@@ -36,7 +36,7 @@ pub use remote_startup::{
 };
 pub use session_vault::SessionVault;
 pub use settings::{DesktopSettings, SettingsStore};
-pub use sidecar::{CoreProbe, SingBoxSidecar};
+pub use sidecar::{CoreProbe, SING_BOX_ACP_VERSION, SingBoxSidecar};
 pub use sidecar_guardian::run_if_requested as run_sidecar_guardian_if_requested;
 pub use startup::{PaymentPresentation, StartupConfiguration, StartupConfigurationStore};
 pub use system_proxy::{

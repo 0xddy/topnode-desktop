@@ -206,7 +206,7 @@ fn log_startup(startup: &ResolvedStartupConfiguration) {
         version_name = build_info::VERSION_NAME,
         git_commit = build_info::GIT_COMMIT,
         build_target = build_info::BUILD_TARGET,
-        sing_box_version = build_info::SING_BOX_VERSION,
+        sing_box_acp_version = topnode_infrastructure::SING_BOX_ACP_VERSION,
         startup_source = startup.source_url(),
         configuration_attempts = startup.configuration_attempts(),
         probe_response_code = startup.probe_response_code(),

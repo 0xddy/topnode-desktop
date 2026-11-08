@@ -45,9 +45,9 @@ impl AppPaths {
         let runtime_dir = executable_dir.join("runtime");
         let core_dir = runtime_dir.join("core");
         let sidecar_name = if cfg!(windows) {
-            "sing-box.exe"
+            "sing-box-acp.exe"
         } else {
-            "sing-box"
+            "sing-box-acp"
         };
         let config_dir = data_dir.join("runtime");
         let auth_dir = data_dir.join("auth");
@@ -99,9 +99,9 @@ mod tests {
             .join("runtime");
         let expected_core_dir = expected_runtime_dir.join("core");
         let expected_sidecar_name = if cfg!(windows) {
-            "sing-box.exe"
+            "sing-box-acp.exe"
         } else {
-            "sing-box"
+            "sing-box-acp"
         };
 
         assert_eq!(paths.runtime_dir, expected_runtime_dir);
