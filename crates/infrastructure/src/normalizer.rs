@@ -95,12 +95,69 @@ pub(crate) fn normalize(
         )?;
     }
     normalized = apply_local_multiplex_policy(normalized, preferences.multiplex_enabled)?;
+    use_tcp_dns_for_naive_detours(&mut normalized);
 
     if normalized == original {
         Ok(payload.to_owned())
     } else {
         serde_json::to_string(&Value::Object(normalized))
             .map_err(|error| invalid_configuration(format!("JSON 序列化失败：{error}")))
+    }
+}
+
+fn use_tcp_dns_for_naive_detours(document: &mut Map<String, Value>) {
+    let Some(outbounds) = document.get("outbounds").and_then(Value::as_array) else {
+        return;
+    };
+    let mut parent_groups = HashMap::<&str, Vec<&str>>::new();
+    let mut pending = Vec::new();
+    for outbound in outbounds {
+        let Some(tag) = outbound["tag"].as_str() else {
+            continue;
+        };
+        match outbound["type"].as_str() {
+            Some("naive") => {
+                let uot = &outbound["udp_over_tcp"];
+                if uot.as_bool() != Some(true) && uot["enabled"].as_bool() != Some(true) {
+                    pending.push(tag);
+                }
+            }
+            Some("selector" | "urltest") => {
+                if let Some(members) = outbound["outbounds"].as_array() {
+                    for member in members.iter().filter_map(Value::as_str) {
+                        parent_groups.entry(member).or_default().push(tag);
+                    }
+                }
+            }
+            _ => {}
+        }
+    }
+
+    // A selector can restore a cached choice, so account for any member
+    // that can make UDP DNS fail. Preserve the configured resolver and detour.
+    let mut tcp_dns_detours = HashSet::new();
+    while let Some(tag) = pending.pop() {
+        if tcp_dns_detours.insert(tag.to_owned())
+            && let Some(parents) = parent_groups.get(tag)
+        {
+            pending.extend(parents);
+        }
+    }
+    let Some(servers) = document
+        .get_mut("dns")
+        .and_then(|dns| dns.get_mut("servers"))
+        .and_then(Value::as_array_mut)
+    else {
+        return;
+    };
+    for server in servers {
+        if server["type"] == "udp"
+            && server["detour"]
+                .as_str()
+                .is_some_and(|tag| tcp_dns_detours.contains(tag))
+        {
+            server["type"] = Value::String("tcp".to_owned());
+        }
     }
 }
 
@@ -1392,6 +1449,30 @@ mod tests {
             let normalized: Value = serde_json::from_str(&normalized).expect("normalized JSON");
             assert_eq!(normalized["outbounds"], original["outbounds"]);
         }
+    }
+
+    #[test]
+    fn dns_uses_tcp_when_a_detour_can_select_tcp_only_naive() {
+        let payload = r#"{
+            "outbounds":[
+                {"type":"naive","tag":"naive","quic":true},
+                {"type":"naive","tag":"naive-uot","udp_over_tcp":{"enabled":true}},
+                {"type":"vless","tag":"vless"},
+                {"type":"urltest","tag":"auto","outbounds":["vless","naive"]},
+                {"type":"selector","tag":"selected","default":"vless","outbounds":["vless","auto"]}
+            ],
+            "dns":{"servers":[
+                {"type":"udp","tag":"remote","server":"192.0.2.53","server_port":5353,"detour":"selected"},
+                {"type":"udp","tag":"naive-dns","server":"192.0.2.53","detour":"naive"},
+                {"type":"udp","tag":"local","server":"192.0.2.54"},
+                {"type":"udp","tag":"uot","server":"192.0.2.53","detour":"naive-uot"},
+                {"type":"https","tag":"doh","server":"192.0.2.53","detour":"naive"}
+            ]}
+        }"#;
+        let mut expected: Value = serde_json::from_str(payload).expect("original JSON");
+        expected["dns"]["servers"][0]["type"] = json!("tcp");
+        expected["dns"]["servers"][1]["type"] = json!("tcp");
+        assert_eq!(normalized(payload, &preferences()), expected);
     }
 
     #[test]
