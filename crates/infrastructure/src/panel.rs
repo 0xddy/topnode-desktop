@@ -95,6 +95,7 @@ impl PanelClientOptions {
 #[derive(Clone)]
 pub struct HttpPanelClient {
     inner: Arc<Inner>,
+    accept_protocols: String,
 }
 
 struct Inner {
@@ -142,6 +143,7 @@ impl HttpPanelClient {
             .build()
             .map_err(|error| PanelError::Transport(error.to_string()))?;
         Ok(Self {
+            accept_protocols: ACCEPT_PROTOCOLS.to_owned(),
             inner: Arc::new(Inner {
                 client,
                 logical_base_url: base_url.clone(),
@@ -183,6 +185,7 @@ impl HttpPanelClient {
         )
         .map_err(|error| PanelError::Transport(error.to_string()))?;
         Ok(Self {
+            accept_protocols: ACCEPT_PROTOCOLS.to_owned(),
             inner: Arc::new(Inner {
                 client,
                 logical_base_url,
@@ -193,6 +196,17 @@ impl HttpPanelClient {
                 session_gate: Mutex::new(()),
             }),
         })
+    }
+
+    #[must_use]
+    pub fn with_naive_test(mut self, enabled: bool) -> Self {
+        self.accept_protocols.truncate(ACCEPT_PROTOCOLS.len());
+        if enabled {
+            self.accept_protocols.push_str(
+                ", naive;transport=https;security=tls;custom-ca, naive;transport=quic;security=tls;custom-ca",
+            );
+        }
+        self
     }
 
     async fn authenticated<T, F>(&self, build: F) -> Result<T, PanelError>
@@ -834,7 +848,7 @@ impl PanelRepository for HttpPanelClient {
                     .client
                     .get(endpoint.clone())
                     .header("X-Request-ID", request_id())
-                    .header(ACCEPT_PROTOCOLS_HEADER, ACCEPT_PROTOCOLS)
+                    .header(ACCEPT_PROTOCOLS_HEADER, self.accept_protocols.as_str())
                     .bearer_auth(token)
             })
             .await?;
@@ -994,7 +1008,7 @@ impl ConfigurationSource for HttpPanelClient {
                     .client
                     .post(endpoint.clone())
                     .header("X-Request-ID", request_id())
-                    .header(ACCEPT_PROTOCOLS_HEADER, ACCEPT_PROTOCOLS)
+                    .header(ACCEPT_PROTOCOLS_HEADER, self.accept_protocols.as_str())
                     .bearer_auth(token)
                     .header("Cache-Control", "no-store")
                     .json(&body)

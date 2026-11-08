@@ -277,8 +277,32 @@ nodes; selecting a connectable group and selectable node enables the runtime
 configuration request.
 
 Both Panel requests send `Topnode-Accept-Protocols` for VLESS Reality
-(Raw/Vision and XHTTP), AnyTLS, Hysteria2, Juicity, and Mieru (TCP/UDP). Naive
-is not advertised; it needs separate native transport and trust validation.
+(Raw/Vision and XHTTP), AnyTLS, Hysteria2, Juicity, and Mieru (TCP/UDP).
+
+## Test Naive on Windows
+
+Build the test core and run the loopback connection checks:
+
+    python scripts/build-sing-box-acp.py --target x86_64-pc-windows-msvc --output runtime --require-native --with-naive
+    python -m pip install cryptography
+    python scripts/verify-naive.py --core runtime/core/sing-box-acp.exe
+
+The builder stages the matching Cronet DLL from the ACP dependency lock.
+The tests send HTTP traffic through real Naive HTTPS and QUIC connections.
+They cover private CA and self-signed trust, plus rejection of untrusted CA,
+expired certificates, wrong names and wrong passwords. They leave system
+trust untouched.
+
+Quit any running desktop instance, including the tray instance, then run:
+
+    cargo run --locked -p topnode-desktop
+
+The debug app offers Naive HTTPS and QUIC (including custom CA) to the Panel
+when the matching core reports Naive support and its Cronet library is present.
+Log in with a test account that has Naive nodes in its plan. In system proxy
+mode, select an HTTPS node and a QUIC node separately, and load a page through
+each. Use a node with a publicly trusted certificate to verify system trust.
+Portable release packaging rejects the test core.
 
 `DevelopmentConfigurationSource` and `config/sing-box.example.json` remain in
 the repository for isolated adapter tests and manual sidecar development. They

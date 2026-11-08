@@ -69,6 +69,8 @@ def validate_arguments(arguments: argparse.Namespace) -> None:
 def validate_core_build(build: Path, target: str) -> tuple[Path, dict]:
     lock = dict(line.split("=", 1) for line in (ROOT / "config/sing-box-acp.lock").read_text().splitlines())
     metadata = json.loads((build / "source.json").read_text(encoding="utf-8"))
+    if metadata.get("naiveTest") or "with_naive_outbound" in metadata.get("tags", []):
+        raise RuntimeError("the Naive test core must not be used for a portable release")
     expected = {
         "repository": lock["repository"],
         "commit": lock["commit"],

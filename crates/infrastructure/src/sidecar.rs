@@ -47,6 +47,7 @@ const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoreProbe {
     pub available: bool,
+    pub naive_available: bool,
     pub version: String,
     pub binary_path: std::path::PathBuf,
     pub message: String,
@@ -221,6 +222,7 @@ impl SingBoxSidecar {
         if !binary_path.is_file() {
             return CoreProbe {
                 available: false,
+                naive_available: false,
                 version: "未安装".to_owned(),
                 message: "请将 sing-box-acp 内核放到应用程序 runtime/core 目录".to_owned(),
                 binary_path,
@@ -240,6 +242,7 @@ impl SingBoxSidecar {
                     .store(supported, Ordering::Release);
                 CoreProbe {
                     available: supported,
+                    naive_available: supported && has_naive_test_core(&text, &self.inner.paths),
                     version,
                     message: if supported {
                         format!("sing-box-acp {SING_BOX_ACP_VERSION} 内核可用")
@@ -251,18 +254,21 @@ impl SingBoxSidecar {
             }
             Ok(Ok(output)) => CoreProbe {
                 available: false,
+                naive_available: false,
                 version: "不可用".to_owned(),
                 message: sanitized_process_message(&output.stderr),
                 binary_path,
             },
             Ok(Err(error)) => CoreProbe {
                 available: false,
+                naive_available: false,
                 version: "不可用".to_owned(),
                 message: error.to_string(),
                 binary_path,
             },
             Err(_) => CoreProbe {
                 available: false,
+                naive_available: false,
                 version: "响应超时".to_owned(),
                 message: "sing-box version 执行超时".to_owned(),
                 binary_path,
@@ -1281,6 +1287,19 @@ fn sanitize_log_line(line: &str) -> String {
 
 fn reports_expected_core(first_line: &str) -> bool {
     first_line.strip_prefix("sing-box version ") == Some(SING_BOX_ACP_VERSION)
+}
+
+fn has_naive_test_core(version_output: &str, paths: &AppPaths) -> bool {
+    let library = match std::env::consts::OS {
+        "windows" => "libcronet.dll",
+        "linux" => "libcronet.so",
+        _ => return false,
+    };
+    version_output
+        .lines()
+        .find_map(|line| line.strip_prefix("Tags: "))
+        .is_some_and(|tags| tags.split(',').any(|tag| tag == "with_naive_outbound"))
+        && paths.core_dir.join(library).is_file()
 }
 
 #[allow(clippy::needless_pass_by_value)]

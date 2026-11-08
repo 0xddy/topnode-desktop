@@ -72,12 +72,26 @@ def validate_core(binary):
     print(version, end="")
 
 
+def copy_cronet(source, directory, go_env, goos, goarch):
+    module = f"github.com/sagernet/cronet-go/lib/{goos}_{goarch}"
+    metadata = subprocess.check_output(
+        ["go", "mod", "download", "-json", module], cwd=source, env=go_env, text=True,
+    )
+    library = Path(json.loads(metadata)["Dir"])
+    filename = "libcronet.dll" if goos == "windows" else "libcronet.so"
+    # Go's module cache marks files read-only. Copy bytes so Windows builds
+    # can replace the staged DLL on subsequent runs.
+    shutil.copyfile(library / filename, directory / filename)
+    return filename, (library / "LICENSE").read_text(encoding="utf-8").strip()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--source", type=Path, help="use this local ACP Git checkout instead of fetching")
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target", choices=TARGETS, required=True)
     parser.add_argument("--require-native", action="store_true", help="require native execution of the built core")
+    parser.add_argument("--with-naive", action="store_true", help="build a Windows/Linux core for Naive testing")
     args = parser.parse_args()
     sibling = ROOT.parent / "third_party/sing-box-acp"
     local_source = args.source or (sibling if sibling.is_dir() else None)
@@ -90,6 +104,9 @@ def main():
         raise RuntimeError("invalid ACP commit or version lock")
     go_env = dict(os.environ, GOENV="off", GOWORK="off", GOFLAGS="", GOTOOLCHAIN=f"go{LOCK['go']}")
     goos, goarch = TARGETS[args.target]
+    if args.with_naive and goos not in ("windows", "linux"):
+        parser.error("--with-naive currently supports Windows and Linux test builds")
+    tags = f"{TAGS},with_naive_outbound,with_purego" if args.with_naive else TAGS
     host = subprocess.check_output(["go", "env", "GOHOSTOS", "GOHOSTARCH"], env=go_env, text=True).split()
     native = host == [goos, goarch]
     if args.require_native and not native:
@@ -105,10 +122,12 @@ def main():
         shared_flags = (source / "release/LDFLAGS").read_text().strip()
         flags = f"-X github.com/sagernet/sing-box/constant.Version={LOCK['version']} {shared_flags} -s -w -buildid="
         subprocess.run(
-            ["go", "build", "-mod=readonly", "-trimpath", "-buildvcs=true", "-tags", TAGS,
+            ["go", "build", "-mod=readonly", "-trimpath", "-buildvcs=true", "-tags", tags,
              "-ldflags", flags, "-o", binary, "./cmd/sing-box"],
             cwd=source, env=dict(go_env, CGO_ENABLED="0", GOOS=goos, GOARCH=goarch), check=True,
         )
+        if args.with_naive:
+            cronet_name, cronet_license = copy_cronet(source, directory, go_env, goos, goarch)
         if native:
             validate_core(binary)
         core_dir = output / "core"
@@ -118,6 +137,9 @@ def main():
             f"{path}\n{'=' * len(path)}\n{(source / path).read_text(encoding='utf-8').strip()}"
             for path in LICENSES
         )
+        if args.with_naive:
+            shutil.copyfile(directory / cronet_name, core_dir / cronet_name)
+            notices += f"\n\n{cronet_name}\n{'=' * len(cronet_name)}\n{cronet_license}"
         (output / "LICENSE.sing-box-acp").write_text(notices + "\n", encoding="utf-8")
         with binary.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -130,7 +152,8 @@ def main():
             "goos": goos,
             "goarch": goarch,
             "target": args.target,
-            "tags": TAGS.split(","),
+            "tags": tags.split(","),
+            "naiveTest": args.with_naive,
             "nativeCheck": native,
             "binarySha256": digest,
         }

@@ -425,16 +425,6 @@ async fn build_controller(
     settings: DesktopSettings,
     panel_endpoint: &PanelEndpoint,
 ) -> anyhow::Result<(Arc<DesktopController>, CoreProbe)> {
-    let panel_client = Arc::new(HttpPanelClient::new_for_endpoint(
-        PanelClientOptions::for_endpoint(panel_endpoint, settings.device_id.clone())
-            .with_version_name(build_info::VERSION_NAME),
-        panel_endpoint,
-        SessionVault::new(paths.session_vault_file.clone()),
-    )?);
-    let config_source: Arc<dyn ConfigurationSource> = panel_client.clone();
-    let panel_repository: Arc<dyn PanelRepository> = panel_client;
-    let panel = Arc::new(PanelCoordinator::new(panel_repository));
-
     let sidecar = Arc::new(SingBoxSidecar::new(paths.clone())?);
     sidecar
         .reconcile_system_proxy()
@@ -445,6 +435,18 @@ async fn build_controller(
         .await
         .context("无法清理上次遗留的运行时配置")?;
     let probe = sidecar.probe().await;
+    let panel_client = Arc::new(
+        HttpPanelClient::new_for_endpoint(
+            PanelClientOptions::for_endpoint(panel_endpoint, settings.device_id.clone())
+                .with_version_name(build_info::VERSION_NAME),
+            panel_endpoint,
+            SessionVault::new(paths.session_vault_file.clone()),
+        )?
+        .with_naive_test(cfg!(debug_assertions) && probe.naive_available),
+    );
+    let config_source: Arc<dyn ConfigurationSource> = panel_client.clone();
+    let panel_repository: Arc<dyn PanelRepository> = panel_client;
+    let panel = Arc::new(PanelCoordinator::new(panel_repository));
     let engine: Arc<dyn ConnectionEngine> = sidecar;
     let coordinator = Arc::new(ConnectionCoordinator::new(engine, config_source));
     let controller = Arc::new(DesktopController::new(

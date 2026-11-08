@@ -193,12 +193,13 @@ fn stage_development_runtime() -> io::Result<()> {
     } else {
         "sing-box-acp"
     };
-    let core_source = project_root.join("runtime/core").join(core_name);
-    println!("cargo:rerun-if-changed={}", core_source.display());
-    if !core_source.is_file() {
+    let core_source = project_root.join("runtime/core");
+    let binary = core_source.join(core_name);
+    println!("cargo:rerun-if-changed={}", binary.display());
+    if !binary.is_file() {
         println!(
             "cargo:warning=development core not staged: expected {}",
-            core_source.display()
+            binary.display()
         );
         return Ok(());
     }
@@ -206,7 +207,21 @@ fn stage_development_runtime() -> io::Result<()> {
     let core_destination = runtime_destination.join("core");
     fs::create_dir_all(&core_destination)?;
 
-    fs::copy(core_source, core_destination.join(core_name))?;
+    fs::copy(binary, core_destination.join(core_name))?;
+    let cronet_name = match target_os.as_str() {
+        "windows" => "libcronet.dll",
+        "linux" => "libcronet.so",
+        _ => return Ok(()),
+    };
+    let cronet = core_source.join(cronet_name);
+    println!("cargo:rerun-if-changed={}", cronet.display());
+    if cronet.is_file() {
+        fs::copy(cronet, core_destination.join(cronet_name))?;
+    } else if let Err(error) = fs::remove_file(core_destination.join(cronet_name))
+        && error.kind() != io::ErrorKind::NotFound
+    {
+        return Err(error);
+    }
 
     Ok(())
 }
