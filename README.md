@@ -213,6 +213,13 @@ From this directory:
     cargo clippy --workspace --all-targets -- -D warnings
     cargo build -p topnode-desktop
 
+`cargo run -p topnode-desktop` keeps workspace code unoptimized with debug
+symbols, but optimizes third-party dependencies (including Slint's software
+renderer). The first development build after changing this profile recompiles
+dependencies and takes longer; subsequent builds reuse them. The node selector
+only creates visible plan/node cards, so large plans do not instantiate their
+entire lists when opened or switched.
+
 When complete Git metadata is available, `apps/desktop/build.rs` derives the
 same commit-count/date/SHA version used by Android. Source archives without Git
 metadata fall back to version code `1` and the Cargo package version. Controlled

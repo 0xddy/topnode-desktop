@@ -83,6 +83,11 @@ pedantic = { level = "warn", priority = -1 }
 module_name_repetitions = "allow"
 must_use_candidate = "allow"
 
+# Keep workspace code debuggable while optimizing Slint's software renderer,
+# font rasterization and image decoding for ordinary `cargo run` builds.
+[profile.dev.package."*"]
+opt-level = 2
+
 [profile.release]
 opt-level = "z"
 lto = "fat"

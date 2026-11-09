@@ -1,4 +1,5 @@
 import { SmoothCard } from "../components/smooth-card.slint";
+import { ListView } from "std-widgets.slint";
 import { AppTheme } from "../theme.slint";
 import { NodeItem, ResourceGroupItem, ResourcePhase } from "../models.slint";
 import { CountryFlag } from "../components/country-flag.slint";
@@ -238,6 +239,9 @@ export component NodeSelectorSheet inherits Rectangle {
     callback select-resource-group(string, string);
     callback select-node(string);
 
+    private property <length> node-scroll-y: 0px;
+    changed nodes => { root.node-scroll-y = 0px; }
+
     background: transparent;
     clip: true;
 
@@ -391,16 +395,18 @@ export component NodeSelectorSheet inherits Rectangle {
                                 vertical-alignment: center;
                             }
                         }
-                        Flickable {
+                        ListView {
                             vertical-stretch: 1;
-                            viewport-width: self.width;
-                            viewport-height: max(self.height, plan-layout.preferred-height);
+                            horizontal-scrollbar-policy: always-off;
+                            vertical-scrollbar-policy: always-off;
                             viewport-x: 0px;
                             viewport-y: 0px;
-                            plan-layout := VerticalLayout {
-                                width: parent.width;
-                                spacing: 8px;
-                                for group in root.resource-groups : PlanCard {
+                            // A direct repeater lets ListView create only visible cards.
+                            for group in root.resource-groups : Rectangle {
+                                height: 94px;
+                                background: transparent;
+                                PlanCard {
+                                    width: parent.width;
                                     item: group;
                                     selection-enabled: root.selection-enabled;
                                     activated => {
@@ -452,16 +458,17 @@ export component NodeSelectorSheet inherits Rectangle {
                             title: "当前套餐暂无节点";
                             detail: "请选择其他套餐，或稍后刷新。";
                         }
-                        if root.nodes.length > 0 : Flickable {
+                        if root.nodes.length > 0 : ListView {
                             vertical-stretch: 1;
-                            viewport-width: self.width;
-                            viewport-height: max(self.height, node-layout.preferred-height);
+                            horizontal-scrollbar-policy: always-off;
+                            vertical-scrollbar-policy: always-off;
                             viewport-x: 0px;
-                            viewport-y: 0px;
-                            node-layout := VerticalLayout {
-                                width: parent.width;
-                                spacing: 8px;
-                                for node in root.nodes : NodeSelectionCard {
+                            viewport-y <=> root.node-scroll-y;
+                            for node in root.nodes : Rectangle {
+                                height: 78px;
+                                background: transparent;
+                                NodeSelectionCard {
+                                    width: parent.width;
                                     item: node;
                                     selection-enabled: root.selection-enabled;
                                     activated => { root.select-node(node.id); }

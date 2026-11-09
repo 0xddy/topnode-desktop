@@ -734,10 +734,9 @@ impl DesktopController {
             .find(|node| node.endpoint_id == endpoint_id && node.selectable)
             .ok_or_else(|| "该节点当前不可用，请选择其他节点。".to_owned())?;
         settings.selected_endpoint_id.clone_from(&node.endpoint_id);
-        self.settings_store
-            .save(&settings)
-            .await
-            .map_err(settings_message)
+        // Endpoint selection is session-only (serde(skip)); persisting here
+        // rewrites identical TOML and delays the UI for an unnecessary disk flush.
+        Ok(())
     }
 
     pub async fn update_preference(&self, change: PreferenceChange) -> Result<(), String> {

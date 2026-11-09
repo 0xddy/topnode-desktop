@@ -692,7 +692,7 @@ fn bind_account_callbacks(ui: &AppWindow, controller: &Arc<DesktopController>) {
             if let Err(error) = controller.select_node(endpoint_id.to_string()).await {
                 presentation::post_notice(&weak, error);
             }
-            presentation::refresh_account_view(&weak, &controller).await;
+            presentation::refresh_node_selector_view(&weak, &controller).await;
         });
     });
 }
@@ -717,7 +717,7 @@ fn bind_resource_group_callback(
             {
                 presentation::post_notice(&weak, error);
             }
-            presentation::refresh_account_view(&weak, &controller).await;
+            presentation::refresh_node_selector_view(&weak, &controller).await;
             runner.start(controller, weak);
         });
     });
@@ -1652,11 +1652,11 @@ impl NodeLatencyRunner {
         }
         let task = tokio::spawn(async move {
             let batch = controller.begin_node_latency().await;
-            presentation::refresh_account_view(&weak, &controller).await;
+            presentation::refresh_node_selector_view(&weak, &controller).await;
             let generation = batch.generation;
             let values = measure_node_latencies(batch.targets_by_node_id).await;
             controller.finish_node_latency(generation, values);
-            presentation::refresh_account_view(&weak, &controller).await;
+            presentation::refresh_node_selector_view(&weak, &controller).await;
         });
         state.task = Some(task);
     }

@@ -226,6 +226,18 @@ pub async fn refresh_account_view(weak: &slint::Weak<AppWindow>, controller: &De
     let _ = post_account_view(weak, snapshot, settings, latency);
 }
 
+pub async fn refresh_node_selector_view(
+    weak: &slint::Weak<AppWindow>,
+    controller: &DesktopController,
+) {
+    let snapshot = controller.subscribe_account().borrow().clone();
+    let settings = controller.settings().await;
+    let latency = controller.node_latency_snapshot();
+    let _ = weak.upgrade_in_event_loop(move |ui| {
+        apply_node_selector_snapshot(&ui, &snapshot.groups, &settings, &latency);
+    });
+}
+
 pub fn post_notice(weak: &slint::Weak<AppWindow>, message: impl Into<SharedString>) {
     let message = message.into();
     let _ = weak.upgrade_in_event_loop(move |ui| ui.set_notice(message));
@@ -887,20 +899,27 @@ fn apply_account_snapshot(
         ui.set_user_balance_cents(0);
     }
 
-    let groups = map_resource_groups(
-        &snapshot.groups,
+    apply_subscription_snapshot(ui, &snapshot.groups);
+    apply_node_selector_snapshot(ui, &snapshot.groups, settings, latency);
+}
+
+fn apply_node_selector_snapshot(
+    ui: &AppWindow,
+    groups: &[ServerGroup],
+    settings: &DesktopSettings,
+    latency: &NodeLatencySnapshot,
+) {
+    let items = map_resource_groups(
+        groups,
         &settings.selected_group_id,
         &settings.selected_entitlement_id,
     );
     let resource_groups = ui.get_resource_groups();
-    if !update_model_rows(&resource_groups, &groups, |left, right| left.id == right.id) {
-        ui.set_resource_groups(ModelRc::from(Rc::new(VecModel::from(groups))));
+    if !update_model_rows(&resource_groups, &items, |left, right| left.id == right.id) {
+        ui.set_resource_groups(ModelRc::from(Rc::new(VecModel::from(items))));
     }
 
-    apply_subscription_snapshot(ui, &snapshot.groups);
-
-    let selected_group = snapshot
-        .groups
+    let selected_group = groups
         .iter()
         .find(|group| group.id.to_string() == settings.selected_group_id);
     let nodes = selected_group

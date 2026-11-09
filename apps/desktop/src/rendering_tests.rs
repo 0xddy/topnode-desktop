@@ -1,7 +1,12 @@
-use std::{cell::Cell, rc::Rc, time::Duration};
+use std::{
+    cell::{Cell, RefCell},
+    collections::HashSet,
+    rc::Rc,
+    time::{Duration, Instant},
+};
 
 use slint::{
-    ComponentHandle, ModelRc, Rgb8Pixel, VecModel,
+    ComponentHandle, Model, ModelRc, Rgb8Pixel, VecModel,
     platform::{
         Platform, PlatformError, WindowAdapter, WindowEvent,
         software_renderer::{MinimalSoftwareWindow, PhysicalRegion, RepaintBufferType},
@@ -71,6 +76,139 @@ fn signed_in_window() -> (AppWindow, Rc<MinimalSoftwareWindow>, Rc<Cell<Duration
     )));
     ui.show().unwrap();
     (ui, window, clock)
+}
+
+struct ObservedNodes {
+    rows: VecModel<NodeItem>,
+    requested: RefCell<HashSet<usize>>,
+}
+
+impl Model for ObservedNodes {
+    type Data = NodeItem;
+
+    fn row_count(&self) -> usize {
+        self.rows.row_count()
+    }
+
+    fn row_data(&self, row: usize) -> Option<NodeItem> {
+        self.requested.borrow_mut().insert(row);
+        self.rows.row_data(row)
+    }
+
+    fn model_tracker(&self) -> &dyn slint::ModelTracker {
+        self.rows.model_tracker()
+    }
+}
+
+#[test]
+fn node_selector_large_plan_switch_only_materializes_visible_rows() {
+    let (ui, window, clock) = signed_in_window();
+    window.set_size(slint::PhysicalSize::new(1024, 720));
+    let mut pixels = vec![Rgb8Pixel::default(); 1024 * 720];
+    ui.set_node_selector_visible(true);
+    draw(&window, &mut pixels, 1024);
+    advance(&clock, 250);
+    draw(&window, &mut pixels, 1024);
+
+    for count in [24, 1_000, 24] {
+        let nodes = Rc::new(ObservedNodes {
+            rows: VecModel::from(
+                (0..count)
+                    .map(|index| NodeItem {
+                        id: index.to_string().into(),
+                        name: format!("Plan {count} node {index}").into(),
+                        country_code: "US".into(),
+                        selectable: true,
+                        measuring: true,
+                        ..Default::default()
+                    })
+                    .collect::<Vec<_>>(),
+            ),
+            requested: RefCell::default(),
+        });
+        let start = Instant::now();
+        ui.set_visible_nodes(ModelRc::from(nodes.clone()));
+        draw(&window, &mut pixels, 1024);
+        let switch_elapsed = start.elapsed();
+        advance(&clock, 70);
+        let start = Instant::now();
+        draw(&window, &mut pixels, 1024);
+        eprintln!(
+            "nodes={count}, materialized={}, switch={switch_elapsed:?}, animation_frame={:?}",
+            nodes.requested.borrow().len(),
+            start.elapsed()
+        );
+        let requested = nodes.requested.borrow();
+        assert!(
+            requested.contains(&0),
+            "a new plan must start at its first node"
+        );
+        assert!(
+            requested.len() <= 16,
+            "only viewport rows should be instantiated, got {} of {count}",
+            requested.len()
+        );
+    }
+}
+
+#[test]
+fn node_selector_scroll_and_plan_switch_keep_click_targets_current() {
+    let (ui, window, clock) = signed_in_window();
+    window.set_size(slint::PhysicalSize::new(1024, 720));
+    let mut pixels = vec![Rgb8Pixel::default(); 1024 * 720];
+    let selected = Rc::new(RefCell::new(String::new()));
+    let selected_callback = selected.clone();
+    ui.on_select_node(move |id| *selected_callback.borrow_mut() = id.to_string());
+
+    for prefix in ["large", "small"] {
+        let count = if prefix == "large" { 1_000 } else { 3 };
+        let nodes = Rc::new(VecModel::from(
+            (0..count)
+                .map(|index| NodeItem {
+                    id: format!("{prefix}-{index}").into(),
+                    name: format!("Node {index}").into(),
+                    selectable: true,
+                    ..Default::default()
+                })
+                .collect::<Vec<_>>(),
+        ));
+        ui.set_visible_nodes(ModelRc::from(nodes.clone()));
+        ui.set_node_selector_visible(true);
+        advance(&clock, 250);
+        draw(&window, &mut pixels, 1024);
+        if prefix == "large" {
+            window.dispatch_event(WindowEvent::PointerScrolled {
+                position: slint::LogicalPosition::new(700., 190.),
+                delta_x: 0.,
+                delta_y: -780.,
+            });
+            advance(&clock, 250);
+            draw(&window, &mut pixels, 1024);
+            let mut node = nodes.row_data(10).unwrap();
+            node.latency_label = "42ms".into();
+            node.latency_available = true;
+            nodes.set_row_data(10, node);
+            draw(&window, &mut pixels, 1024);
+        }
+        for pressed in [true, false] {
+            let position = slint::LogicalPosition::new(700., 190.);
+            let button = slint::platform::PointerEventButton::Left;
+            window.dispatch_event(if pressed {
+                WindowEvent::PointerPressed { position, button }
+            } else {
+                WindowEvent::PointerReleased { position, button }
+            });
+        }
+        assert_eq!(
+            *selected.borrow(),
+            if prefix == "large" {
+                "large-10"
+            } else {
+                "small-0"
+            },
+            "scrolling must select the visible node; switching plans must reset the scroll offset"
+        );
+    }
 }
 
 #[test]
