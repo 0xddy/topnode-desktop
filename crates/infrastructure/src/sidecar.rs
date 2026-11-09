@@ -299,6 +299,19 @@ impl SingBoxSidecar {
     }
 
     fn configure_command(&self, command: &mut Command) {
+        // Cronet searches the executable directory first. Do not inherit a
+        // user's alternative loader directories or Windows PATH fallback.
+        #[cfg(windows)]
+        command.env("PATH", &self.inner.paths.core_dir);
+        #[cfg(unix)]
+        for variable in [
+            "LD_LIBRARY_PATH",
+            "LD_PRELOAD",
+            "DYLD_LIBRARY_PATH",
+            "DYLD_INSERT_LIBRARIES",
+        ] {
+            command.env_remove(variable);
+        }
         command
             .current_dir(&self.inner.paths.core_dir)
             .stdin(Stdio::null())

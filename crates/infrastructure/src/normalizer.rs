@@ -363,7 +363,7 @@ fn apply_tun_policy(
         #[cfg(target_os = "linux")]
         let managed_name = "topnode0";
         #[cfg(target_os = "macos")]
-        let managed_name = "utun";
+        let managed_name = "utun233";
         #[cfg(any(target_os = "linux", target_os = "macos"))]
         if let Some(inbounds) = document.get_mut("inbounds").and_then(Value::as_array_mut) {
             for inbound in inbounds
