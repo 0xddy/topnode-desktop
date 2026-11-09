@@ -47,7 +47,7 @@ const TELEMETRY_INTERVAL: Duration = Duration::from_secs(1);
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct CoreProbe {
     pub available: bool,
-    pub naive_available: bool,
+    pub naive_capabilities: crate::NaiveCapabilities,
     pub version: String,
     pub binary_path: std::path::PathBuf,
     pub message: String,
@@ -222,7 +222,7 @@ impl SingBoxSidecar {
         if !binary_path.is_file() {
             return CoreProbe {
                 available: false,
-                naive_available: false,
+                naive_capabilities: crate::NaiveCapabilities::default(),
                 version: "未安装".to_owned(),
                 message: "请将 sing-box-acp 内核放到应用程序 runtime/core 目录".to_owned(),
                 binary_path,
@@ -240,9 +240,16 @@ impl SingBoxSidecar {
                 self.inner
                     .core_compatible
                     .store(supported, Ordering::Release);
+                let core = binary_path.clone();
+                let probe_text = text.into_owned();
+                let qualification = tokio::task::spawn_blocking(move || {
+                    crate::naive::verified_capabilities(&core, &probe_text)
+                })
+                .await
+                .unwrap_or_default();
                 CoreProbe {
                     available: supported,
-                    naive_available: supported && has_naive_test_core(&text, &self.inner.paths),
+                    naive_capabilities: qualification,
                     version,
                     message: if supported {
                         format!("sing-box-acp {SING_BOX_ACP_VERSION} 内核可用")
@@ -254,21 +261,21 @@ impl SingBoxSidecar {
             }
             Ok(Ok(output)) => CoreProbe {
                 available: false,
-                naive_available: false,
+                naive_capabilities: crate::NaiveCapabilities::default(),
                 version: "不可用".to_owned(),
                 message: sanitized_process_message(&output.stderr),
                 binary_path,
             },
             Ok(Err(error)) => CoreProbe {
                 available: false,
-                naive_available: false,
+                naive_capabilities: crate::NaiveCapabilities::default(),
                 version: "不可用".to_owned(),
                 message: error.to_string(),
                 binary_path,
             },
             Err(_) => CoreProbe {
                 available: false,
-                naive_available: false,
+                naive_capabilities: crate::NaiveCapabilities::default(),
                 version: "响应超时".to_owned(),
                 message: "sing-box version 执行超时".to_owned(),
                 binary_path,
@@ -341,8 +348,9 @@ impl SingBoxSidecar {
         controller: SocketAddrV4,
         secret: &str,
         cancellation: &ConnectionCancellation,
+        readiness_timeout: Duration,
     ) -> Result<(), EngineError> {
-        let deadline = Instant::now() + READINESS_TIMEOUT;
+        let deadline = Instant::now() + readiness_timeout;
         loop {
             if cancellation.is_cancelled() {
                 terminate_child_immediately(child).await.map_err(io_error)?;
@@ -455,6 +463,8 @@ impl SingBoxSidecar {
     fn start_supervisor(&self, generation: u64) {
         let sidecar = self.clone();
         tokio::spawn(async move {
+            #[cfg(target_os = "macos")]
+            let mut next_service_refresh = Instant::now();
             loop {
                 sleep(Duration::from_millis(400)).await;
                 let exit = {
@@ -464,6 +474,18 @@ impl SingBoxSidecar {
                     };
                     if managed.generation != generation {
                         return;
+                    }
+                    #[cfg(target_os = "macos")]
+                    if Instant::now() >= next_service_refresh {
+                        next_service_refresh = Instant::now() + Duration::from_secs(5);
+                        if let Some(lease) = managed.system_proxy_lease.as_ref()
+                            && let Err(error) = lease.refresh_services().await
+                        {
+                            sidecar.set_state(ConnectionState::Failed {
+                                message: format!("网络服务代理更新失败：{error}"),
+                            });
+                            let _ = stop_child(&mut managed.child).await;
+                        }
                     }
                     match managed.child.try_wait() {
                         Ok(Some(status)) => {
@@ -544,6 +566,15 @@ impl ConnectionEngine for SingBoxSidecar {
         }
         self.reset_telemetry();
         self.set_state(ConnectionState::Validating);
+        let probe = self.probe().await;
+        if let Err(error) =
+            crate::naive::require_configuration(configuration.payload(), &probe.naive_capabilities)
+        {
+            self.set_state(ConnectionState::Failed {
+                message: error.to_string(),
+            });
+            return Err(error);
+        }
         let prepared = match prepare_runtime(configuration) {
             Ok(prepared) => prepared,
             Err(error) => {
@@ -612,6 +643,16 @@ impl ConnectionEngine for SingBoxSidecar {
         if self.inner.process.lock().await.is_some() {
             return Err(EngineError::AlreadyRunning);
         }
+        let probe = self.probe().await;
+        if let Err(error) =
+            crate::naive::require_configuration(configuration.payload(), &probe.naive_capabilities)
+        {
+            self.inner.prepared.lock().await.take();
+            self.set_state(ConnectionState::Failed {
+                message: error.to_string(),
+            });
+            return Err(error);
+        }
         self.set_state(ConnectionState::Starting);
         let Some(prepared) = self.inner.prepared.lock().await.take() else {
             let error =
@@ -659,13 +700,36 @@ impl ConnectionEngine for SingBoxSidecar {
         } = prepared;
 
         #[cfg(unix)]
-        let mut command = self.long_lived_command()?;
+        let mut command = if cfg!(any(target_os = "linux", target_os = "macos"))
+            && configuration.preferences().tun_enabled
+        {
+            let helper = self
+                .inner
+                .paths
+                .runtime_dir
+                .parent()
+                .ok_or_else(|| EngineError::Process("缺少安装目录".to_owned()))?
+                .join(if cfg!(target_os = "macos") {
+                    "topnode-network-bridge"
+                } else {
+                    "topnode-net-helper"
+                });
+            let mut command =
+                crate::sidecar_guardian::guarded_command(&helper).map_err(io_error)?;
+            command.arg("connect");
+            command
+        } else {
+            let mut command = self.long_lived_command()?;
+            command.args(["run", "-c", "stdin"]);
+            command
+        };
         #[cfg(not(unix))]
-        let mut command = self.command();
+        let mut command = {
+            let mut command = self.command();
+            command.args(["run", "-c", "stdin"]);
+            command
+        };
         command
-            .arg("run")
-            .arg("-c")
-            .arg("stdin")
             .stdin(Stdio::piped())
             .stdout(Stdio::piped())
             .stderr(Stdio::piped())
@@ -718,7 +782,17 @@ impl ConnectionEngine for SingBoxSidecar {
         drop(checked_configuration);
 
         if let Err(error) = self
-            .wait_until_ready(&mut child, controller, &secret, cancellation)
+            .wait_until_ready(
+                &mut child,
+                controller,
+                &secret,
+                cancellation,
+                if cfg!(unix) && configuration.preferences().tun_enabled {
+                    Duration::from_secs(120)
+                } else {
+                    READINESS_TIMEOUT
+                },
+            )
             .await
         {
             if !matches!(error, EngineError::Cancelled)
@@ -1095,7 +1169,7 @@ fn tun_permission_available() -> Result<bool, EngineError> {
     }
     #[cfg(not(windows))]
     {
-        Ok(false)
+        Ok(crate::tun_helper_available())
     }
 }
 
@@ -1246,21 +1320,23 @@ where
 }
 
 fn emit_log_line(bytes: &[u8], truncated: bool, stderr: bool) {
+    let category = crate::native_diagnostic::category(&String::from_utf8_lossy(bytes));
     let mut line = sanitize_log_line(&String::from_utf8_lossy(bytes));
     if truncated {
         line.push_str(" …[日志行已截断]");
     }
     let stream = if stderr { "stderr" } else { "stdout" };
-    tracing::debug!(target: "sing_box", stream, message = %line);
+    tracing::debug!(target: "sing_box", stream, category, message = %line);
 }
 
 fn sanitized_process_message(bytes: &[u8]) -> String {
     let value = String::from_utf8_lossy(bytes);
+    let category = crate::native_diagnostic::category(&value);
     let value = sanitize_log_line(value.trim());
     if value.is_empty() {
         "sing-box 未提供错误详情".to_owned()
     } else {
-        value
+        format!("[{category}] {value}")
     }
 }
 
@@ -1274,6 +1350,9 @@ fn sanitize_log_line(line: &str) -> String {
         "secret",
         "private_key",
         "private-key",
+        "private key",
+        "\"outbounds\"",
+        "\"inbounds\"",
         "uuid",
         "://",
     ]
@@ -1287,19 +1366,6 @@ fn sanitize_log_line(line: &str) -> String {
 
 fn reports_expected_core(first_line: &str) -> bool {
     first_line.strip_prefix("sing-box version ") == Some(SING_BOX_ACP_VERSION)
-}
-
-fn has_naive_test_core(version_output: &str, paths: &AppPaths) -> bool {
-    let library = match std::env::consts::OS {
-        "windows" => "libcronet.dll",
-        "linux" => "libcronet.so",
-        _ => return false,
-    };
-    version_output
-        .lines()
-        .find_map(|line| line.strip_prefix("Tags: "))
-        .is_some_and(|tags| tags.split(',').any(|tag| tag == "with_naive_outbound"))
-        && paths.core_dir.join(library).is_file()
 }
 
 #[allow(clippy::needless_pass_by_value)]
@@ -1549,7 +1615,13 @@ mod tests {
         });
         let result = tokio::time::timeout(
             Duration::from_secs(3),
-            sidecar.wait_until_ready(&mut child, controller, "test-secret", &cancellation),
+            sidecar.wait_until_ready(
+                &mut child,
+                controller,
+                "test-secret",
+                &cancellation,
+                super::READINESS_TIMEOUT,
+            ),
         )
         .await
         .expect("cancellation should beat the readiness deadline");

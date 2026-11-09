@@ -15,6 +15,10 @@ use uuid::Uuid;
 
 use crate::AppPaths;
 
+#[cfg(any(target_os = "linux", test))]
+mod gnome;
+#[cfg(any(target_os = "macos", test))]
+mod macos;
 #[cfg(windows)]
 mod wininet;
 
@@ -177,6 +181,8 @@ impl SystemProxyManager {
             manager: self.clone(),
             owner,
             armed: true,
+            #[cfg(target_os = "macos")]
+            endpoint,
         })
     }
 
@@ -212,25 +218,38 @@ impl SystemProxyManager {
             });
         }
 
-        if observed != journal.applied {
+        let Some(target) = self.restoration_target(&journal, &observed)? else {
             remove_journal(&self.inner.journal_path)?;
             return Ok(ReconcileOutcome::ExternalChangePreserved);
-        }
-
-        self.install(&journal.original, "恢复原系统代理")?;
+        };
+        self.install(&target, "恢复原系统代理")?;
         let restored = self.capture("回读恢复后的系统代理")?;
-        if restored == journal.original {
+        if restored == target {
             remove_journal(&self.inner.journal_path)?;
-            return Ok(ReconcileOutcome::Restored);
+            return Ok(if target == journal.original {
+                ReconcileOutcome::Restored
+            } else {
+                ReconcileOutcome::ExternalChangePreserved
+            });
         }
         if restored != journal.applied {
             remove_journal(&self.inner.journal_path)?;
             return Ok(ReconcileOutcome::ExternalChangePreserved);
         }
-
         Err(SystemProxyError::VerificationFailed {
             operation: "恢复原系统代理",
         })
+    }
+
+    fn restoration_target(
+        &self,
+        journal: &ProxyJournal,
+        observed: &ProxySnapshot,
+    ) -> Result<Option<ProxySnapshot>, SystemProxyError> {
+        self.inner
+            .backend
+            .restoration_target(&journal.original, &journal.applied, observed)
+            .map_err(|error| map_backend_error("检查系统代理所有权", error))
     }
 
     fn restore_owner(&self, owner: Uuid) -> Result<RestoreOutcome, SystemProxyError> {
@@ -246,15 +265,16 @@ impl SystemProxyManager {
         let outcome = if observed == journal.original {
             remove_journal(&self.inner.journal_path)?;
             RestoreOutcome::AlreadyRestored
-        } else if observed != journal.applied {
-            remove_journal(&self.inner.journal_path)?;
-            RestoreOutcome::ExternalChangePreserved
-        } else {
-            self.install(&journal.original, "恢复原系统代理")?;
+        } else if let Some(target) = self.restoration_target(&journal, &observed)? {
+            self.install(&target, "恢复原系统代理")?;
             let restored = self.capture("回读恢复后的系统代理")?;
-            if restored == journal.original {
+            if restored == target {
                 remove_journal(&self.inner.journal_path)?;
-                RestoreOutcome::Restored
+                if target == journal.original {
+                    RestoreOutcome::Restored
+                } else {
+                    RestoreOutcome::ExternalChangePreserved
+                }
             } else if restored != journal.applied {
                 remove_journal(&self.inner.journal_path)?;
                 RestoreOutcome::ExternalChangePreserved
@@ -263,48 +283,26 @@ impl SystemProxyManager {
                     operation: "恢复原系统代理",
                 });
             }
+        } else {
+            remove_journal(&self.inner.journal_path)?;
+            RestoreOutcome::ExternalChangePreserved
         };
         self.set_active_owner(None)?;
         Ok(outcome)
     }
 
-    fn rollback_failed_acquire(&self, journal: &ProxyJournal) {
-        let result = self.capture("检查失败后的系统代理").and_then(|observed| {
-            if observed == journal.original {
-                remove_journal(&self.inner.journal_path)
-            } else if observed == journal.applied {
-                self.install(&journal.original, "回滚失败的系统代理应用")?;
-                let restored = self.capture("回读回滚后的系统代理")?;
-                if restored == journal.applied {
-                    Err(SystemProxyError::VerificationFailed {
-                        operation: "回滚失败的系统代理应用",
-                    })
-                } else {
-                    remove_journal(&self.inner.journal_path)
-                }
-            } else {
-                remove_journal(&self.inner.journal_path)
-            }
-        });
-        if let Err(error) = result {
+    fn rollback_failed_acquire(&self, _journal: &ProxyJournal) {
+        if let Err(error) = self.reconcile_locked() {
             tracing::warn!(error = %error, "system proxy rollback remains journaled for startup reconciliation");
         }
     }
 
     fn settle_unverified_acquire(
         &self,
-        journal: &ProxyJournal,
-        observed: &ProxySnapshot,
+        _journal: &ProxyJournal,
+        _observed: &ProxySnapshot,
     ) -> Result<(), SystemProxyError> {
-        if observed == &journal.original {
-            return remove_journal(&self.inner.journal_path);
-        }
-        if observed != &journal.applied {
-            // Another owner changed the settings after our apply. Never replace
-            // its state with the older snapshot.
-            return remove_journal(&self.inner.journal_path);
-        }
-        Ok(())
+        self.reconcile_locked().map(|_| ())
     }
 
     fn capture(&self, operation: &'static str) -> Result<ProxySnapshot, SystemProxyError> {
@@ -351,6 +349,8 @@ pub struct SystemProxyLease {
     manager: SystemProxyManager,
     owner: Uuid,
     armed: bool,
+    #[cfg(target_os = "macos")]
+    endpoint: SocketAddrV4,
 }
 
 impl fmt::Debug for SystemProxyLease {
@@ -364,6 +364,42 @@ impl fmt::Debug for SystemProxyLease {
 }
 
 impl SystemProxyLease {
+    #[cfg(target_os = "macos")]
+    pub(crate) async fn refresh_services(&self) -> Result<(), SystemProxyError> {
+        let _operation = self.manager.inner.operation_gate.lock().await;
+        let mut journal = read_journal(&self.manager.inner.journal_path)?
+            .ok_or(SystemProxyError::LeaseMismatch)?;
+        if journal.owner != self.owner || journal.phase != JournalPhase::Active {
+            return Err(SystemProxyError::LeaseMismatch);
+        }
+        let observed = self.manager.capture("读取网络服务变更")?;
+        let update = macos::new_services(
+            &journal.original.0,
+            &journal.applied.0,
+            &observed.0,
+            self.endpoint,
+        )
+        .map_err(|error| map_backend_error("准备新网络服务代理", error))?;
+        let Some((original, applied, additions)) = update else {
+            return Ok(());
+        };
+        journal.original = ProxySnapshot(original);
+        journal.applied = ProxySnapshot(applied);
+        // Persist ownership before touching the newly discovered service.
+        write_journal(&self.manager.inner.journal_path, &journal)?;
+        self.manager
+            .install(&ProxySnapshot(additions.clone()), "应用新网络服务代理")?;
+        let current = self.manager.capture("回读新网络服务代理")?;
+        if !macos::contains_services(&current.0, &additions)
+            .map_err(|error| map_backend_error("验证新网络服务代理", error))?
+        {
+            return Err(SystemProxyError::VerificationFailed {
+                operation: "应用新网络服务代理",
+            });
+        }
+        Ok(())
+    }
+
     /// Restores the original proxy if this lease still owns the observed state.
     ///
     /// # Errors
@@ -669,6 +705,14 @@ trait SystemProxyBackend: Send + Sync {
         endpoint: SocketAddrV4,
     ) -> Result<ProxySnapshot, BackendError>;
     fn install(&self, snapshot: &ProxySnapshot) -> Result<(), BackendError>;
+    fn restoration_target(
+        &self,
+        original: &ProxySnapshot,
+        applied: &ProxySnapshot,
+        observed: &ProxySnapshot,
+    ) -> Result<Option<ProxySnapshot>, BackendError> {
+        Ok((observed == applied).then(|| original.clone()))
+    }
 }
 
 enum BackendError {
@@ -695,6 +739,18 @@ fn map_backend_error(operation: &'static str, error: BackendError) -> SystemProx
 struct PlatformSystemProxyBackend;
 
 impl SystemProxyBackend for PlatformSystemProxyBackend {
+    #[cfg(target_os = "macos")]
+    fn restoration_target(
+        &self,
+        original: &ProxySnapshot,
+        applied: &ProxySnapshot,
+        observed: &ProxySnapshot,
+    ) -> Result<Option<ProxySnapshot>, BackendError> {
+        macos::restore_target(&original.0, &applied.0, &observed.0)
+            .map(|target| target.map(ProxySnapshot))
+            .map_err(BackendError::Io)
+    }
+
     fn capture(&self) -> Result<ProxySnapshot, BackendError> {
         #[cfg(windows)]
         {
@@ -702,7 +758,22 @@ impl SystemProxyBackend for PlatformSystemProxyBackend {
                 .map(ProxySnapshot)
                 .map_err(BackendError::Io)
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "linux")]
+        {
+            if !gnome::available() {
+                return Err(BackendError::Unsupported("系统代理模式需要 GNOME 桌面"));
+            }
+            gnome::capture()
+                .map(ProxySnapshot)
+                .map_err(BackendError::Io)
+        }
+        #[cfg(target_os = "macos")]
+        {
+            macos::capture()
+                .map(ProxySnapshot)
+                .map_err(BackendError::Io)
+        }
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             Err(BackendError::Unsupported(platform_unsupported_reason()))
         }
@@ -719,7 +790,19 @@ impl SystemProxyBackend for PlatformSystemProxyBackend {
                 .map(ProxySnapshot)
                 .map_err(BackendError::Io)
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "linux")]
+        {
+            gnome::local_proxy_snapshot(&original.0, endpoint)
+                .map(ProxySnapshot)
+                .map_err(BackendError::Io)
+        }
+        #[cfg(target_os = "macos")]
+        {
+            macos::local_proxy_snapshot(&original.0, endpoint)
+                .map(ProxySnapshot)
+                .map_err(BackendError::Io)
+        }
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             let _ = (original, endpoint);
             Err(BackendError::Unsupported(platform_unsupported_reason()))
@@ -731,7 +814,15 @@ impl SystemProxyBackend for PlatformSystemProxyBackend {
         {
             wininet::install(&snapshot.0).map_err(BackendError::Io)
         }
-        #[cfg(not(windows))]
+        #[cfg(target_os = "linux")]
+        {
+            gnome::install(&snapshot.0).map_err(BackendError::Io)
+        }
+        #[cfg(target_os = "macos")]
+        {
+            macos::install(&snapshot.0).map_err(BackendError::Io)
+        }
+        #[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
         {
             let _ = snapshot;
             Err(BackendError::Unsupported(platform_unsupported_reason()))
@@ -739,9 +830,9 @@ impl SystemProxyBackend for PlatformSystemProxyBackend {
     }
 }
 
-#[cfg(not(windows))]
+#[cfg(not(any(windows, target_os = "linux", target_os = "macos")))]
 const fn platform_unsupported_reason() -> &'static str {
-    "当前仅规划 Windows WinINet 后端"
+    "当前平台的系统代理后端不可用"
 }
 
 #[cfg(test)]

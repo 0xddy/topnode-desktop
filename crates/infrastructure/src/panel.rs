@@ -199,12 +199,11 @@ impl HttpPanelClient {
     }
 
     #[must_use]
-    pub fn with_naive_test(mut self, enabled: bool) -> Self {
+    pub fn with_naive_capabilities(mut self, capabilities: &crate::NaiveCapabilities) -> Self {
         self.accept_protocols.truncate(ACCEPT_PROTOCOLS.len());
-        if enabled {
-            self.accept_protocols.push_str(
-                ", naive;transport=https;security=tls;custom-ca, naive;transport=quic;security=tls;custom-ca",
-            );
+        for offer in capabilities.protocol_offers() {
+            self.accept_protocols.push_str(", ");
+            self.accept_protocols.push_str(&offer);
         }
         self
     }

@@ -35,3 +35,6 @@ jobs:
         run: cargo test --workspace --exclude topnode-desktop --locked
       - name: Clippy
         run: cargo clippy --workspace --all-targets --locked -- -D warnings
+      - name: Compile macOS service and proxy integration
+        if: runner.os == 'macOS'
+        run: python3 scripts/build-macos-support.py --target aarch64-apple-darwin --output .release/platform-check

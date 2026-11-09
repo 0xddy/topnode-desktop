@@ -107,7 +107,11 @@ pub async fn run() -> anyhow::Result<()> {
     let session_guard_task =
         spawn_presentations(&ui, &controller, tray_lifecycle.tray(), probe.available);
     crate::login::enable(&ui);
+    #[cfg(unix)]
+    let termination_task = install_termination_handler()?;
     let event_loop_result = run_slint_event_loop(&ui);
+    #[cfg(unix)]
+    termination_task.abort();
     drop(tray_lifecycle);
     activation_forwarder_task.abort();
     let _ = activation_forwarder_task.await;
@@ -182,6 +186,19 @@ async fn load_packaged_startup_configuration(
 
 fn run_slint_event_loop(component: &impl ComponentHandle) -> Result<(), slint::PlatformError> {
     tokio::task::block_in_place(|| component.run())
+}
+
+#[cfg(unix)]
+fn install_termination_handler() -> std::io::Result<tokio::task::JoinHandle<()>> {
+    use tokio::signal::unix::{SignalKind, signal};
+    let mut terminate = signal(SignalKind::terminate())?;
+    let mut interrupt = signal(SignalKind::interrupt())?;
+    Ok(tokio::spawn(async move {
+        tokio::select! { _=terminate.recv()=>{}, _=interrupt.recv()=>{} }
+        // Leaving the event loop runs the same controller shutdown and proxy
+        // lease restoration as the user's Quit action.
+        let _ = slint::quit_event_loop();
+    }))
 }
 
 fn install_process_containment() -> Option<ProcessContainmentGuard> {
@@ -442,7 +459,7 @@ async fn build_controller(
             panel_endpoint,
             SessionVault::new(paths.session_vault_file.clone()),
         )?
-        .with_naive_test(cfg!(debug_assertions) && probe.naive_available),
+        .with_naive_capabilities(&probe.naive_capabilities),
     );
     let config_source: Arc<dyn ConfigurationSource> = panel_client.clone();
     let panel_repository: Arc<dyn PanelRepository> = panel_client;

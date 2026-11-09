@@ -91,7 +91,7 @@ def main():
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--target", choices=TARGETS, required=True)
     parser.add_argument("--require-native", action="store_true", help="require native execution of the built core")
-    parser.add_argument("--with-naive", action="store_true", help="build a Windows/Linux core for Naive testing")
+    parser.add_argument("--with-naive", action="store_true", help="include Naive/UoT; release additionally requires native qualification")
     args = parser.parse_args()
     sibling = ROOT.parent / "third_party/sing-box-acp"
     local_source = args.source or (sibling if sibling.is_dir() else None)
@@ -104,11 +104,19 @@ def main():
         raise RuntimeError("invalid ACP commit or version lock")
     go_env = dict(os.environ, GOENV="off", GOWORK="off", GOFLAGS="", GOTOOLCHAIN=f"go{LOCK['go']}")
     goos, goarch = TARGETS[args.target]
-    if args.with_naive and goos not in ("windows", "linux"):
-        parser.error("--with-naive currently supports Windows and Linux test builds")
-    tags = f"{TAGS},with_naive_outbound,with_purego" if args.with_naive else TAGS
+    tags = TAGS
+    if args.with_naive:
+        tags += ",with_naive_outbound"
+        if goos != "darwin":
+            tags += ",with_purego"
     host = subprocess.check_output(["go", "env", "GOHOSTOS", "GOHOSTARCH"], env=go_env, text=True).split()
     native = host == [goos, goarch]
+    if args.with_naive and goos == "darwin" and host[0] != "darwin":
+        raise RuntimeError("macOS Naive requires an Xcode runner and CGO")
+    if args.with_naive and goos == "darwin":
+        go_env["MACOSX_DEPLOYMENT_TARGET"] = "13.0"
+        go_env["CC"] = subprocess.check_output(["xcrun", "--find", "clang"], text=True).strip()
+        go_env["SDKROOT"] = subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()
     if args.require_native and not native:
         raise RuntimeError(f"{args.target} requires a native runner; Go host is {'/'.join(host)}")
     binary_name = "sing-box-acp.exe" if goos == "windows" else "sing-box-acp"
@@ -124,9 +132,9 @@ def main():
         subprocess.run(
             ["go", "build", "-mod=readonly", "-trimpath", "-buildvcs=true", "-tags", tags,
              "-ldflags", flags, "-o", binary, "./cmd/sing-box"],
-            cwd=source, env=dict(go_env, CGO_ENABLED="0", GOOS=goos, GOARCH=goarch), check=True,
+            cwd=source, env=dict(go_env, CGO_ENABLED="1" if args.with_naive and goos == "darwin" else "0", GOOS=goos, GOARCH=goarch), check=True,
         )
-        if args.with_naive:
+        if args.with_naive and goos != "darwin":
             cronet_name, cronet_license = copy_cronet(source, directory, go_env, goos, goarch)
         if native:
             validate_core(binary)
@@ -137,9 +145,17 @@ def main():
             f"{path}\n{'=' * len(path)}\n{(source / path).read_text(encoding='utf-8').strip()}"
             for path in LICENSES
         )
-        if args.with_naive:
+        libraries = []
+        if args.with_naive and goos != "darwin":
             shutil.copyfile(directory / cronet_name, core_dir / cronet_name)
             notices += f"\n\n{cronet_name}\n{'=' * len(cronet_name)}\n{cronet_license}"
+            libraries.append({"file": cronet_name, "sha256": hashlib.sha256((core_dir / cronet_name).read_bytes()).hexdigest()})
+        if args.with_naive and goos == "darwin":
+            dependencies = subprocess.check_output(["otool", "-L", binary], text=True)
+            for line in dependencies.splitlines()[1:]:
+                dependency = line.strip().split(" (", 1)[0]
+                if not dependency.startswith(("/usr/lib/", "/System/Library/")):
+                    raise RuntimeError(f"Unbundled macOS runtime dependency: {dependency}")
         (output / "LICENSE.sing-box-acp").write_text(notices + "\n", encoding="utf-8")
         with binary.open("rb") as stream:
             digest = hashlib.file_digest(stream, "sha256").hexdigest()
@@ -153,7 +169,8 @@ def main():
             "goarch": goarch,
             "target": args.target,
             "tags": tags.split(","),
-            "naiveTest": args.with_naive,
+            "libraries": libraries,
+            "naiveEnabled": args.with_naive,
             "nativeCheck": native,
             "binarySha256": digest,
         }

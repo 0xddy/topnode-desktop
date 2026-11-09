@@ -30,7 +30,7 @@ def write_assets(directory, *, wrong_target=False, application_override=None):
         manifest_data = {
             "schemaVersion": 1,
             "application": {"versionCode": CODE, "versionName": VERSION,
-                            "gitCommit": COMMIT, "target": "wrong" if wrong_target else target},
+                            "gitCommit": COMMIT, "supportTier": "supported", "target": "wrong" if wrong_target else target},
         }
         manifest_data["application"].update(application_override or {})
         manifest = json.dumps(manifest_data).encode()
@@ -287,6 +287,13 @@ class PublisherTests(unittest.TestCase):
         write_assets(self.assets, wrong_target=True)
         with self.assertRaisesRegex(publisher.PublishError, "does not match this release"):
             self.run_publish()
+        self.assertFalse(self.server.requests)
+
+    def test_candidate_or_missing_qualification_is_never_published(self):
+        for tier in ("candidate", "preview", None):
+            write_assets(self.assets, application_override={"supportTier": tier})
+            with self.assertRaises(publisher.PublishError):
+                self.run_publish()
         self.assertFalse(self.server.requests)
 
     def test_manifest_version_and_commit_mismatch_rejected_before_network(self):

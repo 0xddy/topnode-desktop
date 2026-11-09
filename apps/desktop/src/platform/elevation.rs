@@ -95,7 +95,7 @@ pub enum TunElevationError {
     #[error("TUN 提权交接无法取得单实例锁: {0}")]
     InstanceLock(#[source] InstanceLockError),
     #[cfg(not(windows))]
-    #[error("当前平台尚未提供 TUN 权限适配")]
+    #[error("TUN 辅助服务尚未安装或未获授权，请安装完整软件包并批准系统授权")]
     UnsupportedPlatform,
     #[error("已完成提权交接，但无法请求当前 Slint 事件循环退出: {0}")]
     Shutdown(#[source] slint::EventLoopError),
@@ -354,7 +354,7 @@ enum AuthenticatedPeer {
 pub fn tun_permission_available() -> Result<bool, TunElevationError> {
     #[cfg(not(windows))]
     {
-        Ok(false)
+        Ok(topnode_infrastructure::tun_helper_available())
     }
 
     #[cfg(windows)]
@@ -373,7 +373,27 @@ pub fn tun_permission_available() -> Result<bool, TunElevationError> {
 /// replacement performs that write only after it owns the single-instance lock.
 #[cfg_attr(not(windows), allow(clippy::unused_async))]
 pub async fn request_tun_elevation_restart() -> Result<TunElevationOutcome, TunElevationError> {
-    #[cfg(not(windows))]
+    #[cfg(target_os = "macos")]
+    {
+        let executable =
+            std::env::current_exe().map_err(|_| TunElevationError::UnsupportedPlatform)?;
+        let helper = executable
+            .parent()
+            .ok_or(TunElevationError::UnsupportedPlatform)?
+            .join("topnode-network-bridge");
+        let status = tokio::process::Command::new(helper)
+            .arg("register")
+            .kill_on_drop(true)
+            .status()
+            .await
+            .map_err(|_| TunElevationError::UnsupportedPlatform)?;
+        if status.success() {
+            Ok(TunElevationOutcome::NotRequired)
+        } else {
+            Err(TunElevationError::UnsupportedPlatform)
+        }
+    }
+    #[cfg(not(any(windows, target_os = "macos")))]
     {
         Err(TunElevationError::UnsupportedPlatform)
     }

@@ -7,4 +7,13 @@ fn main() {
         .find_map(|line| line.strip_prefix("version="))
         .expect("the sing-box-acp lock must declare a version");
     println!("cargo:rustc-env=TOPNODE_SING_BOX_ACP_VERSION={version}");
+    let commit = lock
+        .lines()
+        .find_map(|line| line.strip_prefix("commit="))
+        .expect("core commit");
+    println!("cargo:rustc-env=TOPNODE_SING_BOX_ACP_COMMIT={commit}");
+    println!(
+        "cargo:rustc-env=TOPNODE_BUILD_TARGET={}",
+        std::env::var("TARGET").expect("target")
+    );
 }

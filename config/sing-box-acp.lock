@@ -1,4 +1,4 @@
 repository=https://github.com/0xddy/sing-box-acp.git
-commit=74ba8ff3bb0820ddf290ebc8f20fefac7f288ca9
-version=1.14.4-74ba8ff3b
+commit=a5987226a17b81a8b07417f4fb2d8315db1801fa
+version=1.14.4-a5987226a
 go=1.26.10

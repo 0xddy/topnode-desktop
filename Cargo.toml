@@ -4,6 +4,7 @@ members = [
     "crates/application",
     "crates/domain",
     "crates/infrastructure",
+    "crates/net-helper",
 ]
 resolver = "3"
 

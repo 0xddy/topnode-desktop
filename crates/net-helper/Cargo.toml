@@ -1,0 +1,15 @@
+[package]
+name = "topnode-net-helper"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish = false
+
+[dependencies]
+serde_json.workspace = true
+sha2.workspace = true
+tokio = { workspace = true, features = ["io-std"] }
+zeroize.workspace = true
+
+[lints]
+workspace = true

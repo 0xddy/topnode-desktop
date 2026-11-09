@@ -42,3 +42,10 @@ pub use startup::{PaymentPresentation, StartupConfiguration, StartupConfiguratio
 pub use system_proxy::{
     ReconcileOutcome, RestoreOutcome, SystemProxyError, SystemProxyLease, SystemProxyManager,
 };
+
+mod naive;
+mod native_diagnostic;
+pub use naive::NaiveCapabilities;
+
+mod tun_helper;
+pub use tun_helper::tun_helper_available;

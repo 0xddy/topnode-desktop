@@ -236,6 +236,13 @@ pub(crate) fn normalize_with_local_clash_api(
         }
     };
     let origin = format!("http://{controller}");
+    if cfg!(unix) && preferences.tun_enabled {
+        // Privileged helpers must not create server-selected persistent files.
+        experimental.insert(
+            "cache_file".to_owned(),
+            serde_json::json!({"enabled": false}),
+        );
+    }
     let default_mode = match preferences.route_mode {
         RouteMode::Rule => "Rule",
         RouteMode::Global => "Global",
@@ -353,6 +360,19 @@ fn apply_tun_policy(
     enabled: bool,
 ) -> Result<Map<String, Value>, EngineError> {
     if enabled {
+        #[cfg(target_os = "linux")]
+        let managed_name = "topnode0";
+        #[cfg(target_os = "macos")]
+        let managed_name = "utun";
+        #[cfg(any(target_os = "linux", target_os = "macos"))]
+        if let Some(inbounds) = document.get_mut("inbounds").and_then(Value::as_array_mut) {
+            for inbound in inbounds
+                .iter_mut()
+                .filter(|item| inbound_type(item) == Some("tun"))
+            {
+                inbound["interface_name"] = Value::String(managed_name.to_owned());
+            }
+        }
         return Ok(document);
     }
     let Some(server_inbounds) = array_field(&document, "inbounds")?.cloned() else {
@@ -1492,6 +1512,26 @@ mod tests {
             serde_json::from_str::<Value>(&first).expect("first JSON"),
             serde_json::from_str::<Value>(&second).expect("second JSON")
         );
+    }
+
+    #[test]
+    fn udp_preference_preserves_naive_transport_uot_and_internal_dns() {
+        for quic in [false, true] {
+            let payload = json!({"outbounds":[
+                {"type":"naive","tag":"naive","quic":quic,"udp_over_tcp":{"enabled":true,"version":2}},
+                {"type":"hysteria2","tag":"hy2"},
+                {"type":"selector","tag":"proxy","outbounds":["auto","cycle"]},
+                {"type":"urltest","tag":"auto","outbounds":["naive","hy2"]},
+                {"type":"selector","tag":"cycle","outbounds":["proxy"]}
+            ],"dns":{"servers":[{"type":"udp","tag":"remote","server":"192.0.2.53","detour":"proxy"}]}});
+            let mut prefs = preferences();
+            prefs.udp_forwarding_enabled = false;
+            let first = normalized(&payload.to_string(), &prefs);
+            assert_eq!(first["outbounds"][0], payload["outbounds"][0]);
+            assert_eq!(first["outbounds"][1], payload["outbounds"][1]);
+            assert_eq!(first["dns"], payload["dns"]);
+            assert_eq!(normalized(&first.to_string(), &prefs), first);
+        }
     }
 
     #[test]

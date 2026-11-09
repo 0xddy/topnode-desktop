@@ -236,7 +236,8 @@ def prepare_assets(assets: Path, version_code: int, version_name: str, git_commi
                 or application.get("versionCode") != version_code
                 or application.get("versionName") != version_name
                 or application.get("gitCommit") != git_commit
-                or application.get("target") != target):
+                or application.get("target") != target
+                or application.get("supportTier") != "supported"):
             raise PublishError(f"BUILD-INFO.json does not match this release: {filename}")
         with path.open("rb") as source:
             checksums[filename] = digest_stream(source)

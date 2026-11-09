@@ -19,6 +19,8 @@ import tarfile
 import tempfile
 import zipfile
 
+from naive_qualification import validate_report
+
 
 VERSION_NAME_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
 TARGET_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
@@ -38,6 +40,10 @@ def parse_arguments() -> argparse.Namespace:
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--git-commit", required=True)
     parser.add_argument("--source-date-epoch", required=True, type=int)
+    parser.add_argument("--support-build", type=Path, help="native platform helper executables")
+    parser.add_argument("--candidate", action="store_true", help="produce an explicitly unqualified candidate")
+    parser.add_argument("--system-acceptance", type=Path, help="artifact-bound installed-system test report")
+    parser.add_argument("--signing-identity", help="Developer ID Application identity for the final macOS bundle")
     return parser.parse_args()
 
 
@@ -66,24 +72,36 @@ def validate_arguments(arguments: argparse.Namespace) -> None:
         raise RuntimeError("--source-date-epoch must be on or after 1980-01-01")
 
 
-def validate_core_build(build: Path, target: str) -> tuple[Path, dict]:
+def validate_core_build(build: Path, target: str, candidate: bool = False) -> tuple[Path, dict]:
     lock = dict(line.split("=", 1) for line in (ROOT / "config/sing-box-acp.lock").read_text().splitlines())
     metadata = json.loads((build / "source.json").read_text(encoding="utf-8"))
-    if metadata.get("naiveTest") or "with_naive_outbound" in metadata.get("tags", []):
-        raise RuntimeError("the Naive test core must not be used for a portable release")
     expected = {
         "repository": lock["repository"],
         "commit": lock["commit"],
         "version": lock["version"],
         "goVersion": lock["go"],
         "target": target,
-        "nativeCheck": True,
     }
     if any(metadata.get(key) != value for key, value in expected.items()):
         raise RuntimeError("ACP core metadata does not match the lock and native release target")
+    if not candidate and metadata.get("nativeCheck") is not True:
+        raise RuntimeError("release requires native execution on the target architecture")
     binary = build / "core" / ("sing-box-acp.exe" if "windows-msvc" in target else "sing-box-acp")
     if sha256_file(binary) != metadata.get("binarySha256"):
         raise RuntimeError("ACP core binary does not match its build metadata")
+    if "with_naive_outbound" not in metadata.get("tags", []):
+        raise RuntimeError("complete Naive releases require a qualified Naive core")
+    if not candidate or (binary.parent / "naive-validation.json").exists():
+        validate_report(binary, metadata, complete=not candidate)
+    required_library = {"windows": "libcronet.dll", "linux": "libcronet.so"}.get(metadata.get("goos"))
+    if required_library and not any(item.get("file") == required_library for item in metadata.get("libraries", [])):
+        raise RuntimeError("Naive candidate is missing its required Cronet library")
+    for library in metadata.get("libraries", []):
+        name = library["file"]
+        if not name or name.startswith(".") or any(char in name for char in "/\\:"):
+            raise RuntimeError("invalid bundled library filename")
+        if sha256_file(binary.parent / name) != library["sha256"]:
+            raise RuntimeError("bundled library hash mismatch")
     return binary, metadata
 
 
@@ -97,6 +115,18 @@ def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) ->
     application_name = "topnode.exe" if "windows-msvc" in target else "topnode-desktop"
     shutil.copy2(arguments.application, executable_dir / application_name)
     shutil.copy2(binary, core_dir / binary.name)
+    metadata = json.loads((arguments.core_build / "source.json").read_text(encoding="utf-8"))
+    for library in metadata.get("libraries", []):
+        shutil.copy2(binary.parent / library["file"], core_dir / library["file"])
+    if (binary.parent / "naive-validation.json").exists():
+        shutil.copy2(binary.parent / "naive-validation.json", core_dir / "naive-validation.json")
+    shutil.copy2(arguments.core_build / "source.json", core_dir / "source.json")
+    if "linux" in target or is_macos:
+        if arguments.support_build is None:
+            raise RuntimeError("platform helpers are required for the installed product")
+        names = ("topnode-network-daemon", "topnode-network-bridge", "topnode-proxy-settings") if is_macos else ("topnode-net-helper",)
+        for name in names:
+            shutil.copy2(arguments.support_build / name, executable_dir / name)
     shutil.copy2(ROOT / "config/startup.json", executable_dir / "runtime/startup.json")
     shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", root)
     shutil.copy2(arguments.core_build / "LICENSE.sing-box-acp", root)
@@ -114,16 +144,22 @@ def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) ->
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": short_version,
         "CFBundleVersion": str(arguments.version_code),
-        "LSMinimumSystemVersion": "12.0",
+        "LSMinimumSystemVersion": "13.0",
         "NSHighResolutionCapable": True,
     }
     with (app / "Contents" / "Info.plist").open("wb") as output:
         plistlib.dump(info, output, sort_keys=True)
-    subprocess.run(
-        ["codesign", "--force", "--deep", "--sign", "-", str(app)],
-        check=True,
-        timeout=60,
-    )
+    daemon_directory = app / "Contents/Library/LaunchDaemons"
+    daemon_directory.mkdir(parents=True)
+    shutil.copy2(ROOT / "platform/macos/cc.topnode.network.plist", daemon_directory)
+    if not arguments.signing_identity and not arguments.candidate:
+        raise RuntimeError("macOS release requires Developer ID signing")
+    if arguments.signing_identity:
+        # Core and helpers must already be signed before their native tests.
+        # Signing the outer bundle must not rewrite the qualified nested code.
+        for nested in [core_dir / binary.name, *(executable_dir / name for name in names)]:
+            subprocess.run(["codesign", "--verify", "--strict", str(nested)], check=True, timeout=30)
+        subprocess.run(["codesign", "--force", "--options", "runtime", "--timestamp", "--sign", arguments.signing_identity, str(app)], check=True, timeout=60)
 
 
 def payload_hashes(root: Path) -> list[dict[str, object]]:
@@ -142,6 +178,28 @@ def payload_hashes(root: Path) -> list[dict[str, object]]:
 
 def normalized_mode(path: Path) -> int:
     return 0o755 if path.is_dir() or path.stat().st_mode & stat.S_IXUSR else 0o644
+
+
+def validate_system_acceptance(arguments, binary):
+    if arguments.system_acceptance is None:
+        raise RuntimeError("release requires an installed-system acceptance report; use --candidate until qualified")
+    report = json.loads(arguments.system_acceptance.read_text(encoding="utf-8"))
+    expected = {"schema_version": 1, "target": arguments.target,
+                "application_sha256": sha256_file(arguments.application), "core_sha256": sha256_file(binary)}
+    if any(report.get(key) != value for key, value in expected.items()):
+        raise RuntimeError("system acceptance does not match the candidate artifacts")
+    names = ("topnode-network-daemon", "topnode-network-bridge", "topnode-proxy-settings") if "apple-darwin" in arguments.target else (("topnode-net-helper",) if "linux" in arguments.target else ())
+    expected_helpers = {name: sha256_file(arguments.support_build / name) for name in names}
+    if report.get("helpers", {}) != expected_helpers:
+        raise RuntimeError("system acceptance does not match platform helper artifacts")
+    checks = ("system_proxy", "tun_udp", "udp_disabled", "dns_detour", "permission_denied",
+              "process_exit_cleanup", "external_proxy_change", "network_switch", "sleep_wake", "upgrade", "uninstall")
+    if any(report.get("checks", {}).get(check) is not True for check in checks):
+        raise RuntimeError("system takeover acceptance matrix is incomplete")
+    if report.get("soak_seconds", 0) < 3600 or report.get("mixed_traffic_seconds", 0) < 1800 or report.get("connection_cycles", 0) < 100:
+        raise RuntimeError("stability acceptance is incomplete")
+    if "apple-darwin" in arguments.target and report.get("notarized_install") is not True:
+        raise RuntimeError("macOS requires notarized installed-system acceptance")
 
 
 def create_zip(root: Path, archive: Path, epoch: int) -> None:
@@ -183,7 +241,9 @@ def main() -> None:
     arguments = parse_arguments()
     validate_arguments(arguments)
     output = arguments.output.resolve()
-    binary, sing_box = validate_core_build(arguments.core_build, arguments.target)
+    binary, sing_box = validate_core_build(arguments.core_build, arguments.target, arguments.candidate)
+    if not arguments.candidate:
+        validate_system_acceptance(arguments, binary)
     output.mkdir(parents=True, exist_ok=True)
     extension = ".zip" if "windows-msvc" in arguments.target else ".tar.gz"
     archive_stem = f"topnode-desktop-{arguments.version_name}-{arguments.platform_label}"
@@ -202,7 +262,7 @@ def main() -> None:
                 "versionName": arguments.version_name,
                 "gitCommit": arguments.git_commit,
                 "target": arguments.target,
-                "supportTier": "supported" if "windows-msvc" in arguments.target else "preview",
+                "supportTier": "candidate" if arguments.candidate else "supported",
             },
             "build": {
                 "sourceDateEpoch": arguments.source_date_epoch,
