@@ -1,32 +1,29 @@
-TOPNODE Desktop portable package
-================================
+TOPNODE Desktop candidate / qualified package
+============================================
 
-Keep this directory layout intact. The application resolves runtime/startup.json
-and runtime/core/sing-box-acp only beside its own executable; it intentionally does
-not search PATH or the current working directory.
+Keep the directory layout intact. Read BUILD-INFO.json: candidate means the
+complete native and installed-system matrix has NOT been accepted. A package
+without matching Naive qualification intentionally does not advertise Naive.
+Never alter the report or supportTier to bypass verification.
 
-Windows
--------
-Run topnode.exe. Windows x86_64 and ARM64 are the complete supported
-desktop packages. An unsigned build can show a SmartScreen warning; production
-releases should be Authenticode-signed.
+Windows 11: run topnode.exe. TUN mode requires the existing UAC handoff.
+System proxy mode covers applications honoring HTTP/HTTPS proxy settings;
+it does not capture every application's UDP traffic.
 
-Linux preview
--------------
-Run ./topnode-desktop. The archive preserves executable permissions and expects
-a glibc desktop with Fontconfig, XKB, a graphical session, and a Secret Service
-credential provider. System-proxy takeover and TUN integration are not yet
-implemented, so this package is a UI/integration preview rather than a complete
-traffic-routing client.
+Ubuntu 24.04 GNOME: use the .deb for full installation. It installs the fixed
+root-owned core, systemd helper and polkit authorization. The GUI stays an
+ordinary user. A portable archive alone does not install the privileged helper.
+Other desktop environments are not qualified for system proxy mode.
 
-macOS preview
--------------
-Open TOPNODE Desktop.app on macOS 12 or later. The package is ad-hoc signed, but is not Developer ID
-signed or notarized; Gatekeeper may require right-clicking Open on first launch.
-System-proxy takeover and TUN integration are not yet implemented, so this
-package is a UI/integration preview rather than a complete traffic-routing
-client.
+macOS 13+: full installation requires the signed/notarized .pkg installed at
+/Applications/TOPNODE Desktop.app. Approve the SMAppService background item
+when enabling TUN. Unsigned candidates cannot establish the authenticated
+privileged-service connection and are not a production distribution.
 
-BUILD-INFO.json records the exact application and sing-box-acp commits, Rust
-target and SHA-256 hashes. SHA256SUMS.txt beside the GitHub Release assets
-can be used to verify the downloaded archive.
+Quit before upgrading or removing the application. Let the GUI restore its
+proxy lease; after a crash, relaunch it to reconcile the journal. On macOS,
+unregister the background service with the installed signed bridge before
+removing the app. Keep the prior complete package for rollback.
+
+BUILD-INFO.json and the validation reports bind exact artifact hashes.
+No transport, certificate-validation or failed-UoT direct fallback is enabled.

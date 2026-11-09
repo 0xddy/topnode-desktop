@@ -379,7 +379,7 @@ impl SystemProxyLease {
             &observed.0,
             self.endpoint,
         )
-        .map_err(|error| map_backend_error("准备新网络服务代理", error))?;
+        .map_err(|error| map_backend_error("准备新网络服务代理", BackendError::Io(error)))?;
         let Some((original, applied, additions)) = update else {
             return Ok(());
         };
@@ -391,7 +391,7 @@ impl SystemProxyLease {
             .install(&ProxySnapshot(additions.clone()), "应用新网络服务代理")?;
         let current = self.manager.capture("回读新网络服务代理")?;
         if !macos::contains_services(&current.0, &additions)
-            .map_err(|error| map_backend_error("验证新网络服务代理", error))?
+            .map_err(|error| map_backend_error("验证新网络服务代理", BackendError::Io(error)))?
         {
             return Err(SystemProxyError::VerificationFailed {
                 operation: "应用新网络服务代理",
@@ -716,7 +716,7 @@ trait SystemProxyBackend: Send + Sync {
 }
 
 enum BackendError {
-    #[cfg(not(windows))]
+    #[cfg(all(not(windows), not(target_os = "macos")))]
     Unsupported(&'static str),
     #[cfg_attr(
         not(any(windows, test)),
@@ -730,7 +730,7 @@ enum BackendError {
 
 fn map_backend_error(operation: &'static str, error: BackendError) -> SystemProxyError {
     match error {
-        #[cfg(not(windows))]
+        #[cfg(all(not(windows), not(target_os = "macos")))]
         BackendError::Unsupported(reason) => SystemProxyError::Unsupported(reason),
         BackendError::Io(source) => SystemProxyError::Backend { operation, source },
     }

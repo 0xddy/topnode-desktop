@@ -329,83 +329,35 @@ The release directory must contain at least:
     THIRD_PARTY_NOTICES.md
     LICENSE.sing-box-acp
 
-The manual `desktop-portable-release` workflow requires the default branch and
-complete Git history. Each runner builds the ACP CLI from the locked commit
-and validates the version and advertised protocol configurations on the target
-platform. The matrix covers Windows, Linux, and macOS on x86_64 and ARM64.
-The macOS preview requires macOS 12 or later for the bundled Go runtime.
-`scripts/package-portable.py` verifies the core build metadata and binary hash
-before assembling each archive. On macOS it places `runtime/` next to the
-executable inside the app bundle. Windows archives use a static Rust CRT; Unix
-archives preserve executable modes. Every package includes a build manifest,
-and the Release publishes `SHA256SUMS.txt` after all six builds succeed.
+The `desktop-candidates` workflow (portable-release.yml) requires the default
+branch and complete Git history. Its six native runners build the pinned Naive
+core, bundle Cronet where required, run TCP/UoT certificate tests and assemble
+explicit candidates. It does not publish releases or change online bootstrap
+configuration. Build success alone does not grant protocol or system-takeover
+qualification.
 
-The separate `publish` job downloads the saved build artifacts and publishes all
-six packages plus checksums to:
+The release baseline is Windows 11, macOS 13+, and Ubuntu 24.04 GNOME, on both
+x86_64 and ARM64. Windows retains the WinINet/UAC lifecycle. Linux includes a
+GSettings backend and a restricted systemd/polkit TUN helper; macOS includes a
+per-network-service SystemConfiguration backend and an SMAppService/XPC helper.
+These new platform integrations require installed-system acceptance on their
+actual targets. Linux full installation uses the .deb; macOS full installation
+uses a root-owned, Developer ID signed and notarized .pkg. No ad-hoc signature
+is treated as production qualification.
 
-    https://soft.topstatic.top/soft/desktop/desktop-v<VERSION_CODE>-<VERSION_NAME>/
+`BUILD-INFO.json` records candidate/supported status from artifact-bound evidence,
+not from the operating system name. Formal packaging requires matching core,
+Cronet and native reports plus a complete installed-system acceptance report
+bound to the application and helpers. Missing evidence leaves Naive capabilities
+unadvertised. System proxy mode covers proxy-aware TCP applications; application
+UDP takeover is verified separately in TUN mode.
 
-It verifies each package by anonymously downloading and comparing its SHA-256
-hash, then writes and verifies `SHA256SUMS.txt` as the completion marker. Only
-then does it update `desktop.config.json` on `main` in
-`0xddy/topnode-bootstrap-config`, using the latest production document as its
-input. It updates `version.metadata.versionCode`, `version.metadata.versionName`,
-the legacy `version.download` directory link, and all six `version.downloads`
-URLs. It preserves `updateInfo`, `forceUpdate`, other metadata, and all unrelated
-API/probe/fake/payment settings. Push conflicts cause a fresh fetch and render;
-lower version codes are allowed, while conflicting reuse of a version code is
-refused.
+For build, signing, fixture, installation, qualification and rollback steps see
+[Naive/UoT release procedure](docs/naive-uot-release.md). `publish-dufs.py` rejects
+candidate/preview packages. Publication and bootstrap updates require a separate
+release operation after acceptance, reusing the exact verified artifacts.
+Keep the previous complete release for rollback and clean up network ownership
+before replacing application or helper files.
 
-After the configuration commit succeeds, cleanup keeps the current release and
-the other complete desktop version with the highest numeric `versionCode`.
-This also preserves the active download when publishing a lower version code.
-It verifies the current release again before deleting unretained managed
-directories and incomplete uploads.
-An interrupted upload does not displace the previous complete version. Files and directories outside
-the strict desktop release naming scheme are left alone, including everything
-under `/soft/android/`. Upload, verification, or configuration failures stop
-before cleanup. The single release concurrency group serializes publication.
-The bootstrap repository's existing deployment remains responsible for serving
-its configuration at all three boot domains.
-
-Configure these Actions secrets in `0xddy/topnode-desktop`:
-
-- `TOPNODE_DUFS_PASSWORD`: password for dufs user `admin`; the URL and username
-  are set in the publish job.
-- `BOOTSTRAP_CONFIG_SSH_KEY`: private key of a dedicated SSH Deploy Key with
-  write access to `0xddy/topnode-bootstrap-config`. That repository's `main`
-  branch must permit the key to push configuration commits.
-
-Builds, GitHub Release publication, and dufs/config publication are separate
-jobs. If publication fails, use **Re-run failed jobs** on the same Actions run;
-the completed matrix builds are reused. Artifacts are retained for 14 days, so
-retry within that period. Re-running a successful publish is safe: the same
-version reuses matching completed assets and an unchanged configuration creates
-no commit. Different bytes cannot replace an already completed version.
-Re-running an older release after a newer version exists updates the configuration
-to that older release and keeps its packages during cleanup.
-If a GitHub Release was already published, the release job checks its source
-commit and exact asset bytes before allowing the retry to continue.
-
-A core-only rebuild must use a new Git commit because clients compare only
-`versionCode`. The verify job renders dufs URLs over the schema fixture, so the
-Rust parser used at startup must accept the release document before any
-platform build begins. Release helper tests run in CI and can be run locally
-with `python -m unittest discover -s scripts/tests -v`.
-
-Windows is currently the complete traffic-routing target. Linux and macOS
-archives are explicit previews: the UI starts, but their system-proxy and TUN
-adapters still fail closed. Linux also requires common glibc/Fontconfig/XKB and
-Secret Service libraries. The macOS workflow creates an ad-hoc-signed `.app`,
-but production still needs Developer ID signing/notarization; Windows production
-should add Authenticode signing to avoid SmartScreen warnings.
-
-The checked-in workflow assumes `client-desktop` is the Git repository root.
-If this directory remains inside an umbrella repository, place the workflow in
-that repository's root `.github/workflows` directory and set its Cargo working
-directory to `client-desktop`.
-
-See `docs/architecture.md` for design boundaries and
-`docs/security-and-packaging.md` before changing bootstrap/fronted routing,
-extending traffic takeover or privilege boundaries, updates, or release
-packaging.
+Release helper tests run with `python -m unittest discover -s scripts/tests -v`.
+The checked-in workflows assume client-desktop is the repository root.

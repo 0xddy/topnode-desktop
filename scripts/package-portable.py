@@ -129,6 +129,7 @@ def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) ->
             shutil.copy2(arguments.support_build / name, executable_dir / name)
     shutil.copy2(ROOT / "config/startup.json", executable_dir / "runtime/startup.json")
     shutil.copy2(ROOT / "THIRD_PARTY_NOTICES.md", root)
+    shutil.copy2(ROOT / "docs/PORTABLE-README.txt", root / "README.txt")
     shutil.copy2(arguments.core_build / "LICENSE.sing-box-acp", root)
     if not is_macos:
         return
