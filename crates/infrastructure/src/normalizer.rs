@@ -1398,10 +1398,13 @@ mod tests {
         let mut preferences = preferences();
         preferences.tun_enabled = true;
 
-        assert_eq!(
-            normalize(payload, &preferences).expect("configuration normalizes"),
-            payload
-        );
+        let mut expected: Value = serde_json::from_str(payload).expect("fixture JSON");
+        if cfg!(target_os = "linux") {
+            expected["inbounds"][0]["interface_name"] = json!("topnode0");
+        } else if cfg!(target_os = "macos") {
+            expected["inbounds"][0]["interface_name"] = json!("utun233");
+        }
+        assert_eq!(normalized(payload, &preferences), expected);
     }
 
     #[test]
