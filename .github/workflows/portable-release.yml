@@ -180,9 +180,6 @@ jobs:
       - name: Build desktop application
         run: cargo build --release --locked -p topnode-desktop --target "${{ matrix.target }}"
 
-      - name: Install native verification dependencies
-        run: python -m pip install cryptography
-
       - name: Verify native TCP and UoT paths
         run: >-
           python scripts/verify-naive.py

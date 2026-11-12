@@ -292,10 +292,10 @@ Both Panel requests send `Topnode-Accept-Protocols` for VLESS Reality
 Build the test core and run the loopback connection checks:
 
     python scripts/build-sing-box-acp.py --target x86_64-pc-windows-msvc --output runtime --require-native --with-naive
-    python -m pip install cryptography
     python scripts/verify-naive.py --core runtime/core/sing-box-acp.exe
 
 The builder stages the matching Cronet DLL from the ACP dependency lock.
+The verifier uses Go on `PATH` to generate temporary test certificates.
 The tests send HTTP traffic through real Naive HTTPS and QUIC connections.
 They cover private CA and self-signed trust, plus rejection of untrusted CA,
 expired certificates, wrong names and wrong passwords. They leave system

@@ -24,6 +24,7 @@ python scripts/build-sing-box-acp.py --target TARGET --output BUILD --with-naive
 Windows/Linux 使用 purego 并复制对应架构 Cronet；macOS 必须在 Xcode 环境中
 使用 CGO，最低系统版本为 13，不使用 DLL/SO 存在性判断 macOS 能力。
 `source.json` 记录版本、提交、架构、标签、依赖及 SHA-256。
+验证脚本使用 `PATH` 上的 Go 生成回环测试证书。
 
 ```text
 python scripts/verify-naive.py --core BUILD/core/sing-box-acp[.exe] --metadata BUILD/source.json --report BUILD/core/naive-validation.json --system-fixture PRIVATE_FIXTURE
