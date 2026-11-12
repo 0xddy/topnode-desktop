@@ -209,18 +209,21 @@ fn stage_development_runtime() -> io::Result<()> {
 
     fs::copy(binary, core_destination.join(core_name))?;
     let cronet_name = match target_os.as_str() {
-        "windows" => "libcronet.dll",
-        "linux" => "libcronet.so",
-        _ => return Ok(()),
+        "windows" => Some("libcronet.dll"),
+        "linux" => Some("libcronet.so"),
+        _ => None,
     };
-    let cronet = core_source.join(cronet_name);
-    println!("cargo:rerun-if-changed={}", cronet.display());
-    if cronet.is_file() {
-        fs::copy(cronet, core_destination.join(cronet_name))?;
-    } else if let Err(error) = fs::remove_file(core_destination.join(cronet_name))
-        && error.kind() != io::ErrorKind::NotFound
-    {
-        return Err(error);
+    for name in std::iter::once("naive-validation.json").chain(cronet_name) {
+        let source = core_source.join(name);
+        let destination = core_destination.join(name);
+        println!("cargo:rerun-if-changed={}", source.display());
+        if source.is_file() {
+            fs::copy(source, destination)?;
+        } else if let Err(error) = fs::remove_file(destination)
+            && error.kind() != io::ErrorKind::NotFound
+        {
+            return Err(error);
+        }
     }
 
     Ok(())

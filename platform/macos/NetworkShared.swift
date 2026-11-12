@@ -86,17 +86,34 @@ func validateConfiguration(_ data: Data) throws {
           root.keys.allSatisfy({ ["log", "dns", "inbounds", "outbounds", "route", "experimental"].contains($0) }),
           let inbounds = root["inbounds"] as? [[String: Any]],
           inbounds.filter({ $0["type"] as? String == "tun" }).count == 1 else { throw NetworkFailure.configuration }
-    func check(_ value: Any) throws {
+    enum FieldScope: Equatable { case root, outbounds, outbound, xhttpTransport, nested }
+    func check(_ value: Any, scope: FieldScope) throws {
         if let object = value as? [String: Any] {
             for (key, value) in object {
+                // A VLESS XHTTP transport path identifies a remote HTTP route.
                 guard !key.hasSuffix("_path"), !(key.hasSuffix("_file") && key != "cache_file"),
-                      !["path", "external_ui", "external_ui_download_url", "command", "script", "working_directory"].contains(key),
+                      key != "path" || (scope == .xhttpTransport && value is String),
+                      !["external_ui", "external_ui_download_url", "command", "script", "working_directory"].contains(key),
                       key != "output" || value as? String == "" else { throw NetworkFailure.configuration }
-                try check(value)
+                let childScope: FieldScope
+                switch (scope, key) {
+                case (.root, "outbounds"):
+                    childScope = .outbounds
+                case (.outbound, "transport") where object["type"] as? String == "vless"
+                    && (value as? [String: Any])?["type"] as? String == "xhttp":
+                    childScope = .xhttpTransport
+                default:
+                    childScope = .nested
+                }
+                try check(value, scope: childScope)
             }
-        } else if let array = value as? [Any] { for value in array { try check(value) } }
+        } else if let array = value as? [Any] {
+            for value in array {
+                try check(value, scope: scope == .outbounds ? .outbound : .nested)
+            }
+        }
     }
-    try check(root)
+    try check(root, scope: .root)
     for inbound in inbounds {
         let kind = inbound["type"] as? String
         if kind == "tun" {

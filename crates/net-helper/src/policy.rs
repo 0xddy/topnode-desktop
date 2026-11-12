@@ -23,7 +23,7 @@ pub fn validate(payload: &[u8]) -> Result<(), &'static str> {
     }) {
         return Err("privileged configuration has unsupported sections");
     }
-    check_fields(&document)?;
+    check_fields(&document, FieldScope::Root)?;
     let inbounds = document["inbounds"]
         .as_array()
         .ok_or("missing TUN inbound")?;
@@ -88,14 +88,26 @@ pub fn validate(payload: &[u8]) -> Result<(), &'static str> {
     Ok(())
 }
 
-fn check_fields(value: &Value) -> Result<(), &'static str> {
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum FieldScope {
+    Root,
+    Outbounds,
+    Outbound,
+    XhttpTransport,
+    Nested,
+}
+
+fn check_fields(value: &Value, scope: FieldScope) -> Result<(), &'static str> {
     match value {
         Value::Object(fields) => {
             for (key, value) in fields {
+                // This path selects a remote HTTP route on a VLESS XHTTP outbound.
+                let invalid_path =
+                    key == "path" && (scope != FieldScope::XhttpTransport || !value.is_string());
                 if key.ends_with("_path")
                     || key.ends_with("_file") && key != "cache_file"
+                    || invalid_path
                     || [
-                        "path",
                         "external_ui",
                         "external_ui_download_url",
                         "command",
@@ -107,12 +119,27 @@ fn check_fields(value: &Value) -> Result<(), &'static str> {
                 {
                     return Err("privileged file or command reference rejected");
                 }
-                check_fields(value)?;
+                let child_scope = match (scope, key.as_str()) {
+                    (FieldScope::Root, "outbounds") => FieldScope::Outbounds,
+                    (FieldScope::Outbound, "transport")
+                        if fields.get("type").and_then(Value::as_str) == Some("vless")
+                            && value.get("type").and_then(Value::as_str) == Some("xhttp") =>
+                    {
+                        FieldScope::XhttpTransport
+                    }
+                    _ => FieldScope::Nested,
+                };
+                check_fields(value, child_scope)?;
             }
         }
         Value::Array(values) => {
+            let element_scope = if scope == FieldScope::Outbounds {
+                FieldScope::Outbound
+            } else {
+                FieldScope::Nested
+            };
             for value in values {
-                check_fields(value)?;
+                check_fields(value, element_scope)?;
             }
         }
         _ => {}
@@ -138,5 +165,15 @@ mod tests {
     #[test]
     fn accepts_in_memory_tun_with_uot() {
         assert!(validate(br#"{"log":{"output":""},"inbounds":[{"type":"tun","interface_name":"topnode0","auto_route":true}],"outbounds":[{"type":"naive","udp_over_tcp":{"enabled":true,"version":2},"tls":{"enabled":true,"certificate":["PEM"]}}],"experimental":{"clash_api":{"external_controller":"127.0.0.1:49152"}}}"#).is_ok());
+    }
+
+    #[test]
+    fn accepts_xhttp_route_paths_but_rejects_filesystem_paths() {
+        let fixture = include_bytes!("../../../scripts/tests/fixtures/sing-box-acp-protocols.json");
+        assert!(validate(fixture).is_ok());
+        let mut document: Value = serde_json::from_slice(fixture).unwrap();
+        document["route"]["rule_set"] =
+            serde_json::json!([{"tag":"local","type":"local","path":"/etc/shadow"}]);
+        assert!(validate(&serde_json::to_vec(&document).unwrap()).is_err());
     }
 }

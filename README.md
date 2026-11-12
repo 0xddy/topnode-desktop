@@ -102,10 +102,11 @@ validation. The configuration request contains:
     runtime_id=rt1
     supported_schema_versions=[1]
 
-IPv6 is enabled in configuration requests so the Panel preserves the template's
-DNS strategy and IPv6 TUN addresses. The default `prefer_ipv4` strategy supports
-both IPv4 and AAAA-only node domains; IPv6 connections require working IPv6 on
-the host network.
+IPv6 is enabled in configuration requests so the Panel preserves IPv6 TUN
+addresses and node dialing. The runtime adapter keeps node and DNS upstream
+lookups separate from the IPv4-only website policy. A node may use an IPv6
+address or an AAAA-only hostname while proxying IPv4 destinations. The default
+proxy route resolves hostnames to IPv4 in both TUN and system proxy modes.
 
 UDP is intentionally not a Panel request field. Its local policy is applied
 only inside the sing-box adapter. Above that boundary, configuration JSON is
@@ -304,12 +305,12 @@ Quit any running desktop instance, including the tray instance, then run:
 
     cargo run --locked -p topnode-desktop
 
-The debug app offers Naive HTTPS and QUIC (including custom CA) to the Panel
-when the matching core reports Naive support and its Cronet library is present.
-Log in with a test account that has Naive nodes in its plan. In system proxy
-mode, select an HTTPS node and a QUIC node separately, and load a page through
-each. Use a node with a publicly trusted certificate to verify system trust.
-Portable release packaging rejects the test core.
+Both Debug and Release offer only the Naive capabilities recorded in a matching
+native qualification report. The core and its Cronet library alone do not
+enable offers. The loopback command above checks native behavior with local
+certificates. See the [Naive/UoT release procedure](docs/naive-uot-release.md)
+for the system trust fixture and qualification report required to see Naive
+nodes from the Panel.
 
 `DevelopmentConfigurationSource` and `config/sing-box.example.json` remain in
 the repository for isolated adapter tests and manual sidecar development. They

@@ -276,10 +276,9 @@ stored in the TOML settings file.
 The configuration request sends `group_id`, `selected_endpoint_id`,
 `route_mode`, `bypass_mainland`, `bypass_lan`, `ipv6=true`,
 `multiplex_enabled`, `runtime_id=rt1`, and
-`supported_schema_versions=[1]`. IPv6 is enabled so the Panel does not force
-IPv4-only DNS resolution or remove IPv6 TUN addresses. Node domain resolution
-follows the server template (normally `prefer_ipv4`, which also permits
-AAAA-only nodes). UDP is not sent to the Panel.
+`supported_schema_versions=[1]`. IPv6 is enabled so the Panel preserves node
+resolution and IPv6 TUN addresses. The runtime adapter retains a separate
+dial strategy for nodes and DNS upstreams. UDP is not sent to the Panel.
 
 The normalizer always starts from the original server payload so toggling a
 preference cannot retain an earlier locally injected rule. Its scoped policy
@@ -291,6 +290,8 @@ is:
 - add the local direct UDP rule when UDP forwarding is disabled;
 - enable or remove multiplex only on generated VLESS outbounds whose tags begin
   with `tn-endpoint-`;
+- constrain website DNS to IPv4 and resolve domain targets before the default
+  generated node route, after DNS hijack and bypass rules;
 - remove every server-selected Mixed/SOCKS listener and its now-invalid
   references, then add exactly one client-owned random loopback Mixed listener
   when TUN is disabled; add no system-proxy listener when TUN is enabled.

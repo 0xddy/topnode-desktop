@@ -96,12 +96,102 @@ pub(crate) fn normalize(
     }
     normalized = apply_local_multiplex_policy(normalized, preferences.multiplex_enabled)?;
     use_tcp_dns_for_naive_detours(&mut normalized);
+    apply_website_ipv4_policy(&mut normalized)?;
 
     if normalized == original {
         Ok(payload.to_owned())
     } else {
         serde_json::to_string(&Value::Object(normalized))
             .map_err(|error| invalid_configuration(format!("JSON 序列化失败：{error}")))
+    }
+}
+
+fn apply_website_ipv4_policy(document: &mut Map<String, Value>) -> Result<(), EngineError> {
+    let Some(route) = object_field(document, "route")? else {
+        return Ok(());
+    };
+    if !route
+        .get("final")
+        .and_then(Value::as_str)
+        .is_some_and(|tag| tag.starts_with(RUNTIME_NODE_TAG_PREFIX))
+    {
+        return Ok(());
+    }
+    let Some(dns) = object_field(document, "dns")? else {
+        return Ok(());
+    };
+    let Some(servers) = array_field(dns, "servers")? else {
+        return Ok(());
+    };
+    if array_field(document, "outbounds")?.is_none() {
+        return Ok(());
+    }
+
+    // Dialers without an explicit strategy inherit dns.strategy. Preserve
+    // dual-stack lookups for the node and DNS upstreams before restricting
+    // website lookups.
+    let dial_strategy = match dns.get("strategy").and_then(Value::as_str) {
+        Some("prefer_ipv6" | "ipv6_only") => "prefer_ipv6",
+        _ => "prefer_ipv4",
+    };
+    let resolver = route
+        .get("default_domain_resolver")
+        .or_else(|| {
+            if let [server] = servers.as_slice() {
+                server.get("tag")
+            } else {
+                None
+            }
+        })
+        .cloned();
+    // Evaluate hijack and bypass rules first. The remaining TUN destinations
+    // may already be IPs, whereas system proxy requests can carry hostnames.
+    let mut rules = array_field(route, "rules")?.cloned().unwrap_or_default();
+    let website_rules = [
+        serde_json::json!({"ip_version":6, "action":"reject"}),
+        serde_json::json!({"action":"resolve", "strategy":"ipv4_only"}),
+    ];
+    let route = document.get_mut("route").expect("validated route object");
+    if let Some(mut resolver) = resolver {
+        pin_dial_strategy(&mut resolver, dial_strategy);
+        route["default_domain_resolver"] = resolver;
+    }
+    if !rules.ends_with(&website_rules) {
+        rules.extend(website_rules);
+        route["rules"] = Value::Array(rules);
+    }
+
+    let dns = document.get_mut("dns").expect("validated DNS object");
+    dns["strategy"] = Value::from("ipv4_only");
+    let servers = dns["servers"]
+        .as_array_mut()
+        .expect("validated DNS servers");
+    for entry in servers {
+        if let Some(resolver) = entry.get_mut("domain_resolver") {
+            pin_dial_strategy(resolver, dial_strategy);
+        }
+    }
+    let outbounds = document
+        .get_mut("outbounds")
+        .and_then(Value::as_array_mut)
+        .expect("validated outbounds");
+    for entry in outbounds {
+        if let Some(resolver) = entry.get_mut("domain_resolver") {
+            pin_dial_strategy(resolver, dial_strategy);
+        }
+    }
+    Ok(())
+}
+
+fn pin_dial_strategy(resolver: &mut Value, strategy: &str) {
+    if let Some(server) = resolver.as_str() {
+        *resolver = serde_json::json!({"server":server, "strategy":strategy});
+    } else if let Some(options) = resolver.as_object_mut()
+        && options
+            .get("strategy")
+            .is_none_or(|value| value.is_null() || matches!(value.as_str(), Some("" | "as_is")))
+    {
+        options.insert("strategy".to_owned(), Value::from(strategy));
     }
 }
 
@@ -1181,6 +1271,72 @@ mod tests {
     fn normalized(payload: &str, preferences: &ConnectionPreferences) -> Value {
         serde_json::from_str(&normalize(payload, preferences).expect("configuration normalizes"))
             .expect("normalized JSON parses")
+    }
+
+    #[test]
+    fn website_ipv4_policy_keeps_dual_stack_dialing_in_both_proxy_modes() {
+        let payload = r#"{
+            "dns":{
+                "strategy":"prefer_ipv4",
+                "servers":[
+                    {"type":"udp","tag":"bootstrap","server":"192.0.2.53"},
+                    {"type":"https","tag":"remote","server":"resolver.example",
+                     "domain_resolver":"bootstrap","detour":"tn-endpoint-node-1"}
+                ],
+                "final":"remote"
+            },
+            "inbounds":[{"type":"tun","tag":"tun-in","address":["172.19.0.1/30","2001:db8::1/64"]}],
+            "outbounds":[
+                {"type":"direct","tag":"direct"},
+                {"type":"vless","tag":"tn-endpoint-node-1","server":"ipv6-only.example",
+                 "domain_resolver":{"server":"bootstrap","strategy":"prefer_ipv6"}},
+                {"type":"vless","tag":"tn-endpoint-node-2","server":"2001:db8::2"}
+            ],
+            "route":{
+                "default_domain_resolver":"bootstrap",
+                "rules":[{"protocol":"dns","action":"hijack-dns"},
+                         {"domain_suffix":"example.org","outbound":"direct"}],
+                "final":"tn-endpoint-node-1"
+            }
+        }"#;
+
+        for tun_enabled in [false, true] {
+            let preferences = ConnectionPreferences {
+                tun_enabled,
+                ..preferences()
+            };
+            let runtime = normalize(payload, &preferences).expect("configuration normalizes");
+            let document: Value = serde_json::from_str(&runtime).expect("normalized JSON");
+            assert_eq!(document["dns"]["strategy"], "ipv4_only");
+            let bootstrap = json!({"server":"bootstrap","strategy":"prefer_ipv4"});
+            assert_eq!(document["route"]["default_domain_resolver"], bootstrap);
+            assert_eq!(document["dns"]["servers"][1]["domain_resolver"], bootstrap);
+            assert_eq!(
+                document["dns"]["servers"][1]["detour"],
+                "tn-endpoint-node-1"
+            );
+            assert_eq!(
+                document["outbounds"][1]["domain_resolver"]["strategy"],
+                "prefer_ipv6"
+            );
+            assert_eq!(document["outbounds"][2]["server"], "2001:db8::2");
+            if tun_enabled {
+                assert_eq!(document["inbounds"][0]["address"][1], "2001:db8::1/64");
+            }
+            assert_eq!(
+                document["route"]["rules"],
+                json!([
+                    {"protocol":"dns","action":"hijack-dns"},
+                    {"domain_suffix":"example.org","outbound":"direct"},
+                    {"ip_version":6,"action":"reject"},
+                    {"action":"resolve","strategy":"ipv4_only"}
+                ])
+            );
+            assert_eq!(
+                normalize(&runtime, &preferences).expect("repeated normalization"),
+                runtime
+            );
+        }
     }
 
     #[test]
