@@ -2,6 +2,10 @@ name: desktop-candidates
 
 on:
   workflow_dispatch:
+    inputs:
+      source_run_id:
+        description: Upload artifacts from a previous build run ID. Leave blank to build and upload.
+        type: string
 
 permissions:
   contents: read
@@ -15,6 +19,9 @@ jobs:
     name: Derive release metadata
     runs-on: ubuntu-24.04
     timeout-minutes: 10
+    permissions:
+      actions: read
+      contents: read
     outputs:
       version_code: ${{ steps.version.outputs.version_code }}
       version_name: ${{ steps.version.outputs.version_name }}
@@ -23,24 +30,57 @@ jobs:
       release_tag: ${{ steps.version.outputs.release_tag }}
       core_version: ${{ steps.version.outputs.core_version }}
       go_version: ${{ steps.version.outputs.go_version }}
+      source_run_id: ${{ steps.source.outputs.run_id }}
     steps:
-      - name: Check out complete history
-        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
-        with:
-          fetch-depth: 0
-
-      - name: Derive Android-compatible Git version
-        id: version
+      - name: Resolve candidate source
+        id: source
         shell: bash
         env:
           DEFAULT_BRANCH: ${{ github.event.repository.default_branch }}
+          REQUESTED_RUN_ID: ${{ inputs.source_run_id }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           expected_ref="refs/heads/${DEFAULT_BRANCH}"
           if [[ "${GITHUB_REF}" != "${expected_ref}" ]]; then
-            echo "Portable releases must run from the default branch: ${expected_ref}" >&2
+            echo "Portable candidates must run from the default branch: ${expected_ref}" >&2
             exit 1
           fi
+          run_id="${GITHUB_RUN_ID}"
+          git_commit="${GITHUB_SHA}"
+          if [[ -n "${REQUESTED_RUN_ID}" ]]; then
+            if [[ ! "${REQUESTED_RUN_ID}" =~ ^[1-9][0-9]*$ ]]; then
+              echo 'source_run_id must be a positive Actions run ID.' >&2
+              exit 1
+            fi
+            run_id="${REQUESTED_RUN_ID}"
+            run="$(gh api "repos/${GITHUB_REPOSITORY}/actions/runs/${run_id}")"
+            if ! git_commit="$(jq -er --arg repository "${GITHUB_REPOSITORY}" --arg branch "${DEFAULT_BRANCH}" '
+              select(.status == "completed" and .event == "workflow_dispatch"
+                and .path == ".github/workflows/portable-release.yml"
+                and .head_repository.full_name == $repository and .head_branch == $branch)
+              | .head_sha | select(test("^[0-9a-f]{40,64}$"))
+            ' <<< "${run}")"; then
+              echo 'Select a completed desktop-candidates run on the default branch.' >&2
+              exit 1
+            fi
+          fi
+          {
+            echo "run_id=${run_id}"
+            echo "git_commit=${git_commit}"
+          } >> "${GITHUB_OUTPUT}"
+
+      - name: Check out complete history
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          ref: ${{ steps.source.outputs.git_commit }}
+
+      - name: Derive Android-compatible Git version
+        id: version
+        shell: bash
+        run: |
+          set -euo pipefail
           if [[ "$(git rev-parse --is-shallow-repository)" != "false" ]]; then
             echo "A complete Git history is required for versionCode" >&2
             exit 1
@@ -72,6 +112,7 @@ jobs:
   verify:
     name: Verify release source
     needs: metadata
+    if: inputs.source_run_id == ''
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     env:
@@ -119,6 +160,7 @@ jobs:
   build:
     name: Build ${{ matrix.platform_label }}
     needs: [metadata, verify]
+    if: inputs.source_run_id == ''
     strategy:
       fail-fast: false
       matrix:
@@ -229,3 +271,46 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 14
+
+  publish-candidates:
+    name: Upload desktop candidates to DUFS
+    needs: [metadata, build]
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && (needs.build.result == 'success' || (inputs.source_run_id != '' && needs.build.result == 'skipped')) }}
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    permissions:
+      actions: read
+      contents: read
+    env:
+      VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
+      VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
+      GIT_COMMIT: ${{ needs.metadata.outputs.git_commit }}
+      SOURCE_RUN_ID: ${{ needs.metadata.outputs.source_run_id }}
+    steps:
+      - name: Check out upload script
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Download portable archives and Ubuntu installers
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          github-token: ${{ github.token }}
+          run-id: ${{ needs.metadata.outputs.source_run_id }}
+          pattern: portable-*
+          path: candidate-assets
+          merge-multiple: true
+
+      - name: Upload and verify anonymous downloads
+        shell: bash
+        env:
+          TOPNODE_DUFS_USERNAME: admin
+          TOPNODE_DUFS_PASSWORD: ${{ secrets.TOPNODE_DUFS_PASSWORD }}
+        run: |
+          set -euo pipefail
+          url="$(python3 scripts/publish-dufs.py upload-candidate \
+            --assets candidate-assets \
+            --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}" \
+            --git-commit "${GIT_COMMIT}" --source-run-id "${SOURCE_RUN_ID}")"
+          echo "Verified desktop candidates at ${url}"
+          echo "[Desktop candidate downloads](${url})" >> "${GITHUB_STEP_SUMMARY}"

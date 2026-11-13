@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Publish verified portable archives; prune old versions only after config publication."""
+"""Upload verified desktop candidates or releases to dufs."""
 
 from __future__ import annotations
 
@@ -23,6 +23,7 @@ import zipfile
 
 
 ROOT = "/soft/desktop/"
+CANDIDATE_ROOT = ROOT + "candidates/"
 VERSION_NAME = r"[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9a-f]{8}"
 DIRECTORY_PATTERN = re.compile(rf"desktop-v([1-9][0-9]{{0,9}})-({VERSION_NAME})")
 PLATFORMS = {
@@ -136,18 +137,21 @@ class DufsClient:
             raise PublishError("Anonymous download does not match the local archive/checksum file")
 
     def completion_checksums(self, directory):
-        """The checksum file is written only after all six packages pass verification."""
+        """Read the completion marker for a formal release."""
         match = DIRECTORY_PATTERN.fullmatch(directory)
         if match is None:
             raise PublishError("Invalid desktop release directory")
-        data = self.request("GET", ROOT + directory + "/SHA256SUMS.txt",
-                            lambda response: response.read(8193), anonymous=True, allowed_statuses=(404,))
-        if data is None or len(data) > 8192:
-            return None
         expected = {
             f"topnode-desktop-{match[2]}-{platform}{extension}"
             for platform, (_, extension) in PLATFORMS.items()
         }
+        return self.read_checksums(ROOT + directory + "/", expected)
+
+    def read_checksums(self, path, expected):
+        data = self.request("GET", path + "SHA256SUMS.txt",
+                            lambda response: response.read(8193), anonymous=True, allowed_statuses=(404,))
+        if data is None or len(data) > 8192:
+            return None
         try:
             checksums = {}
             for line in data.decode("ascii").splitlines():
@@ -214,31 +218,39 @@ def validate_release(version_code: int, version_name: str, git_commit: str) -> s
     return f"desktop-v{version_code}-{version_name}"
 
 
-def prepare_assets(assets: Path, version_code: int, version_name: str, git_commit: str):
+def prepare_assets(assets: Path, version_code: int, version_name: str, git_commit: str, *, candidate=False):
     expected = {
         f"topnode-desktop-{version_name}-{platform}{extension}": target
         for platform, (target, extension) in PLATFORMS.items()
     }
+    if candidate:
+        expected.update({
+            f"topnode-desktop-{version_name}-{platform}.deb": None
+            for platform in PLATFORMS if platform.startswith("linux-")
+        })
     if not assets.is_dir():
         raise PublishError("--assets must be an existing directory")
     actual = {path.name for path in assets.iterdir()}
     if actual - {"SHA256SUMS.txt"} != set(expected):
-        raise PublishError("Expected exactly the six portable archives in --assets")
+        packages = "six portable archives and two Ubuntu installers" if candidate else "six portable archives"
+        raise PublishError(f"Expected exactly the {packages} in --assets")
     checksums = {}
+    support_tier = "candidate" if candidate else "supported"
     for filename, target in sorted(expected.items()):
         path = assets / filename
         if not path.is_file() or path.is_symlink():
-            raise PublishError(f"Expected an archive file: {filename}")
-        stem = filename.removesuffix(".zip").removesuffix(".tar.gz")
-        application = archive_manifest(path, stem).get("application")
-        if (not isinstance(application, dict)
-                or type(application.get("versionCode")) is not int
-                or application.get("versionCode") != version_code
-                or application.get("versionName") != version_name
-                or application.get("gitCommit") != git_commit
-                or application.get("target") != target
-                or application.get("supportTier") != "supported"):
-            raise PublishError(f"BUILD-INFO.json does not match this release: {filename}")
+            raise PublishError(f"Expected a package file: {filename}")
+        if target is not None:
+            stem = filename.removesuffix(".zip").removesuffix(".tar.gz")
+            application = archive_manifest(path, stem).get("application")
+            if (not isinstance(application, dict)
+                    or type(application.get("versionCode")) is not int
+                    or application.get("versionCode") != version_code
+                    or application.get("versionName") != version_name
+                    or application.get("gitCommit") != git_commit
+                    or application.get("target") != target
+                    or application.get("supportTier") != support_tier):
+                raise PublishError(f"BUILD-INFO.json does not match this release: {filename}")
         with path.open("rb") as source:
             checksums[filename] = digest_stream(source)
     checksum_file = assets / "SHA256SUMS.txt"
@@ -251,6 +263,27 @@ def prepare_assets(assets: Path, version_code: int, version_name: str, git_commi
     with checksum_file.open("rb") as source:
         checksums[checksum_file.name] = digest_stream(source)
     return checksums
+
+
+def upload_candidate(client, assets, version_code, version_name, git_commit, source_run_id):
+    directory = validate_release(version_code, version_name, git_commit)
+    if re.fullmatch(r"[1-9][0-9]*", source_run_id or "") is None:
+        raise PublishError("--source-run-id must be a positive Actions run ID")
+    path = f"{CANDIDATE_ROOT}{directory}-run-{source_run_id}/"
+    checksums = prepare_assets(assets, version_code, version_name, git_commit, candidate=True)
+    packages = {name: digest for name, (digest, _) in checksums.items() if name != "SHA256SUMS.txt"}
+    completed = client.read_checksums(path, set(packages))
+    if completed is not None and completed != packages:
+        raise PublishError("A complete candidate already exists with different bytes")
+    if completed is None:
+        for collection in ("/soft/", ROOT, CANDIDATE_ROOT, path):
+            client.create_directory(collection)
+    # prepare_assets adds the checksum file last, after the packages.
+    for filename, expected in checksums.items():
+        if completed is None:
+            client.upload(path + filename, assets / filename)
+        client.verify(path + filename, expected)
+    return client.base_url + path
 
 
 def reject_version_conflicts(directories: dict[str, int], directory: str, version_code: int):
@@ -315,18 +348,24 @@ def publish(client, command, assets, version_code, version_name, git_commit):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("command", choices=("upload", "cleanup"))
+    parser.add_argument("command", choices=("upload", "cleanup", "upload-candidate"))
     parser.add_argument("--assets", type=Path, required=True)
     parser.add_argument("--base-url", default="https://soft.topstatic.top")
     parser.add_argument("--version-code", type=int, required=True)
     parser.add_argument("--version-name", required=True)
     parser.add_argument("--git-commit", required=True)
+    parser.add_argument("--source-run-id", help="Actions run ID that built the candidate")
     arguments = parser.parse_args()
     try:
         client = DufsClient(arguments.base_url, os.environ.get("TOPNODE_DUFS_USERNAME", ""),
                             os.environ.get("TOPNODE_DUFS_PASSWORD", ""))
-        publish(client, arguments.command, arguments.assets, arguments.version_code,
-                arguments.version_name, arguments.git_commit)
+        if arguments.command == "upload-candidate":
+            url = upload_candidate(client, arguments.assets, arguments.version_code,
+                                   arguments.version_name, arguments.git_commit, arguments.source_run_id)
+            print(url)
+        else:
+            publish(client, arguments.command, arguments.assets, arguments.version_code,
+                    arguments.version_name, arguments.git_commit)
     except (PublishError, OSError) as error:
         message = str(error) if isinstance(error, PublishError) else "Unable to read or write release assets"
         print(f"Error: {message}", file=sys.stderr)

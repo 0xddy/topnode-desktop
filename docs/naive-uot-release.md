@@ -95,10 +95,13 @@ macOS 需要 `notarized_install=true`。保留每项测试日志和系统状态�
 [XPC 签名要求](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:))、
 [签名信息 API](https://developer.apple.com/documentation/security/seccodecopysigninginformation(_:_:_:))。
 
-`.github/workflows/portable-release.yml` 只生成六目标候选包和原生证据，不自动
-发布 GitHub/dufs，不更新线上 bootstrap。`publish-dufs.py` 拒绝 candidate/preview
-及缺少 supported 标记的包。正式发布是单独操作：使用原始已验收产物重新打包，
-检查全部报告和哈希后，按发布授权上传，再更新 bootstrap。
+`.github/workflows/portable-release.yml` 在六目标构建成功后，将便携包和两个 Ubuntu
+安装包上传到 DUFS 的 `/soft/desktop/candidates/`，以匿名下载校验 SHA-256，并在
+运行摘要提供下载链接。补传已成功构建的产物时，可在手动运行中填写
+`source_run_id`，复用尚未过期的 Actions artifacts。
+
+正式发布使用原始已验收产物重新打包，检查全部报告和哈希后上传，再更新 bootstrap。
+`publish-dufs.py upload` 要求便携包带有 `supported` 标记。
 不应为了通过门禁手工修改 BUILD-INFO、核心 metadata 或验证报告。
 
 ## 必须补做的验收

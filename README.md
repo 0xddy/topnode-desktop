@@ -333,9 +333,13 @@ The release directory must contain at least:
 The `desktop-candidates` workflow (portable-release.yml) requires the default
 branch and complete Git history. Its six native runners build the pinned Naive
 core, bundle Cronet where required, run TCP/UoT certificate tests and assemble
-explicit candidates. It does not publish releases or change online bootstrap
-configuration. Build success alone does not grant protocol or system-takeover
-qualification.
+explicit candidates. After all six builds succeed, the upload job verifies the
+six portable archives and two Ubuntu installers on DUFS. The workflow summary
+links to their directory under `/soft/desktop/candidates/`, which also contains
+`SHA256SUMS.txt`. The upload uses the repository's `TOPNODE_DUFS_PASSWORD`
+Actions secret for the `admin` account. To upload a previously successful build
+while its Actions artifacts are retained, dispatch the workflow with its run ID
+in `source_run_id`.
 
 The release baseline is Windows 11, macOS 13+, and Ubuntu 24.04 GNOME, on both
 x86_64 and ARM64. Windows retains the WinINet/UAC lifecycle. Linux includes a
@@ -354,9 +358,9 @@ unadvertised. System proxy mode covers proxy-aware TCP applications; application
 UDP takeover is verified separately in TUN mode.
 
 For build, signing, fixture, installation, qualification and rollback steps see
-[Naive/UoT release procedure](docs/naive-uot-release.md). `publish-dufs.py` rejects
-candidate/preview packages. Publication and bootstrap updates require a separate
-release operation after acceptance, reusing the exact verified artifacts.
+[Naive/UoT release procedure](docs/naive-uot-release.md). Formal publication and
+bootstrap updates require installed-system acceptance and the exact verified
+artifacts. The formal upload command requires `supported` packages.
 Keep the previous complete release for rollback and clean up network ownership
 before replacing application or helper files.
 

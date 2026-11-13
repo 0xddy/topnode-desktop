@@ -22,6 +22,8 @@ VERSION = "2026.09.08-01234567"
 CODE = 11
 DIRECTORY = f"desktop-v{CODE}-{VERSION}"
 RELEASE_PATH = publisher.ROOT + DIRECTORY + "/"
+SOURCE_RUN_ID = "12345"
+CANDIDATE_PATH = publisher.CANDIDATE_ROOT + f"{DIRECTORY}-run-{SOURCE_RUN_ID}/"
 
 
 def write_assets(directory, *, wrong_target=False, application_override=None):
@@ -294,6 +296,40 @@ class PublisherTests(unittest.TestCase):
             write_assets(self.assets, application_override={"supportTier": tier})
             with self.assertRaises(publisher.PublishError):
                 self.run_publish()
+        self.assertFalse(self.server.requests)
+
+    def test_candidate_upload_is_isolated_and_includes_ubuntu_installers(self):
+        write_assets(self.assets, application_override={"supportTier": "candidate"})
+        for platform in ("linux-x86_64", "linux-aarch64"):
+            (self.assets / f"topnode-desktop-{VERSION}-{platform}.deb").write_bytes(b"installer")
+
+        url = publisher.upload_candidate(self.client, self.assets, CODE, VERSION, COMMIT, SOURCE_RUN_ID)
+        expected = {CANDIDATE_PATH + asset.name for asset in self.assets.iterdir()}
+        self.assertEqual(url, self.client.base_url + CANDIDATE_PATH)
+        self.assertEqual(len(expected), 9)
+        self.assertEqual(set(self.server.files), expected)
+        writes = [path for method, path, _, _ in self.server.requests if method == "PUT"]
+        self.assertEqual(writes[-1], CANDIDATE_PATH + "SHA256SUMS.txt")
+        downloads = [path for method, path, auth, _ in self.server.requests if method == "GET" and auth is None]
+        self.assertEqual(set(downloads), expected)
+        self.assertFalse(self.deleted())
+
+        self.server.requests.clear()
+        publisher.upload_candidate(self.client, self.assets, CODE, VERSION, COMMIT, SOURCE_RUN_ID)
+        self.assertTrue(all(method == "GET" for method, _, _, _ in self.server.requests))
+        self.assertEqual(set(self.server.files), expected)
+
+    def test_candidate_upload_requires_both_installers_and_candidate_manifests(self):
+        for platform in ("linux-x86_64", "linux-aarch64"):
+            installer = self.assets / f"topnode-desktop-{VERSION}-{platform}.deb"
+            installer.write_bytes(b"installer")
+        with self.assertRaisesRegex(publisher.PublishError, "does not match this release"):
+            publisher.upload_candidate(self.client, self.assets, CODE, VERSION, COMMIT, SOURCE_RUN_ID)
+
+        write_assets(self.assets, application_override={"supportTier": "candidate"})
+        installer.unlink()
+        with self.assertRaisesRegex(publisher.PublishError, "two Ubuntu installers"):
+            publisher.upload_candidate(self.client, self.assets, CODE, VERSION, COMMIT, SOURCE_RUN_ID)
         self.assertFalse(self.server.requests)
 
     def test_manifest_version_and_commit_mismatch_rejected_before_network(self):
