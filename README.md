@@ -335,11 +335,11 @@ branch and complete Git history. Its six native runners build the pinned Naive
 core, bundle Cronet where required, run TCP/UoT certificate tests and assemble
 explicit candidates. After all six builds succeed, the upload job verifies the
 six portable archives and two Ubuntu installers on DUFS. The workflow summary
-links to their directory under `/soft/desktop/candidates/`, which also contains
-`SHA256SUMS.txt`. The upload uses the repository's `TOPNODE_DUFS_PASSWORD`
-Actions secret for the `admin` account. To upload a previously successful build
-while its Actions artifacts are retained, dispatch the workflow with its run ID
-in `source_run_id`.
+links to `/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`,
+which also contains `SHA256SUMS.txt`. The upload uses the repository's
+`TOPNODE_DUFS_PASSWORD` Actions secret for the `admin` account. To upload a
+previously successful build while its Actions artifacts are retained, dispatch
+the workflow with its run ID in `source_run_id`.
 
 The release baseline is Windows 11, macOS 13+, and Ubuntu 24.04 GNOME, on both
 x86_64 and ARM64. Windows retains the WinINet/UAC lifecycle. Linux includes a

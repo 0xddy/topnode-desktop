@@ -23,7 +23,6 @@ import zipfile
 
 
 ROOT = "/soft/desktop/"
-CANDIDATE_ROOT = ROOT + "candidates/"
 VERSION_NAME = r"[0-9]{4}\.[0-9]{2}\.[0-9]{2}-[0-9a-f]{8}"
 DIRECTORY_PATTERN = re.compile(rf"desktop-v([1-9][0-9]{{0,9}})-({VERSION_NAME})")
 PLATFORMS = {
@@ -269,14 +268,14 @@ def upload_candidate(client, assets, version_code, version_name, git_commit, sou
     directory = validate_release(version_code, version_name, git_commit)
     if re.fullmatch(r"[1-9][0-9]*", source_run_id or "") is None:
         raise PublishError("--source-run-id must be a positive Actions run ID")
-    path = f"{CANDIDATE_ROOT}{directory}-run-{source_run_id}/"
+    path = f"{ROOT}{directory}-run-{source_run_id}/"
     checksums = prepare_assets(assets, version_code, version_name, git_commit, candidate=True)
     packages = {name: digest for name, (digest, _) in checksums.items() if name != "SHA256SUMS.txt"}
     completed = client.read_checksums(path, set(packages))
     if completed is not None and completed != packages:
         raise PublishError("A complete candidate already exists with different bytes")
     if completed is None:
-        for collection in ("/soft/", ROOT, CANDIDATE_ROOT, path):
+        for collection in ("/soft/", ROOT, path):
             client.create_directory(collection)
     # prepare_assets adds the checksum file last, after the packages.
     for filename, expected in checksums.items():

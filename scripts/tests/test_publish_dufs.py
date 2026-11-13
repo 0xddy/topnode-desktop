@@ -23,7 +23,8 @@ CODE = 11
 DIRECTORY = f"desktop-v{CODE}-{VERSION}"
 RELEASE_PATH = publisher.ROOT + DIRECTORY + "/"
 SOURCE_RUN_ID = "12345"
-CANDIDATE_PATH = publisher.CANDIDATE_ROOT + f"{DIRECTORY}-run-{SOURCE_RUN_ID}/"
+CANDIDATE_DIRECTORY = f"{DIRECTORY}-run-{SOURCE_RUN_ID}"
+CANDIDATE_PATH = f"/soft/desktop/{CANDIDATE_DIRECTORY}/"
 
 
 def write_assets(directory, *, wrong_target=False, application_override=None):
@@ -161,7 +162,8 @@ class PublisherTests(unittest.TestCase):
         self.run_publish()
         older = self.completed_version(9)
         previous = self.completed_version(10)
-        unknown = {"manual-backup", f"desktop-v8-{VERSION}-backup", "desktop-v7-../../android"}
+        unknown = {"manual-backup", f"desktop-v8-{VERSION}-backup", "desktop-v7-../../android",
+                   CANDIDATE_DIRECTORY}
         self.server.directories.update({older, previous} | unknown)
         self.server.unknown_entries.append({"name": f"desktop-v3-{VERSION}", "path_type": "File"})
         self.run_publish("cleanup")

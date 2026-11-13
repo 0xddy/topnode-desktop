@@ -96,9 +96,9 @@ macOS 需要 `notarized_install=true`。保留每项测试日志和系统状态�
 [签名信息 API](https://developer.apple.com/documentation/security/seccodecopysigninginformation(_:_:_:))。
 
 `.github/workflows/portable-release.yml` 在六目标构建成功后，将便携包和两个 Ubuntu
-安装包上传到 DUFS 的 `/soft/desktop/candidates/`，以匿名下载校验 SHA-256，并在
-运行摘要提供下载链接。补传已成功构建的产物时，可在手动运行中填写
-`source_run_id`，复用尚未过期的 Actions artifacts。
+安装包上传到 DUFS 的 `/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`，
+以匿名下载校验 SHA-256，并在运行摘要提供下载链接。补传已成功构建的产物时，
+可在手动运行中填写 `source_run_id`，复用尚未过期的 Actions artifacts。
 
 正式发布使用原始已验收产物重新打包，检查全部报告和哈希后上传，再更新 bootstrap。
 `publish-dufs.py upload` 要求便携包带有 `supported` 标记。
