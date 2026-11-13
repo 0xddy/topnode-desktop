@@ -322,6 +322,8 @@ jobs:
   update-bootstrap:
     name: Update desktop bootstrap configuration
     needs: [metadata, publish-candidates]
+    # Artifact reuse skips the build matrix, so check the direct dependencies.
+    if: ${{ !cancelled() && needs.metadata.result == 'success' && needs.publish-candidates.result == 'success' }}
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     env:
