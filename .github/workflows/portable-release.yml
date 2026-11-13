@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       source_run_id:
-        description: Upload artifacts from a previous build run ID. Leave blank to build and upload.
+        description: Publish artifacts from a previous build run ID. Leave blank to build and publish.
         type: string
 
 permissions:
@@ -146,7 +146,7 @@ jobs:
           python3 scripts/render-release-config.py \
             --template "${RUNNER_TEMP}/desktop-config.template.json" \
             --output config/desktop-config.json \
-            --download-base-url "https://soft.topstatic.top/soft/desktop/${{ needs.metadata.outputs.release_tag }}" \
+            --download-base-url "https://soft.topstatic.top/soft/desktop/${{ needs.metadata.outputs.release_tag }}-run-${{ github.run_id }}" \
             --version-code "${{ needs.metadata.outputs.version_code }}" \
             --version-name "${{ needs.metadata.outputs.version_name }}" \
             --update-info "Desktop portable release ${{ needs.metadata.outputs.version_name }}"
@@ -281,6 +281,8 @@ jobs:
     permissions:
       actions: read
       contents: read
+    outputs:
+      download_base_url: ${{ steps.upload.outputs.download_base_url }}
     env:
       VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
       VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
@@ -302,6 +304,7 @@ jobs:
           merge-multiple: true
 
       - name: Upload and verify anonymous downloads
+        id: upload
         shell: bash
         env:
           TOPNODE_DUFS_USERNAME: admin
@@ -312,5 +315,60 @@ jobs:
             --assets candidate-assets \
             --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}" \
             --git-commit "${GIT_COMMIT}" --source-run-id "${SOURCE_RUN_ID}")"
+          printf 'download_base_url=%s\n' "${url}" >> "${GITHUB_OUTPUT}"
           echo "Verified desktop candidates at ${url}"
           echo "[Desktop candidate downloads](${url})" >> "${GITHUB_STEP_SUMMARY}"
+
+  update-bootstrap:
+    name: Update desktop bootstrap configuration
+    needs: [metadata, publish-candidates]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    env:
+      VERSION_CODE: ${{ needs.metadata.outputs.version_code }}
+      VERSION_NAME: ${{ needs.metadata.outputs.version_name }}
+      DOWNLOAD_BASE_URL: ${{ needs.publish-candidates.outputs.download_base_url }}
+    steps:
+      - name: Check out configuration renderer
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Check out production bootstrap configuration
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: 0xddy/topnode-bootstrap-config
+          ref: main
+          path: bootstrap-config
+          ssh-key: ${{ secrets.BOOTSTRAP_CONFIG_SSH_KEY }}
+
+      - name: Commit desktop version and download URLs
+        working-directory: bootstrap-config
+        shell: bash
+        run: |
+          set -euo pipefail
+          : "${DOWNLOAD_BASE_URL:?Missing verified DUFS download URL}"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          for attempt in 1 2 3; do
+            git fetch origin main
+            git switch --detach FETCH_HEAD
+            python3 ../scripts/render-release-config.py \
+              --template desktop.config.json --output desktop.config.json \
+              --download-base-url "${DOWNLOAD_BASE_URL}" \
+              --version-code "${VERSION_CODE}" --version-name "${VERSION_NAME}"
+            if git diff --quiet -- desktop.config.json; then
+              echo 'Bootstrap configuration already matches this release.'
+              exit 0
+            fi
+            git add -- desktop.config.json
+            git commit -m "chore(desktop): publish ${VERSION_NAME} (${VERSION_CODE})"
+            if git push origin HEAD:main; then
+              exit 0
+            fi
+            if (( attempt < 3 )); then
+              sleep 5
+            fi
+          done
+          echo 'Unable to push the desktop bootstrap configuration.' >&2
+          exit 1

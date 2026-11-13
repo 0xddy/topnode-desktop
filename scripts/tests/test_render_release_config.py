@@ -19,7 +19,7 @@ renderer = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(renderer)
 
 VERSION_NAME = "2026.09.08-a1b2c3d4"
-DUFS_ROOT = f"https://soft.topstatic.top/soft/desktop/{VERSION_NAME}"
+DUFS_ROOT = f"https://soft.topstatic.top/soft/desktop/desktop-v100-{VERSION_NAME}-run-12345"
 EXPECTED_PACKAGES = {
     "x86_64-pc-windows-msvc": ("windows-x86_64.zip", "application/zip"),
     "aarch64-pc-windows-msvc": ("windows-aarch64.zip", "application/zip"),

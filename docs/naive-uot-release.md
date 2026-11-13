@@ -97,8 +97,10 @@ macOS 需要 `notarized_install=true`。保留每项测试日志和系统状态�
 
 `.github/workflows/portable-release.yml` 在六目标构建成功后，将便携包和两个 Ubuntu
 安装包上传到 DUFS 的 `/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`，
-以匿名下载校验 SHA-256，并在运行摘要提供下载链接。补传已成功构建的产物时，
-可在手动运行中填写 `source_run_id`，复用尚未过期的 Actions artifacts。
+以匿名下载校验 SHA-256，并在运行摘要提供下载链接。校验成功后，工作流使用实际上传
+目录更新 `0xddy/topnode-bootstrap-config` 的 `main` 分支中 `desktop.config.json`
+的版本号和下载链接。使用 `source_run_id` 补传尚未过期的 Actions artifacts 时，
+同样会更新 bootstrap。
 
 正式发布使用原始已验收产物重新打包，检查全部报告和哈希后上传，再更新 bootstrap。
 `publish-dufs.py upload` 要求便携包带有 `supported` 标记。
