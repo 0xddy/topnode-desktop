@@ -42,13 +42,21 @@ enum LegacyService {
             try protectedFile("/Library/LaunchDaemons")
             try payload.write(to: URL(fileURLWithPath: plist), options: .atomic)
             guard chown(plist, 0, 0) == 0, chmod(plist, 0o644) == 0 else { throw NetworkFailure.artifact }
-            _ = try run("/bin/launchctl", ["bootout", "system/" + networkServiceName])
+            try unload()
             guard try run("/bin/launchctl", ["enable", "system/" + networkServiceName]) == 0,
                   try run("/bin/launchctl", ["bootstrap", "system", plist]) == 0 else { throw NetworkFailure.artifact }
         } else {
             try protectedFile("/Library/LaunchDaemons")
+            try unload()
             if isInstalled { try FileManager.default.removeItem(atPath: plist) }
-            _ = try run("/bin/launchctl", ["bootout", "system/" + networkServiceName])
+        }
+    }
+
+    private static func unload() throws {
+        let service = "system/" + networkServiceName
+        if try run("/bin/launchctl", ["bootout", service]) != 0 {
+            // An absent job is already stopped; a still-loaded job is a failure.
+            guard try run("/bin/launchctl", ["print", service]) != 0 else { throw NetworkFailure.artifact }
         }
     }
 
