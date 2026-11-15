@@ -333,8 +333,14 @@ The release directory must contain at least:
 The `desktop-candidates` workflow (portable-release.yml) requires the default
 branch and complete Git history. Its six native runners build the pinned Naive
 core, bundle Cronet where required, run TCP/UoT certificate tests and assemble
-explicit candidates. After all six builds succeed, the upload job verifies the
-six portable archives and two Ubuntu installers on DUFS. The workflow summary
+explicit candidates. After all six builds succeed, the release job validates
+the six portable archives and two Ubuntu installers, writes `SHA256SUMS.txt`,
+uploads all nine files to a GitHub draft, and downloads them to verify their
+hashes before publishing a prerelease. The tag points to the build's source
+commit; candidates are not marked as the latest stable release. Published assets
+are never overwritten: a retry must match the existing files exactly. Failed
+draft uploads can be retried. The DUFS upload job then verifies the same eight
+packages on DUFS. The workflow summary
 links to `/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`,
 which also contains `SHA256SUMS.txt`. Once verification succeeds, the workflow
 uses the upload URL to update the version and download links in
@@ -342,7 +348,9 @@ uses the upload URL to update the version and download links in
 the `TOPNODE_DUFS_PASSWORD` Actions secret for the DUFS `admin` account and the
 `BOOTSTRAP_CONFIG_SSH_KEY` deploy key to write the bootstrap repository.
 To publish a previous build from retained Actions artifacts, dispatch the
-workflow with its run ID in `source_run_id`.
+workflow with its run ID in `source_run_id`; both GitHub Release and DUFS use
+that build's version, commit and artifacts, then update bootstrap. GitHub Release
+uses the job-scoped `GITHUB_TOKEN` with `contents: write`; no extra PAT is needed.
 
 The release baseline is Windows 11, macOS Intel 12.0+ (including 12.7.6),
 macOS ARM64 13.0+, and Ubuntu 24.04 GNOME. Windows retains the WinINet/UAC lifecycle. Linux includes a

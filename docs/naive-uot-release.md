@@ -98,12 +98,17 @@ macOS 需要 `notarized_install=true`。保留每项测试日志和系统状态�
 [XPC 签名要求](https://developer.apple.com/documentation/xpc/xpc_connection_set_peer_code_signing_requirement(_:_:))、
 [签名信息 API](https://developer.apple.com/documentation/security/seccodecopysigninginformation(_:_:_:))。
 
-`.github/workflows/portable-release.yml` 在六目标构建成功后，将便携包和两个 Ubuntu
-安装包上传到 DUFS 的 `/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`，
+`.github/workflows/portable-release.yml` 在六目标构建成功后，校验六个便携包和两个 Ubuntu
+安装包的完整集合及便携包中的构建信息，生成 `SHA256SUMS.txt`，上传到 GitHub Release
+草稿并重新下载校验哈希，再公开为预发布版本（不标记为 Latest）。Tag 指向产物的源码提交。
+已发布的文件不会被覆盖，重试须逐个匹配；上传中断可复用草稿。候选包仍保留 `candidate`
+标记，Release 说明明确 macOS 12.7.6 尚未完成实机验收及 macOS TUN 的签名安装要求。
+GitHub 发布成功后，再将同一组安装产物上传到 DUFS 的
+`/soft/desktop/desktop-v{versionCode}-{versionName}-run-{runId}/`，
 以匿名下载校验 SHA-256，并在运行摘要提供下载链接。校验成功后，工作流使用实际上传
 目录更新 `0xddy/topnode-bootstrap-config` 的 `main` 分支中 `desktop.config.json`
 的版本号和下载链接。使用 `source_run_id` 补传尚未过期的 Actions artifacts 时，
-同样会更新 bootstrap。
+GitHub Release 和 DUFS 均使用原构建的版本、提交及产物，同样会更新 bootstrap。
 
 正式发布使用原始已验收产物重新打包，检查全部报告和哈希后上传，再更新 bootstrap。
 `publish-dufs.py upload` 要求便携包带有 `supported` 标记。
