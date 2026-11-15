@@ -31,6 +31,25 @@ jobs:
       - name: Compile macOS service and proxy integration
         if: runner.os == 'macOS'
         run: python3 scripts/build-macos-support.py --target ${{ matrix.target }} --output .release/platform-check --test
+      - name: Read locked Go version
+        if: matrix.target == 'x86_64-apple-darwin'
+        id: go-lock
+        run: echo "version=$(sed -n 's/^go=//p' config/sing-box-acp.lock)" >> "$GITHUB_OUTPUT"
+      - name: Install pinned Go toolchain
+        if: matrix.target == 'x86_64-apple-darwin'
+        uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: ${{ steps.go-lock.outputs.version }}
+          cache: false
+      - name: Build Intel macOS ACP with Naive
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: python3 scripts/build-sing-box-acp.py --target ${{ matrix.target }} --output .release/sing-box-acp --require-native --with-naive
+      - name: Verify Intel macOS Naive TCP and UoT
+        if: matrix.target == 'x86_64-apple-darwin'
+        run: >-
+          python3 scripts/verify-naive.py --core .release/sing-box-acp/core/sing-box-acp
+          --metadata .release/sing-box-acp/source.json
+          --report .release/sing-box-acp/core/naive-validation.json
       - name: Install Linux UI dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev
@@ -48,15 +67,6 @@ jobs:
       - name: Build Intel macOS desktop
         if: matrix.target == 'x86_64-apple-darwin'
         run: cargo build --release --locked -p topnode-desktop --target ${{ matrix.target }}
-      - name: Build Intel macOS ACP with Naive
-        if: matrix.target == 'x86_64-apple-darwin'
-        run: python3 scripts/build-sing-box-acp.py --target ${{ matrix.target }} --output .release/sing-box-acp --require-native --with-naive
-      - name: Verify Intel macOS Naive TCP and UoT
-        if: matrix.target == 'x86_64-apple-darwin'
-        run: >-
-          python3 scripts/verify-naive.py --core .release/sing-box-acp/core/sing-box-acp
-          --metadata .release/sing-box-acp/source.json
-          --report .release/sing-box-acp/core/naive-validation.json
       - name: Package Intel macOS compatibility candidate
         if: matrix.target == 'x86_64-apple-darwin'
         run: |
