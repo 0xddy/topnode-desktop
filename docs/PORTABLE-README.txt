@@ -15,9 +15,11 @@ root-owned core, systemd helper and polkit authorization. The GUI stays an
 ordinary user. A portable archive alone does not install the privileged helper.
 Other desktop environments are not qualified for system proxy mode.
 
-macOS 13+: full installation requires the signed/notarized .pkg installed at
-/Applications/TOPNODE Desktop.app. Approve the SMAppService background item
-when enabling TUN. Unsigned candidates cannot establish the authenticated
+macOS Intel 12.0+ (including Monterey 12.7.6), Apple silicon 13.0+:
+full installation requires the signed/notarized .pkg installed at
+/Applications/TOPNODE Desktop.app. On macOS 12, enabling TUN requests
+administrator authorization to install the launchd service. On macOS 13+,
+approve the SMAppService background item. Unsigned candidates cannot establish the authenticated
 privileged-service connection and are not a production distribution.
 
 Quit before upgrading or removing the application. Let the GUI restore its

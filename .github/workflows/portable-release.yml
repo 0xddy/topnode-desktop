@@ -198,7 +198,7 @@ jobs:
       SOURCE_DATE_EPOCH: ${{ needs.metadata.outputs.source_date_epoch }}
       RUSTFLAGS: ${{ matrix.rustflags }}
       CARGO_INCREMENTAL: "0"
-      MACOSX_DEPLOYMENT_TARGET: "13.0"
+      MACOSX_DEPLOYMENT_TARGET: ${{ matrix.target == 'x86_64-apple-darwin' && '12.0' || '13.0' }}
     steps:
       - name: Check out source
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1

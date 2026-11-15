@@ -1,18 +1,34 @@
 import Foundation
 import Security
 import CryptoKit
+import XPC
 
 let networkServiceName = "cc.topnode.network"
 let fixedAppRoot = "/Applications/TOPNODE Desktop.app/Contents/MacOS"
 let maximumConfiguration = 8 * 1024 * 1024
 
-@objc protocol NetworkServiceProtocol {
-    func ping(reply: @escaping (Bool) -> Void)
-    func start(configuration: Data, reply: @escaping (String?) -> Void)
-    func stop(reply: @escaping () -> Void)
-}
-@objc protocol NetworkStatusProtocol { func stopped() }
 enum NetworkFailure: Error { case identity, artifact, configuration }
+
+// The C XPC API enforces the requirement on every received message on macOS 12+.
+func authenticate(_ connection: xpc_connection_t, identifier: String) throws {
+    let signing = try requirement(identifier: identifier)
+    guard xpc_connection_set_peer_code_signing_requirement(connection, signing) == 0 else {
+        throw NetworkFailure.identity
+    }
+}
+
+func message(_ operation: String) -> xpc_object_t {
+    let request = xpc_dictionary_create(nil, nil, 0)
+    xpc_dictionary_set_uint64(request, "version", 1)
+    xpc_dictionary_set_string(request, "operation", operation)
+    return request
+}
+
+func succeeded(_ reply: xpc_object_t) -> Bool {
+    xpc_get_type(reply) == XPC_TYPE_DICTIONARY
+        && xpc_dictionary_get_uint64(reply, "version") == 1
+        && xpc_dictionary_get_bool(reply, "ok")
+}
 
 func ownTeam() throws -> String {
     var code: SecCode?

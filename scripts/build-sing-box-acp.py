@@ -11,6 +11,8 @@ import shutil
 import subprocess
 import tempfile
 
+from macos_compatibility import DEPLOYMENT_TARGETS, verify_binary
+
 
 ROOT = Path(__file__).resolve().parents[1]
 LOCK = dict(line.split("=", 1) for line in (ROOT / "config/sing-box-acp.lock").read_text().splitlines())
@@ -113,8 +115,9 @@ def main():
     native = host == [goos, goarch]
     if args.with_naive and goos == "darwin" and host[0] != "darwin":
         raise RuntimeError("macOS Naive requires an Xcode runner and CGO")
+    if goos == "darwin":
+        go_env["MACOSX_DEPLOYMENT_TARGET"] = DEPLOYMENT_TARGETS[args.target]
     if args.with_naive and goos == "darwin":
-        go_env["MACOSX_DEPLOYMENT_TARGET"] = "13.0"
         go_env["CC"] = subprocess.check_output(["xcrun", "--find", "clang"], text=True).strip()
         go_env["SDKROOT"] = subprocess.check_output(["xcrun", "--sdk", "macosx", "--show-sdk-path"], text=True).strip()
     if args.require_native and not native:
@@ -136,6 +139,8 @@ def main():
         )
         if args.with_naive and goos != "darwin":
             cronet_name, cronet_license = copy_cronet(source, directory, go_env, goos, goarch)
+        if goos == "darwin":
+            verify_binary(binary, args.target)
         if native:
             validate_core(binary)
         core_dir = output / "core"

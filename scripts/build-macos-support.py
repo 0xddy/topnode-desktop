@@ -1,10 +1,12 @@
 #!/usr/bin/env python3
-"""Build the macOS 13 SystemConfiguration and SMAppService executables."""
+"""Build macOS proxy helpers and the version-gated SMAppService executables."""
 import argparse
 from pathlib import Path
 import platform
 import subprocess
 import tempfile
+
+from macos_compatibility import DEPLOYMENT_TARGETS, verify_binary
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -23,13 +25,17 @@ def main():
     with tempfile.TemporaryDirectory(prefix="topnode-macos-") as temporary:
         constants = Path(temporary) / "CoreLock.swift"
         constants.write_text(f'enum CoreLock {{ static let commit = "{lock["commit"]}"; static let version = "{lock["version"]}" }}\n')
-        common = ["xcrun", "swiftc", "-O", "-swift-version", "5", "-target", f"{architecture}-apple-macos13.0"]
+        minimum = DEPLOYMENT_TARGETS[args.target]
+        common = ["xcrun", "swiftc", "-O", "-swift-version", "5", "-target", f"{architecture}-apple-macos{minimum}"]
         subprocess.run([*common, "-framework", "SystemConfiguration", "-framework", "Security",
                         source / "ProxySettings.swift", "-o", args.output / "topnode-proxy-settings"], check=True)
         for component, name in (("NetworkDaemon.swift", "daemon"), ("NetworkBridge.swift", "bridge")):
+            extra = [source / "LegacyService.swift"] if name == "bridge" else []
             subprocess.run([*common, "-framework", "ServiceManagement", "-framework", "Security",
-                            source / "NetworkShared.swift", source / component, constants,
+                            source / "NetworkShared.swift", source / component, constants, *extra,
                             "-o", args.output / f"topnode-network-{name}"], check=True)
+    for name in ("topnode-proxy-settings", "topnode-network-daemon", "topnode-network-bridge"):
+        verify_binary(args.output / name, args.target)
 
 
 if __name__ == "__main__":

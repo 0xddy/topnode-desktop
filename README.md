@@ -344,10 +344,12 @@ the `TOPNODE_DUFS_PASSWORD` Actions secret for the DUFS `admin` account and the
 To publish a previous build from retained Actions artifacts, dispatch the
 workflow with its run ID in `source_run_id`.
 
-The release baseline is Windows 11, macOS 13+, and Ubuntu 24.04 GNOME, on both
-x86_64 and ARM64. Windows retains the WinINet/UAC lifecycle. Linux includes a
+The release baseline is Windows 11, macOS Intel 12.0+ (including 12.7.6),
+macOS ARM64 13.0+, and Ubuntu 24.04 GNOME. Windows retains the WinINet/UAC lifecycle. Linux includes a
 GSettings backend and a restricted systemd/polkit TUN helper; macOS includes a
-per-network-service SystemConfiguration backend and an SMAppService/XPC helper.
+per-network-service SystemConfiguration backend and a signed XPC helper.
+macOS 12 uses an administrator-authorized launchd service; macOS 13+ uses
+SMAppService. The Intel core retains Naive and uses the pinned Go 1.26 toolchain.
 These new platform integrations require installed-system acceptance on their
 actual targets. Linux full installation uses the .deb; macOS full installation
 uses a root-owned, Developer ID signed and notarized .pkg. No ad-hoc signature

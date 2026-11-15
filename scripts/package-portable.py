@@ -20,6 +20,7 @@ import tempfile
 import zipfile
 
 from naive_qualification import validate_report
+from macos_compatibility import DEPLOYMENT_TARGETS, verify_binary
 
 
 VERSION_NAME_PATTERN = re.compile(r"^[0-9A-Za-z][0-9A-Za-z._-]{0,63}$")
@@ -134,6 +135,9 @@ def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) ->
     if not is_macos:
         return
 
+    for executable in [executable_dir / application_name, core_dir / binary.name,
+                       *(executable_dir / name for name in names)]:
+        verify_binary(executable, target)
     short_version = arguments.version_name.split("-", maxsplit=1)[0]
     info = {
         "CFBundleDevelopmentRegion": "zh_CN",
@@ -145,7 +149,7 @@ def assemble_payload(root: Path, arguments: argparse.Namespace, binary: Path) ->
         "CFBundlePackageType": "APPL",
         "CFBundleShortVersionString": short_version,
         "CFBundleVersion": str(arguments.version_code),
-        "LSMinimumSystemVersion": "13.0",
+        "LSMinimumSystemVersion": DEPLOYMENT_TARGETS[target],
         "NSHighResolutionCapable": True,
     }
     with (app / "Contents" / "Info.plist").open("wb") as output:
