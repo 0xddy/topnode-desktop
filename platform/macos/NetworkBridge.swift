@@ -44,7 +44,8 @@ private func probeService() -> Bool {
             guard succeeded(reply), xpc_connection_get_euid(connection) == 0 else { exit(1) }
             let request = message("start")
             configuration.withUnsafeBytes { bytes in
-                xpc_dictionary_set_data(request, "configuration", bytes.baseAddress, bytes.count)
+                guard let address = bytes.baseAddress else { exit(1) }
+                xpc_dictionary_set_data(request, "configuration", address, bytes.count)
             }
             xpc_connection_send_message_with_reply(connection, request, .main) { reply in
                 guard succeeded(reply) else {

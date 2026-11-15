@@ -30,7 +30,7 @@ jobs:
         run: rustup toolchain install 1.92.0 --profile minimal --component clippy,rustfmt
       - name: Compile macOS service and proxy integration
         if: runner.os == 'macOS'
-        run: python3 scripts/build-macos-support.py --target ${{ matrix.target }} --output .release/platform-check
+        run: python3 scripts/build-macos-support.py --target ${{ matrix.target }} --output .release/platform-check --test
       - name: Install Linux UI dependencies
         if: runner.os == 'Linux'
         run: sudo apt-get update && sudo apt-get install -y libfontconfig1-dev libxkbcommon-dev

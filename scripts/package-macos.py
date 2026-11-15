@@ -39,8 +39,8 @@ while /usr/bin/pgrep -f '^/Applications/TOPNODE Desktop.app/Contents/MacOS/topno
  if [ "$count" -ge 15 ]; then echo 'Close TOPNODE before upgrading.' >&2; exit 1; fi
  sleep 1
 done
-# Unload the old root session before replacement; the GUI registers the new
-# SMAppService on the next explicit TUN authorization.
+# Unload the old root session before replacement. The GUI registers the service
+# appropriate to the current OS on the next explicit TUN authorization.
 /bin/launchctl bootout system/cc.topnode.network 2>/dev/null || true
 /bin/rm -f /Library/LaunchDaemons/cc.topnode.network.plist
 """, encoding="utf-8")

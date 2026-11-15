@@ -1,7 +1,7 @@
 # Naive/UoT v2：构建、资格验证与系统验收
 
 本文件描述代码的发布流程，不代表任何平台已经完成正式验收。
-基线是 Windows 11、macOS 13+、Ubuntu 24.04 GNOME；每个平台的
+基线是 Windows 11、macOS Intel 12.0+（含 12.7.6）、macOS ARM64 13.0+、Ubuntu 24.04 GNOME；每个平台的
 x86_64/ARM64 必须分别验证。没有测试设备或签名资源时只能产出 candidate。
 
 ## 固定运行契约
@@ -70,16 +70,19 @@ GUI 仍为普通用户。断开 IPC 会终止对应核心并等待清理；syste
 4. 解开生成归档，将完整 `.app` 交给 `scripts/package-macos.py --app APP --output INSTALLER.pkg
    --version VERSION_CODE --installer-identity IDENTITY --notary-profile KEYCHAIN_PROFILE`。
    凭据只通过已有 Keychain profile 使用，不写入仓库。脚本提交公证、staple、验证安装签名。
-5. 安装到 `/Applications/TOPNODE Desktop.app`，首次 TUN 通过 SMAppService 注册，
-   用户在系统设置批准后台服务。未批准时不报告已连接。
+5. 安装到 `/Applications/TOPNODE Desktop.app`。macOS 12 首次 TUN 通过管理员授权，
+   由固定路径的 root-owned bridge 安装 `/Library/LaunchDaemons/cc.topnode.network.plist`。
+   macOS 13+ 通过 SMAppService 注册，用户在系统设置批准后台服务。未批准时不报告已连接。
 
 SystemConfiguration 按 network service ID 保存完整代理字典。新增服务补记租约，
-退出只恢复仍属于本程序的服务，保留外部修改。SMAppService daemon 只接受同团队、
+退出只恢复仍属于本程序的服务，保留外部修改。daemon 通过 macOS 12 起提供的 C XPC
+签名要求接口逐条验证消息，只接受同团队、
 固定签名标识的 bridge；bridge 在发送配置前验证 root daemon 响应。核心另行验证
 固定路径、root 所有权、哈希、锁定版本和同团队签名标识。
 
 卸载：先退出应用并确认代理已恢复，用已签名 bridge 的 `unregister` 操作撤销
-SMAppService，再删除 app。若 GUI 异常退出，先重新启动完成租约恢复；不要直接
+后台服务，再删除 app。macOS 12 的注销会请求管理员授权，卸载 launchd job 并删除其 plist。
+若 GUI 异常退出，先重新启动完成租约恢复；不要直接
 删除 journal。系统设置里仍可撤销后台项目。签名、公证、安装、升级、卸载均需实机验收。
 
 ## 系统验收报告与正式发布
@@ -92,7 +95,7 @@ process_exit_cleanup、external_proxy_change、network_switch、sleep_wake、upg
 macOS 需要 `notarized_install=true`。保留每项测试日志和系统状态证据，不手填虚假通过。
 
 平台 API 依据：[Apple SMAppService](https://developer.apple.com/documentation/servicemanagement/smappservice)、
-[XPC 签名要求](https://developer.apple.com/documentation/foundation/nsxpcconnection/setcodesigningrequirement(_:))、
+[XPC 签名要求](https://developer.apple.com/documentation/xpc/xpc_connection_set_peer_code_signing_requirement(_:_:))、
 [签名信息 API](https://developer.apple.com/documentation/security/seccodecopysigninginformation(_:_:_:))。
 
 `.github/workflows/portable-release.yml` 在六目标构建成功后，将便携包和两个 Ubuntu

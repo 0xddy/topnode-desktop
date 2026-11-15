@@ -15,6 +15,7 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--target", required=True, choices=("x86_64-apple-darwin", "aarch64-apple-darwin"))
     parser.add_argument("--output", required=True, type=Path)
+    parser.add_argument("--test", action="store_true", help="run native helper boundary tests")
     args = parser.parse_args()
     if platform.system() != "Darwin":
         raise RuntimeError("macOS support binaries require Xcode on macOS")
@@ -34,6 +35,12 @@ def main():
             subprocess.run([*common, "-framework", "ServiceManagement", "-framework", "Security",
                             source / "NetworkShared.swift", source / component, constants, *extra,
                             "-o", args.output / f"topnode-network-{name}"], check=True)
+        if args.test:
+            tests = Path(temporary) / "network-policy-tests"
+            subprocess.run([*common, "-framework", "Security", source / "NetworkShared.swift",
+                            source / "LegacyService.swift", source / "tests/NetworkPolicyTests.swift",
+                            constants, "-o", tests], check=True)
+            subprocess.run([tests], check=True, timeout=30)
     for name in ("topnode-proxy-settings", "topnode-network-daemon", "topnode-network-bridge"):
         verify_binary(args.output / name, args.target)
 
